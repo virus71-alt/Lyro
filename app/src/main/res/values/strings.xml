@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Lyro</string>
+    <string name="tagline">Offline Neo-Brutalist Music Player</string>
+    <string name="search_hint">Search songs, artists, albums...</string>
+    <string name="permission_title">Lyro Needs Storage Access</string>
+    <string name="permission_desc">To play your local music files, Lyro needs permission to read audio files stored on your device.</string>
+    <string name="grant_permission">GRANT PERMISSION</string>
+    <string name="no_songs_found">NO TUNES FOUND</string>
+    <string name="no_songs_desc">Copy some MP3, FLAC, or AAC files into your device storage and hit refresh!</string>
+    <string name="rescan">RESCAN LIBRARY</string>
+</resources>
