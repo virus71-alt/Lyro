@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.Image
+import coil.compose.AsyncImage
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.data.model.Song
 
@@ -273,8 +274,11 @@ fun SongArtworkThumbnail(
         NeoAccentPalette[index]
     }
 
+    val onlineArtUrl = song.albumArtUriString?.takeIf { it.startsWith("http") }
+        ?: song.contentUriString.takeIf { it.startsWith("http") }
+
     LaunchedEffect(song.id) {
-        if (bitmap == null && !com.lyro.app.core.artwork.ArtworkCache.hasAttempted(song.id)) {
+        if (onlineArtUrl == null && bitmap == null && !com.lyro.app.core.artwork.ArtworkCache.hasAttempted(song.id)) {
             val loaded = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 com.lyro.app.core.artwork.ArtworkCache.loadThumbnail(context, song.id, song.contentUri)
             }
@@ -294,7 +298,14 @@ fun SongArtworkThumbnail(
             .clip(RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
-        if (currentBitmap != null) {
+        if (!onlineArtUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = onlineArtUrl,
+                contentDescription = song.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else if (currentBitmap != null) {
             Image(
                 bitmap = currentBitmap.asImageBitmap(),
                 contentDescription = song.title,

@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             LyroTheme {
-                val songsViewModel = remember { SongsViewModel(repository, playbackManager) }
+                val songsViewModel = remember { SongsViewModel(repository, app.onlineMusicRepository, playbackManager) }
                 val nowPlayingViewModel = remember { NowPlayingViewModel(playbackManager, repository) }
 
                 val currentSong by playbackManager.currentSong.collectAsState()

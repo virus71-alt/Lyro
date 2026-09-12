@@ -2,6 +2,7 @@ package com.lyro.app.ui.songs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.data.model.Song
 import com.lyro.app.data.repository.SortOrder
+import com.lyro.app.ui.components.OnlineSongListItem
 import com.lyro.app.ui.components.SongListItem
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,8 +41,16 @@ fun SongsScreen(
     val sortOrder by viewModel.sortOrder.collectAsState()
     val favoritesOnly by viewModel.favoritesOnly.collectAsState()
     val currentSong by viewModel.currentSong.collectAsState()
+    val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
+    val isResolvingStream by viewModel.isResolvingStream.collectAsState()
+    val playbackError by viewModel.playbackError.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
+
+    val isOnlineMode by viewModel.isOnlineMode.collectAsState()
+    val onlineResults by viewModel.onlineSearchResults.collectAsState()
+    val isSearchingOnline by viewModel.isSearchingOnline.collectAsState()
+    val onlineSearchError by viewModel.onlineSearchError.collectAsState()
 
     var selectedSongForMenu by remember { mutableStateOf<Song?>(null) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
@@ -51,8 +61,172 @@ fun SongsScreen(
             .fillMaxSize()
             .background(NeoBgLight)
     ) {
-        // Storage Permission Banner if not granted
-        if (!hasPermission) {
+        // Unified Neo-Brutalist Segmented Mode Switcher
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .padding(end = 4.dp, bottom = 4.dp)
+        ) {
+            // Drop shadow
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .offset(x = 4.dp, y = 4.dp)
+                    .background(NeoBlack, RoundedCornerShape(12.dp))
+            )
+
+            // Segmented container
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(NeoWhite, RoundedCornerShape(12.dp))
+                    .border(2.5.dp, NeoBlack, RoundedCornerShape(12.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // LOCAL TUNES tab
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (!isOnlineMode) NeoAcidGreen else androidx.compose.ui.graphics.Color.Transparent)
+                        .then(
+                            if (!isOnlineMode) Modifier.border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
+                            else Modifier
+                        )
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null,
+                            onClick = { viewModel.setOnlineMode(false) }
+                        )
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "LOCAL TUNES",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 12.sp,
+                        color = NeoBlack
+                    )
+                }
+
+                // ONLINE SEARCH tab
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isOnlineMode) NeoCyan else androidx.compose.ui.graphics.Color.Transparent)
+                        .then(
+                            if (isOnlineMode) Modifier.border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
+                            else Modifier
+                        )
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null,
+                            onClick = { viewModel.setOnlineMode(true) }
+                        )
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "ONLINE SEARCH 🌐",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 12.sp,
+                        color = NeoBlack
+                    )
+                }
+            }
+        }
+
+        // Resolving Stream Banner
+        if (isResolvingStream) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .padding(end = 3.dp, bottom = 3.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .offset(x = 3.dp, y = 3.dp)
+                        .background(NeoBlack, RoundedCornerShape(8.dp))
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(NeoCyberYellow, RoundedCornerShape(8.dp))
+                        .border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.5.dp,
+                        color = NeoBlack
+                    )
+                    Text(
+                        text = "RESOLVING AUDIO STREAM...",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 11.sp,
+                        color = NeoBlack
+                    )
+                }
+            }
+        }
+
+        // Playback Error Banner with Dismiss Button
+        playbackError?.let { error ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .padding(end = 3.dp, bottom = 3.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .offset(x = 3.dp, y = 3.dp)
+                        .background(NeoBlack, RoundedCornerShape(8.dp))
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(NeoHotPink, RoundedCornerShape(8.dp))
+                        .border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = error,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        color = NeoWhite,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    IconButton(
+                        onClick = { viewModel.clearPlaybackError() },
+                        modifier = Modifier.size(20.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Dismiss",
+                            tint = NeoWhite,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Storage Permission Banner if not granted (only when in local mode)
+        if (!hasPermission && !isOnlineMode) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -131,7 +305,7 @@ fun SongsScreen(
                 Box(modifier = Modifier.weight(1f)) {
                     if (searchQuery.isEmpty()) {
                         Text(
-                            text = "Search tracks, artists, albums...",
+                            text = if (isOnlineMode) "Search YouTube Music songs, artists..." else "Search local tracks, artists, albums...",
                             color = NeoBlack.copy(alpha = 0.45f),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -167,113 +341,218 @@ fun SongsScreen(
             }
         }
 
-        // Filter & Sort Chips Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            NeoChip(
-                text = "ALL TUNES (${songs.size})",
-                selected = !favoritesOnly,
-                onClick = { viewModel.setFavoritesFilter(false) },
-                activeColor = NeoAcidGreen
-            )
-
-            NeoChip(
-                text = "FAVORITES ♥",
-                selected = favoritesOnly,
-                onClick = { viewModel.setFavoritesFilter(true) },
-                activeColor = NeoHotPink
-            )
-
-            NeoChip(
-                text = if (sortOrder == SortOrder.TITLE) "SORT: A-Z" else "A-Z",
-                selected = sortOrder == SortOrder.TITLE,
-                onClick = { viewModel.onSortOrderChanged(SortOrder.TITLE) },
-                activeColor = NeoCyberYellow
-            )
-
-            NeoChip(
-                text = if (sortOrder == SortOrder.DATE_ADDED) "SORT: NEWEST" else "NEWEST",
-                selected = sortOrder == SortOrder.DATE_ADDED,
-                onClick = { viewModel.onSortOrderChanged(SortOrder.DATE_ADDED) },
-                activeColor = NeoCyan
-            )
-
-            NeoChip(
-                text = if (sortOrder == SortOrder.DURATION) "SORT: LENGTH" else "LENGTH",
-                selected = sortOrder == SortOrder.DURATION,
-                onClick = { viewModel.onSortOrderChanged(SortOrder.DURATION) },
-                activeColor = NeoLavender
-            )
-        }
-
-        // Songs List or Empty State
-        if (songs.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                NeoCard(
-                    backgroundColor = NeoLavender,
-                    shadowOffset = 6.dp
+        if (isOnlineMode) {
+            // ONLINE SEARCH CONTENT
+            if (isSearchingOnline) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = NeoBlack, strokeWidth = 3.dp)
+                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "NO TUNES FOUND",
-                            fontSize = 18.sp,
+                            text = "SEARCHING YOUTUBE MUSIC...",
                             fontWeight = FontWeight.Black,
+                            fontSize = 13.sp,
                             color = NeoBlack
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = if (searchQuery.isNotEmpty()) "No results matching \"$searchQuery\"" else "Add audio files to your device or rescan!",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = NeoBlack.copy(alpha = 0.8f)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        NeoButton(
-                            onClick = { viewModel.loadSongs() },
-                            backgroundColor = NeoAcidGreen
+                    }
+                }
+            } else if (onlineSearchError != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    NeoCard(
+                        backgroundColor = NeoLavender,
+                        shadowOffset = 6.dp
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "RESCAN STORAGE",
+                                text = "ONLINE SEARCH",
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
                                 color = NeoBlack
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = onlineSearchError ?: "",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = NeoBlack.copy(alpha = 0.8f)
                             )
                         }
                     }
                 }
+            } else if (onlineResults.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    NeoCard(
+                        backgroundColor = NeoCyan,
+                        shadowOffset = 6.dp
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "DISCOVER ONLINE MUSIC",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeoBlack
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Type any song title, artist, or trending track above to stream online!",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = NeoBlack.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp)
+                ) {
+                    items(
+                        items = onlineResults,
+                        key = { it.videoId },
+                        contentType = { "online_item" }
+                    ) { track ->
+                        OnlineSongListItem(
+                            track = track,
+                            isCurrentTrack = currentTrack?.id == track.videoId,
+                            isPlaying = isPlaying && currentTrack?.id == track.videoId,
+                            isResolving = isResolvingStream && currentTrack?.id == track.videoId,
+                            onClick = { viewModel.playOnlineTrack(track) }
+                        )
+                    }
+                }
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp)
+            // LOCAL MUSIC CONTENT
+            // Filter & Sort Chips Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(
-                    items = songs,
-                    key = { it.id },
-                    contentType = { "song_row" }
-                ) { song ->
-                    SongListItem(
-                        song = song,
-                        isCurrentSong = currentSong?.id == song.id,
-                        isPlaying = isPlaying && currentSong?.id == song.id,
-                        onClick = { viewModel.playSong(song) },
-                        onFavoriteToggle = { viewModel.toggleFavorite(song) },
-                        onMoreClick = { selectedSongForMenu = song }
-                    )
+                NeoChip(
+                    text = "ALL TUNES (${songs.size})",
+                    selected = !favoritesOnly,
+                    onClick = { viewModel.setFavoritesFilter(false) },
+                    activeColor = NeoAcidGreen
+                )
+
+                NeoChip(
+                    text = "FAVORITES ♥",
+                    selected = favoritesOnly,
+                    onClick = { viewModel.setFavoritesFilter(true) },
+                    activeColor = NeoHotPink
+                )
+
+                NeoChip(
+                    text = if (sortOrder == SortOrder.TITLE) "SORT: A-Z" else "A-Z",
+                    selected = sortOrder == SortOrder.TITLE,
+                    onClick = { viewModel.onSortOrderChanged(SortOrder.TITLE) },
+                    activeColor = NeoCyberYellow
+                )
+
+                NeoChip(
+                    text = if (sortOrder == SortOrder.DATE_ADDED) "SORT: NEWEST" else "NEWEST",
+                    selected = sortOrder == SortOrder.DATE_ADDED,
+                    onClick = { viewModel.onSortOrderChanged(SortOrder.DATE_ADDED) },
+                    activeColor = NeoCyan
+                )
+
+                NeoChip(
+                    text = if (sortOrder == SortOrder.DURATION) "SORT: LENGTH" else "LENGTH",
+                    selected = sortOrder == SortOrder.DURATION,
+                    onClick = { viewModel.onSortOrderChanged(SortOrder.DURATION) },
+                    activeColor = NeoLavender
+                )
+            }
+
+            // Songs List or Empty State
+            if (songs.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    NeoCard(
+                        backgroundColor = NeoLavender,
+                        shadowOffset = 6.dp
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "NO TUNES FOUND",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeoBlack
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = if (searchQuery.isNotEmpty()) "No results matching \"$searchQuery\"" else "Add audio files to your device or rescan!",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = NeoBlack.copy(alpha = 0.8f)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            NeoButton(
+                                onClick = { viewModel.loadSongs() },
+                                backgroundColor = NeoAcidGreen
+                            ) {
+                                Text(
+                                    text = "RESCAN STORAGE",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp,
+                                    color = NeoBlack
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp)
+                ) {
+                    items(
+                        items = songs,
+                        key = { it.id },
+                        contentType = { "song_row" }
+                    ) { song ->
+                        SongListItem(
+                            song = song,
+                            isCurrentSong = currentSong?.id == song.id,
+                            isPlaying = isPlaying && currentSong?.id == song.id,
+                            onClick = { viewModel.playSong(song) },
+                            onFavoriteToggle = { viewModel.toggleFavorite(song) },
+                            onMoreClick = { selectedSongForMenu = song }
+                        )
+                    }
                 }
             }
         }

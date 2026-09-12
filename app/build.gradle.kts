@@ -72,6 +72,9 @@ dependencies {
     // Coil for album artwork
     implementation("io.coil-kt:coil-compose:2.6.0")
 
+    // OkHttp for YouTube Music networking and Range probe validation
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

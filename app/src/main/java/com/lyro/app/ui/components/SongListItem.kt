@@ -37,7 +37,7 @@ fun SongListItem(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(10.dp)
-    val cardBg = if (isCurrentSong) NeoAcidGreen.copy(alpha = 0.25f) else NeoWhite
+    val cardBg = if (isCurrentSong) Color(0xFFF3FFD0) else NeoWhite
 
     Box(
         modifier = modifier

@@ -16,6 +16,9 @@ class LyroApplication : Application(), ImageLoaderFactory {
     lateinit var musicRepository: MusicRepository
         private set
 
+    lateinit var onlineMusicRepository: com.lyro.app.data.repository.OnlineMusicRepository
+        private set
+
     lateinit var playbackManager: PlaybackManager
         private set
 
@@ -24,6 +27,7 @@ class LyroApplication : Application(), ImageLoaderFactory {
         instance = this
         databaseHelper = LyroDatabaseHelper(this)
         musicRepository = MusicRepository(this, databaseHelper)
+        onlineMusicRepository = com.lyro.app.data.repository.OnlineMusicRepository()
         playbackManager = PlaybackManager(this, musicRepository)
     }
 

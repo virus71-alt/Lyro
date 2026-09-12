@@ -1,49 +1,84 @@
 package com.lyro.app.service
 
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.net.Uri
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
+import android.util.Log
+import androidx.core.content.ContextCompat
+import androidx.media3.common.*
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
+import com.lyro.app.data.model.LocalTrack
+import com.lyro.app.data.model.OnlineTrack
+import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Song
+import com.lyro.app.data.model.toLocalTrack
 import com.lyro.app.data.repository.MusicRepository
+import com.lyro.app.streaming.StreamResolver
+import com.lyro.app.streaming.youtube.YouTubeStreamResolver
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 
 class PlaybackManager(
     private val context: Context,
-    private val musicRepository: MusicRepository
+    private val musicRepository: MusicRepository,
+    private val streamResolver: StreamResolver = YouTubeStreamResolver()
 ) {
+    companion object {
+        private const val TAG = "LyroPlayback"
+    }
+
     private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    private var player: ExoPlayer = ExoPlayer.Builder(context)
-        .setAudioAttributes(
-            AudioAttributes.Builder()
-                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                .setUsage(C.USAGE_MEDIA)
-                .build(),
-            true
-        )
-        .setHandleAudioBecomingNoisy(true)
-        .build()
+    // Authoritative MediaController connected to LyroMediaService's single ExoPlayer
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var mediaController: MediaController? = null
 
     // Equalizer and BassBoost audio effects
     private var equalizer: Equalizer? = null
     private var bassBoost: BassBoost? = null
 
     // Reactive states
-    private val _currentSong = MutableStateFlow<Song?>(null)
-    val currentSong: StateFlow<Song?> = _currentSong.asStateFlow()
+    private val _currentTrack = MutableStateFlow<PlayableTrack?>(null)
+    val currentTrack: StateFlow<PlayableTrack?> = _currentTrack.asStateFlow()
+
+    // Backward compatibility for existing UI referencing Song
+    val currentSong: StateFlow<Song?> = _currentTrack.map { track ->
+        when (track) {
+            is LocalTrack -> track.song
+            is OnlineTrack -> Song(
+                id = track.videoId.hashCode().toLong(),
+                title = track.title,
+                artist = track.artist,
+                album = track.album ?: "YouTube Music",
+                albumId = 0L,
+                duration = track.durationMs,
+                contentUriString = track.thumbnailUrl ?: "",
+                albumArtUriString = track.thumbnailUrl,
+                size = 0L,
+                dateAdded = 0L,
+                isFavorite = track.isFavorite
+            )
+            null -> null
+        }
+    }.stateIn(coroutineScope, SharingStarted.Eagerly, null)
 
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+
+    private val _isResolvingStream = MutableStateFlow(false)
+    val isResolvingStream: StateFlow<Boolean> = _isResolvingStream.asStateFlow()
+
+    private val _playbackError = MutableStateFlow<String?>(null)
+    val playbackError: StateFlow<String?> = _playbackError.asStateFlow()
+
+    fun clearPlaybackError() {
+        _playbackError.value = null
+    }
 
     private val _currentPosition = MutableStateFlow(0L)
     val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
@@ -51,8 +86,13 @@ class PlaybackManager(
     private val _duration = MutableStateFlow(0L)
     val duration: StateFlow<Long> = _duration.asStateFlow()
 
-    private val _queue = MutableStateFlow<List<Song>>(emptyList())
-    val queue: StateFlow<List<Song>> = _queue.asStateFlow()
+    private val _queue = MutableStateFlow<List<PlayableTrack>>(emptyList())
+    val queue: StateFlow<List<PlayableTrack>> = _queue.asStateFlow()
+
+    // Backward-compatible queue for Song
+    val songQueue: StateFlow<List<Song>> = _queue.map { list ->
+        list.mapNotNull { (it as? LocalTrack)?.song }
+    }.stateIn(coroutineScope, SharingStarted.Eagerly, emptyList())
 
     private val _currentIndex = MutableStateFlow(0)
     val currentIndex: StateFlow<Int> = _currentIndex.asStateFlow()
@@ -71,12 +111,59 @@ class PlaybackManager(
     // Position tracking job
     private var positionUpdateJob: Job? = null
 
+    // Retry counter for expired stream URLs
+    private var expiredUrlRetryCount = 0
+
+    // Pending action if controller is connecting
+    private val pendingActions = mutableListOf<(MediaController) -> Unit>()
+
     init {
-        setupPlayerListener()
-        initAudioEffects()
+        initializeMediaController()
     }
 
-    private fun setupPlayerListener() {
+    private fun initializeMediaController() {
+        // Start foreground service first
+        val serviceIntent = Intent(context, LyroMediaService::class.java)
+        try {
+            context.startService(serviceIntent)
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not start service directly: ${e.message}")
+        }
+
+        val sessionToken = SessionToken(context, ComponentName(context, LyroMediaService::class.java))
+        controllerFuture = MediaController.Builder(context, sessionToken).buildAsync().apply {
+            addListener({
+                try {
+                    val controller = get()
+                    mediaController = controller
+                    setupPlayerListener(controller)
+                    initAudioEffects()
+
+                    // Execute any pending actions
+                    synchronized(pendingActions) {
+                        pendingActions.forEach { it(controller) }
+                        pendingActions.clear()
+                    }
+                    Log.d(TAG, "Authoritative MediaController connected to LyroMediaService successfully")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to connect MediaController: ${e.message}", e)
+                }
+            }, ContextCompat.getMainExecutor(context))
+        }
+    }
+
+    private fun withController(action: (MediaController) -> Unit) {
+        val controller = mediaController
+        if (controller != null) {
+            action(controller)
+        } else {
+            synchronized(pendingActions) {
+                pendingActions.add(action)
+            }
+        }
+    }
+
+    private fun setupPlayerListener(player: Player) {
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 _isPlaying.value = playing
@@ -88,87 +175,188 @@ class PlaybackManager(
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY) {
-                    _duration.value = player.duration.coerceAtLeast(0L)
-                } else if (playbackState == Player.STATE_ENDED) {
-                    onSongEnded()
+                when (playbackState) {
+                    Player.STATE_READY -> {
+                        _duration.value = player.duration.coerceAtLeast(0L)
+                        _playbackError.value = null
+                    }
+                    Player.STATE_ENDED -> {
+                        onTrackEnded()
+                    }
+                    Player.STATE_BUFFERING -> {
+                        // Buffering
+                    }
+                    Player.STATE_IDLE -> {
+                        // Idle
+                    }
                 }
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 _duration.value = player.duration.coerceAtLeast(0L)
             }
+
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e(TAG, "ExoPlayer playback error: ${error.errorCodeName} - ${error.message}")
+                handlePlaybackError(error)
+            }
         })
+    }
+
+    private fun handlePlaybackError(error: PlaybackException) {
+        val track = _currentTrack.value
+        // If an online stream fails (e.g. 403 or expired URL) and hasn't exceeded retry:
+        if (track is OnlineTrack && expiredUrlRetryCount < 1) {
+            expiredUrlRetryCount++
+            val lastPos = _currentPosition.value
+            Log.i(TAG, "Attempting stream re-resolution for videoId=${track.videoId} at position ${lastPos}ms")
+            coroutineScope.launch {
+                _isResolvingStream.value = true
+                val result = streamResolver.resolve(track.videoId)
+                _isResolvingStream.value = false
+                result.onSuccess { stream ->
+                    withController { controller ->
+                        val metadata = buildMediaMetadata(track)
+                        val mediaItem = MediaItem.Builder()
+                            .setUri(stream.url)
+                            .setMediaMetadata(metadata)
+                            .build()
+                        controller.setMediaItem(mediaItem, lastPos)
+                        controller.prepare()
+                        controller.play()
+                        Log.d(TAG, "Re-resolution successful, resumed playback")
+                    }
+                }.onFailure {
+                    _playbackError.value = "Playback failed: Unable to re-resolve stream"
+                }
+            }
+        } else {
+            _playbackError.value = "Playback error: ${error.localizedMessage ?: "Unknown error"}"
+        }
     }
 
     private fun initAudioEffects() {
         try {
-            val audioSessionId = player.audioSessionId
-            if (audioSessionId != C.AUDIO_SESSION_ID_UNSET) {
-                equalizer = Equalizer(0, audioSessionId).apply {
-                    enabled = true
-                }
-                bassBoost = BassBoost(0, audioSessionId).apply {
-                    enabled = true
-                }
+            val sessionId = LyroMediaService.activeAudioSessionId
+            if (sessionId != C.AUDIO_SESSION_ID_UNSET) {
+                equalizer = Equalizer(0, sessionId).apply { enabled = true }
+                bassBoost = BassBoost(0, sessionId).apply { enabled = true }
+                Log.d(TAG, "Audio effects attached to audioSessionId=$sessionId")
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.w(TAG, "Audio effects setup: ${e.message}")
         }
     }
 
-    fun playSong(song: Song, newQueue: List<Song>? = null) {
+    // Playback APIs
+    fun playTrack(track: PlayableTrack, newQueue: List<PlayableTrack>? = null) {
         if (newQueue != null && newQueue.isNotEmpty()) {
             _queue.value = newQueue
-            _currentIndex.value = newQueue.indexOfFirst { it.id == song.id }.coerceAtLeast(0)
-        } else if (_queue.value.none { it.id == song.id }) {
-            _queue.value = listOf(song)
+            _currentIndex.value = newQueue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+        } else if (_queue.value.none { it.id == track.id }) {
+            _queue.value = listOf(track)
             _currentIndex.value = 0
         } else {
-            _currentIndex.value = _queue.value.indexOfFirst { it.id == song.id }.coerceAtLeast(0)
+            _currentIndex.value = _queue.value.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
         }
 
-        _currentSong.value = song
+        _currentTrack.value = track
+        _playbackError.value = null
+        expiredUrlRetryCount = 0
 
-        try {
-            val metadata = MediaMetadata.Builder()
-                .setTitle(song.title)
-                .setArtist(song.artist)
-                .setAlbumTitle(song.album)
-                .setArtworkUri(song.albumArtUri)
-                .build()
+        when (track) {
+            is LocalTrack -> {
+                playLocalTrack(track)
+            }
+            is OnlineTrack -> {
+                playOnlineTrack(track)
+            }
+        }
+    }
 
+    // Backward-compatible for local songs
+    fun playSong(song: Song, newSongQueue: List<Song>? = null) {
+        val localTrack = song.toLocalTrack()
+        val trackQueue = newSongQueue?.map { it.toLocalTrack() }
+        playTrack(localTrack, trackQueue)
+    }
+
+    private fun playLocalTrack(track: LocalTrack) {
+        withController { controller ->
+            val metadata = buildMediaMetadata(track)
             val mediaItem = MediaItem.Builder()
-                .setUri(song.contentUri)
+                .setUri(track.song.contentUri)
                 .setMediaMetadata(metadata)
                 .build()
 
-            player.setMediaItem(mediaItem)
-            player.prepare()
-            player.play()
+            controller.setMediaItem(mediaItem)
+            controller.prepare()
+            controller.play()
 
             coroutineScope.launch {
-                musicRepository.recordPlayed(song.id)
+                musicRepository.recordPlayed(track.song.id)
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 
-    fun togglePlayPause() {
-        if (player.isPlaying) {
-            player.pause()
-        } else {
-            if (player.playbackState == Player.STATE_ENDED) {
-                player.seekTo(0)
+    private fun playOnlineTrack(track: OnlineTrack) {
+        _playbackError.value = null
+        _isResolvingStream.value = true
+        coroutineScope.launch {
+            Log.d(TAG, "Resolving stream for OnlineTrack: videoId=${track.videoId}, title=${track.title}")
+            val result = streamResolver.resolve(track.videoId)
+            _isResolvingStream.value = false
+
+            result.onSuccess { stream ->
+                withController { controller ->
+                    val metadata = buildMediaMetadata(track)
+                    val mediaItem = MediaItem.Builder()
+                        .setUri(stream.url)
+                        .setMediaMetadata(metadata)
+                        .build()
+
+                    controller.setMediaItem(mediaItem)
+                    controller.prepare()
+                    controller.play()
+                    Log.d(TAG, "Started playback of online stream: ${stream.url.take(60)}...")
+                }
+            }.onFailure { error ->
+                Log.e(TAG, "Failed to resolve online track: ${error.message}", error)
+                _playbackError.value = "Could not stream \"${track.title}\": ${error.message}"
             }
-            player.play()
+        }
+    }
+
+    private fun buildMediaMetadata(track: PlayableTrack): MediaMetadata {
+        val builder = MediaMetadata.Builder()
+            .setTitle(track.title)
+            .setArtist(track.artist)
+
+        track.album?.let { builder.setAlbumTitle(it) }
+        track.artworkUriString?.let {
+            builder.setArtworkUri(Uri.parse(it))
+        }
+        return builder.build()
+    }
+
+    fun togglePlayPause() {
+        withController { controller ->
+            if (controller.isPlaying) {
+                controller.pause()
+            } else {
+                if (controller.playbackState == Player.STATE_ENDED) {
+                    controller.seekTo(0)
+                }
+                controller.play()
+            }
         }
     }
 
     fun seekTo(positionMs: Long) {
-        player.seekTo(positionMs)
-        _currentPosition.value = positionMs
+        withController { controller ->
+            controller.seekTo(positionMs)
+            _currentPosition.value = positionMs
+        }
     }
 
     fun skipNext() {
@@ -182,17 +370,16 @@ class PlaybackManager(
         }
 
         _currentIndex.value = nextIndex
-        playSong(q[nextIndex])
+        playTrack(q[nextIndex])
     }
 
     fun skipPrevious() {
         val q = _queue.value
         if (q.isEmpty()) return
 
-        // If played more than 3 seconds, restart current song
-        if (player.currentPosition > 3000) {
-            player.seekTo(0)
-            _currentPosition.value = 0
+        val pos = _currentPosition.value
+        if (pos > 3000) {
+            seekTo(0)
             return
         }
 
@@ -203,11 +390,14 @@ class PlaybackManager(
         }
 
         _currentIndex.value = prevIndex
-        playSong(q[prevIndex])
+        playTrack(q[prevIndex])
     }
 
     fun toggleShuffle() {
         _isShuffle.value = !_isShuffle.value
+        withController { controller ->
+            controller.shuffleModeEnabled = _isShuffle.value
+        }
     }
 
     fun cycleRepeatMode() {
@@ -217,14 +407,16 @@ class PlaybackManager(
             else -> Player.REPEAT_MODE_OFF
         }
         _repeatMode.value = nextMode
-        player.repeatMode = nextMode
+        withController { controller ->
+            controller.repeatMode = nextMode
+        }
     }
 
-    private fun onSongEnded() {
+    private fun onTrackEnded() {
         when (_repeatMode.value) {
             Player.REPEAT_MODE_ONE -> {
-                player.seekTo(0)
-                player.play()
+                seekTo(0)
+                withController { it.play() }
             }
             Player.REPEAT_MODE_ALL -> {
                 skipNext()
@@ -245,7 +437,9 @@ class PlaybackManager(
         stopPositionUpdates()
         positionUpdateJob = coroutineScope.launch {
             while (isActive) {
-                _currentPosition.value = player.currentPosition
+                mediaController?.let { controller ->
+                    _currentPosition.value = controller.currentPosition
+                }
                 delay(250)
             }
         }
@@ -269,8 +463,7 @@ class PlaybackManager(
                     remaining--
                     _sleepTimerMinutesLeft.value = remaining
                 }
-                // Pause playback when timer completes
-                player.pause()
+                withController { it.pause() }
                 _sleepTimerMinutesLeft.value = null
             }
         }
@@ -278,7 +471,6 @@ class PlaybackManager(
 
     // Equalizer & Audio FX Controls
     fun getEqualizer(): Equalizer? = equalizer
-
     fun getBassBoost(): BassBoost? = bassBoost
 
     fun setBassBoostStrength(strength: Short) {
@@ -311,6 +503,7 @@ class PlaybackManager(
         coroutineScope.cancel()
         equalizer?.release()
         bassBoost?.release()
-        player.release()
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        mediaController = null
     }
 }

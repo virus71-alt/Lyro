@@ -17,7 +17,7 @@ class NowPlayingViewModel(
     val isPlaying: StateFlow<Boolean> = playbackManager.isPlaying
     val currentPosition: StateFlow<Long> = playbackManager.currentPosition
     val duration: StateFlow<Long> = playbackManager.duration
-    val queue: StateFlow<List<Song>> = playbackManager.queue
+    val queue: StateFlow<List<Song>> = playbackManager.songQueue
     val currentIndex: StateFlow<Int> = playbackManager.currentIndex
     val isShuffle: StateFlow<Boolean> = playbackManager.isShuffle
     val repeatMode: StateFlow<Int> = playbackManager.repeatMode
