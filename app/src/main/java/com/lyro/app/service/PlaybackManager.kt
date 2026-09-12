@@ -12,13 +12,16 @@ import androidx.media3.common.*
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import androidx.media3.datasource.HttpDataSource
 import com.lyro.app.data.model.LocalTrack
 import com.lyro.app.data.model.OnlineTrack
 import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Song
 import com.lyro.app.data.model.toLocalTrack
 import com.lyro.app.data.repository.MusicRepository
+import com.lyro.app.streaming.ResolvedStream
 import com.lyro.app.streaming.StreamResolver
+import com.lyro.app.streaming.youtube.YouTubeClientProfile
 import com.lyro.app.streaming.youtube.YouTubeStreamResolver
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -45,6 +48,11 @@ class PlaybackManager(
     // Reactive states
     private val _currentTrack = MutableStateFlow<PlayableTrack?>(null)
     val currentTrack: StateFlow<PlayableTrack?> = _currentTrack.asStateFlow()
+
+    private val _currentResolvedStream = MutableStateFlow<ResolvedStream?>(null)
+    val currentResolvedStream: StateFlow<ResolvedStream?> = _currentResolvedStream.asStateFlow()
+
+    private val failedProfilesForCurrentTrack = mutableSetOf<String>()
 
     // Backward compatibility for existing UI referencing Song
     val currentSong: StateFlow<Song?> = _currentTrack.map { track ->
@@ -197,7 +205,30 @@ class PlaybackManager(
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                Log.e(TAG, "ExoPlayer playback error: ${error.errorCodeName} - ${error.message}")
+                val rootCause = error.cause
+                val isHttpError = rootCause is HttpDataSource.InvalidResponseCodeException
+                val stream = _currentResolvedStream.value
+                val track = _currentTrack.value
+
+                Log.e(TAG, "=== LyroPlayback Player Error ===")
+                Log.e(TAG, "errorCode: ${error.errorCode} (${error.errorCodeName})")
+                Log.e(TAG, "message: ${error.message}")
+                Log.e(TAG, "causeClass: ${rootCause?.javaClass?.name}")
+                Log.e(TAG, "causeMessage: ${rootCause?.message}")
+
+                if (isHttpError) {
+                    val httpEx = rootCause as HttpDataSource.InvalidResponseCodeException
+                    Log.e(TAG, "HTTP responseCode: ${httpEx.responseCode} (${httpEx.responseMessage})")
+                    Log.e(TAG, "HTTP headerFields: ${httpEx.headerFields.keys}")
+                }
+
+                if (track is OnlineTrack) {
+                    Log.e(
+                        TAG,
+                        "Online track error: videoId=${track.videoId}, client=${stream?.clientProfileName}, itag=${stream?.itag}, mime=${stream?.mimeType}"
+                    )
+                }
+
                 handlePlaybackError(error)
             }
         })
@@ -205,34 +236,37 @@ class PlaybackManager(
 
     private fun handlePlaybackError(error: PlaybackException) {
         val track = _currentTrack.value
-        // If an online stream fails (e.g. 403 or expired URL) and hasn't exceeded retry:
-        if (track is OnlineTrack && expiredUrlRetryCount < 1) {
-            expiredUrlRetryCount++
-            val lastPos = _currentPosition.value
-            Log.i(TAG, "Attempting stream re-resolution for videoId=${track.videoId} at position ${lastPos}ms")
-            coroutineScope.launch {
-                _isResolvingStream.value = true
-                val result = streamResolver.resolve(track.videoId)
-                _isResolvingStream.value = false
-                result.onSuccess { stream ->
-                    withController { controller ->
-                        val metadata = buildMediaMetadata(track)
-                        val mediaItem = MediaItem.Builder()
-                            .setUri(stream.url)
-                            .setMediaMetadata(metadata)
-                            .build()
-                        controller.setMediaItem(mediaItem, lastPos)
-                        controller.prepare()
-                        controller.play()
-                        Log.d(TAG, "Re-resolution successful, resumed playback")
-                    }
-                }.onFailure {
-                    _playbackError.value = "Playback failed: Unable to re-resolve stream"
-                }
+        val stream = _currentResolvedStream.value
+
+        // If an online stream failed and we have alternative profiles to try:
+        if (track is OnlineTrack) {
+            val failedClient = stream?.clientProfileName
+            if (failedClient != null) {
+                failedProfilesForCurrentTrack.add(failedClient)
             }
-        } else {
-            _playbackError.value = "Playback error: ${error.localizedMessage ?: "Unknown error"}"
+
+            if (failedProfilesForCurrentTrack.size < YouTubeClientProfile.ALL_PROFILES.size) {
+                val lastPos = _currentPosition.value
+                Log.i(
+                    TAG,
+                    "Retrying stream resolution for videoId=${track.videoId} at position ${lastPos}ms (excluding failed profiles: $failedProfilesForCurrentTrack)"
+                )
+                playOnlineTrack(
+                    track = track,
+                    excludeProfiles = failedProfilesForCurrentTrack,
+                    resumePosition = lastPos
+                )
+                return
+            }
         }
+
+        val rootCause = error.cause
+        val detail = if (rootCause is HttpDataSource.InvalidResponseCodeException) {
+            "HTTP ${rootCause.responseCode}"
+        } else {
+            error.localizedMessage ?: "Source error"
+        }
+        _playbackError.value = "Playback error: $detail"
     }
 
     private fun initAudioEffects() {
@@ -250,7 +284,7 @@ class PlaybackManager(
 
     // Playback APIs
     fun playTrack(track: PlayableTrack, newQueue: List<PlayableTrack>? = null) {
-        if (newQueue != null && newQueue.isNotEmpty()) {
+        if (newQueue != null) {
             _queue.value = newQueue
             _currentIndex.value = newQueue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
         } else if (_queue.value.none { it.id == track.id }) {
@@ -263,9 +297,11 @@ class PlaybackManager(
         _currentTrack.value = track
         _playbackError.value = null
         expiredUrlRetryCount = 0
+        failedProfilesForCurrentTrack.clear()
 
         when (track) {
             is LocalTrack -> {
+                _currentResolvedStream.value = null
                 playLocalTrack(track)
             }
             is OnlineTrack -> {
@@ -299,26 +335,47 @@ class PlaybackManager(
         }
     }
 
-    private fun playOnlineTrack(track: OnlineTrack) {
+    private fun playOnlineTrack(
+        track: OnlineTrack,
+        excludeProfiles: Set<String> = emptySet(),
+        resumePosition: Long = 0L
+    ) {
         _playbackError.value = null
         _isResolvingStream.value = true
         coroutineScope.launch {
-            Log.d(TAG, "Resolving stream for OnlineTrack: videoId=${track.videoId}, title=${track.title}")
-            val result = streamResolver.resolve(track.videoId)
+            Log.d(TAG, "Resolving stream for OnlineTrack: videoId=${track.videoId}, title=${track.title}, excludedProfiles=$excludeProfiles")
+            val result = streamResolver.resolve(track.videoId, excludeProfiles = excludeProfiles)
             _isResolvingStream.value = false
 
             result.onSuccess { stream ->
+                _currentResolvedStream.value = stream
+                LyroMediaService.setPlaybackHeaders(stream.requestHeaders)
+
                 withController { controller ->
                     val metadata = buildMediaMetadata(track)
-                    val mediaItem = MediaItem.Builder()
-                        .setUri(stream.url)
-                        .setMediaMetadata(metadata)
-                        .build()
+                    val containerMime = stream.mimeType?.substringBefore(";")?.trim()
 
-                    controller.setMediaItem(mediaItem)
+                    val mediaItemBuilder = MediaItem.Builder()
+                        .setUri(stream.url)
+                        .setMediaId(track.videoId)
+                        .setMediaMetadata(metadata)
+
+                    if (!containerMime.isNullOrBlank()) {
+                        mediaItemBuilder.setMimeType(containerMime)
+                    }
+
+                    val mediaItem = mediaItemBuilder.build()
+                    if (resumePosition > 0L) {
+                        controller.setMediaItem(mediaItem, resumePosition)
+                    } else {
+                        controller.setMediaItem(mediaItem)
+                    }
                     controller.prepare()
                     controller.play()
-                    Log.d(TAG, "Started playback of online stream: ${stream.url.take(60)}...")
+                    Log.d(
+                        TAG,
+                        "Started playback of online stream: videoId=${track.videoId}, client=${stream.clientProfileName}, itag=${stream.itag}, mime=$containerMime, resumePos=${resumePosition}ms"
+                    )
                 }
             }.onFailure { error ->
                 Log.e(TAG, "Failed to resolve online track: ${error.message}", error)

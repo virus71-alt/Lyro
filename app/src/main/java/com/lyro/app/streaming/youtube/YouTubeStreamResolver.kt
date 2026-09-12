@@ -12,30 +12,38 @@ class YouTubeStreamResolver : StreamResolver {
 
     override suspend fun resolve(
         videoId: String,
-        quality: AudioQuality
+        quality: AudioQuality,
+        excludeProfiles: Set<String>
     ): Result<ResolvedStream> {
         val startTime = System.currentTimeMillis()
         var lastError: Throwable? = null
 
-        val profiles = YouTubeClientProfile.ALL_PROFILES
+        val candidateProfiles = YouTubeClientProfile.ALL_PROFILES.filter { it.name !in excludeProfiles }
+        if (candidateProfiles.isEmpty()) {
+            return Result.failure(Exception("All available stream profiles have been excluded or failed for videoId=$videoId"))
+        }
 
-        for ((index, profile) in profiles.withIndex()) {
+        for ((index, profile) in candidateProfiles.withIndex()) {
             try {
-                Log.d(TAG, "Attempting stream resolution for videoId=$videoId with profile=${profile.name} (attempt ${index + 1}/${profiles.size})")
+                Log.d(
+                    TAG,
+                    "Attempting stream resolution for videoId=$videoId with profile=${profile.name} (candidate ${index + 1}/${candidateProfiles.size})"
+                )
 
                 val playerResponseResult = InnertubeClient.getPlayerResponse(videoId, profile)
                 if (playerResponseResult.isFailure) {
                     lastError = playerResponseResult.exceptionOrNull()
-                    Log.w(TAG, "Profile ${profile.name} player response error: ${lastError?.message}")
+                    Log.w(TAG, "Profile ${profile.name} player response failed: ${lastError?.message}")
                     continue
                 }
 
                 val playerJson = playerResponseResult.getOrNull() ?: continue
+                val playabilityObj = playerJson.optJSONObject("playabilityStatus")
+                val status = playabilityObj?.optString("status") ?: "UNKNOWN"
+                val reason = playabilityObj?.optString("reason") ?: ""
+
                 val streamingData = playerJson.optJSONObject("streamingData")
                 if (streamingData == null) {
-                    val playabilityObj = playerJson.optJSONObject("playabilityStatus")
-                    val status = playabilityObj?.optString("status") ?: "UNKNOWN"
-                    val reason = playabilityObj?.optString("reason") ?: ""
                     Log.w(TAG, "Profile ${profile.name} no streamingData. playabilityStatus=$status $reason")
                     lastError = Exception("Player status: $status ($reason)")
                     continue
@@ -43,18 +51,29 @@ class YouTubeStreamResolver : StreamResolver {
 
                 val adaptiveFormats = streamingData.optJSONArray("adaptiveFormats")
                 if (adaptiveFormats == null || adaptiveFormats.length() == 0) {
-                    Log.w(TAG, "Profile ${profile.name} empty adaptiveFormats")
+                    Log.w(TAG, "Profile ${profile.name} empty adaptiveFormats (playability=$status)")
                     continue
                 }
+
+                Log.d(
+                    TAG,
+                    "Profile ${profile.name}: playability=$status, total adaptiveFormats=${adaptiveFormats.length()}"
+                )
 
                 val candidate = StreamFormatSelector.selectBestAudioFormat(adaptiveFormats, quality)
                 if (candidate == null) {
-                    Log.w(TAG, "Profile ${profile.name} no playable direct audio format found")
+                    Log.w(TAG, "Profile ${profile.name} has no direct playable audio format URL")
                     continue
                 }
 
-                // Range probe validation
-                val isValid = StreamValidator.validate(candidate.url)
+                val streamHeaders = profile.headersForStream(candidate.url)
+
+                // Range probe validation (checks initial chunk and verifies whole-file capability past 1MB)
+                val isValid = StreamValidator.validate(
+                    url = candidate.url,
+                    headers = streamHeaders,
+                    contentLength = candidate.contentLength
+                )
                 if (!isValid) {
                     Log.w(TAG, "Profile ${profile.name} format itag=${candidate.itag} failed Range validation probe")
                     continue
@@ -76,7 +95,8 @@ class YouTubeStreamResolver : StreamResolver {
                         contentLength = candidate.contentLength,
                         expiresAtEpochSeconds = expiresAtEpoch,
                         itag = candidate.itag,
-                        clientProfileName = profile.name
+                        clientProfileName = profile.name,
+                        requestHeaders = streamHeaders
                     )
                 )
             } catch (e: Exception) {
@@ -86,7 +106,7 @@ class YouTubeStreamResolver : StreamResolver {
         }
 
         val totalDuration = System.currentTimeMillis() - startTime
-        val failMsg = "Failed to resolve stream for videoId=$videoId after trying ${profiles.size} profiles (${totalDuration}ms)"
+        val failMsg = "Failed to resolve stream for videoId=$videoId after trying ${candidateProfiles.size} profiles (${totalDuration}ms)"
         Log.e(TAG, failMsg, lastError)
         return Result.failure(lastError ?: Exception(failMsg))
     }

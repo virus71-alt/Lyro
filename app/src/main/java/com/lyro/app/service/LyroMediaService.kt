@@ -3,11 +3,15 @@ package com.lyro.app.service
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
@@ -62,7 +66,7 @@ class LyroMediaService : MediaSessionService() {
     override fun onDestroy() {
         activeAudioSessionId = C.AUDIO_SESSION_ID_UNSET
         mediaSession?.run {
-            player?.release()
+            player.release()
             release()
             mediaSession = null
         }
@@ -71,11 +75,21 @@ class LyroMediaService : MediaSessionService() {
     }
 
     companion object {
+        private const val TAG = "LyroMediaService"
+
         var activeAudioSessionId: Int = C.AUDIO_SESSION_ID_UNSET
             private set
 
         @Volatile
         private var simpleCache: SimpleCache? = null
+
+        @Volatile
+        private var activePlaybackHeaders: Map<String, String> = emptyMap()
+
+        fun setPlaybackHeaders(headers: Map<String, String>) {
+            activePlaybackHeaders = headers
+            Log.d(TAG, "Updated active playback headers: keys=${headers.keys}")
+        }
 
         fun getCache(context: Context): SimpleCache {
             return simpleCache ?: synchronized(this) {
@@ -89,7 +103,33 @@ class LyroMediaService : MediaSessionService() {
         }
 
         fun getCacheDataSourceFactory(context: Context): CacheDataSource.Factory {
-            val upstreamFactory = DefaultDataSource.Factory(context)
+            // 1. Configure standard HTTP DataSource with proper timeouts and cross-protocol redirects
+            val baseHttpFactory = DefaultHttpDataSource.Factory()
+                .setAllowCrossProtocolRedirects(true)
+                .setConnectTimeoutMs(15000)
+                .setReadTimeoutMs(20000)
+
+            // 2. Wrap HTTP DataSource with ResolvingDataSource to apply active profile request headers (e.g. User-Agent)
+            val resolvingHttpFactory = ResolvingDataSource.Factory(
+                baseHttpFactory,
+                object : ResolvingDataSource.Resolver {
+                    override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
+                        val headers = activePlaybackHeaders
+                        return if (headers.isNotEmpty() && dataSpec.uri.host?.contains("googlevideo") == true) {
+                            val mergedHeaders = HashMap(dataSpec.httpRequestHeaders)
+                            mergedHeaders.putAll(headers)
+                            dataSpec.buildUpon().setHttpRequestHeaders(mergedHeaders).build()
+                        } else {
+                            dataSpec
+                        }
+                    }
+                }
+            )
+
+            // 3. Wrap with DefaultDataSource (handles content://, file:// for local songs, and delegates http:// to resolvingHttpFactory)
+            val upstreamFactory = DefaultDataSource.Factory(context, resolvingHttpFactory)
+
+            // 4. Wrap with CacheDataSource (caching chunks, ignoring cache on error)
             return CacheDataSource.Factory()
                 .setCache(getCache(context))
                 .setUpstreamDataSourceFactory(upstreamFactory)

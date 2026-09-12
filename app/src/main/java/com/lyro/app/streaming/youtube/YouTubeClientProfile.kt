@@ -13,10 +13,32 @@ data class YouTubeClientProfile(
     val androidSdkVersion: Int? = null,
     val playerEndpointUrl: String = "https://www.youtube.com/youtubei/v1/player"
 ) {
+    fun headersForStream(@Suppress("UNUSED_PARAMETER") url: String = ""): Map<String, String> {
+        return mapOf(
+            "User-Agent" to userAgent
+        )
+    }
+
     companion object {
         /**
+         * VISIONOS client profile.
+         * Whole-file streaming capable without the 1MB cap observed on other mobile/VR clients.
+         */
+        val VISIONOS = YouTubeClientProfile(
+            name = "VISIONOS",
+            clientName = "VISIONOS",
+            clientVersion = "0.1",
+            clientId = "101",
+            userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+            osName = "visionOS",
+            osVersion = "1.3.21O771",
+            deviceMake = "Apple",
+            deviceModel = "RealityDevice14,1"
+        )
+
+        /**
          * ANDROID_VR pin matching yt-dlp & YouTube.js.
-         * Proven to serve direct googlevideo audio streams (itag 140 / 251) without cipher deciphering.
+         * Direct audio stream formats (itag 140 / 251), validated with dual-range check.
          */
         val ANDROID_VR = YouTubeClientProfile(
             name = "ANDROID_VR",
@@ -31,22 +53,6 @@ data class YouTubeClientProfile(
             androidSdkVersion = 32
         )
 
-        /**
-         * VISIONOS client profile.
-         * Tested and verified to return 200 OK with direct audio URLs and no 1MB playback cap.
-         */
-        val VISIONOS = YouTubeClientProfile(
-            name = "VISIONOS",
-            clientName = "VISIONOS",
-            clientVersion = "0.1",
-            clientId = "101",
-            userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
-            osName = "visionOS",
-            osVersion = "1.3.21O771",
-            deviceMake = "Apple",
-            deviceModel = "RealityDevice14,1"
-        )
-
-        val ALL_PROFILES = listOf(ANDROID_VR, VISIONOS)
+        val ALL_PROFILES = listOf(VISIONOS, ANDROID_VR)
     }
 }

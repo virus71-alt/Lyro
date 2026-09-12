@@ -11,27 +11,65 @@ object StreamValidator {
     private const val TAG = "LyroStreamValidation"
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(4, TimeUnit.SECONDS)
-        .readTimeout(4, TimeUnit.SECONDS)
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.SECONDS)
         .followRedirects(true)
         .build()
 
-    suspend fun validate(url: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun validate(
+        url: String,
+        headers: Map<String, String> = emptyMap(),
+        contentLength: Long? = null
+    ): Boolean = withContext(Dispatchers.IO) {
         try {
-            val request = Request.Builder()
+            // Probe 1: initial chunk
+            val requestBuilder1 = Request.Builder()
                 .url(url)
                 .header("Range", "bytes=0-524287")
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                .build()
 
-            client.newCall(request).execute().use { response ->
-                val code = response.code
-                val isPlayable = code in 200..206
-                Log.d(TAG, "Stream probe result: HTTP $code, playable=$isPlayable")
-                isPlayable
+            headers.forEach { (k, v) ->
+                requestBuilder1.header(k, v)
             }
+
+            val isFirstChunkOk = client.newCall(requestBuilder1.build()).execute().use { response ->
+                val code = response.code
+                val ok = code in 200..206
+                if (!ok) {
+                    Log.w(TAG, "Probe chunk 1 (0-512KB) failed: HTTP $code")
+                }
+                ok
+            }
+
+            if (!isFirstChunkOk) return@withContext false
+
+            // Probe 2: verify beyond 1MB if contentLength allows (detects 1MB preview-capped streams)
+            if (contentLength != null && contentLength > 1048576L) {
+                val secondStart = 1048576L
+                val secondEnd = minOf(contentLength - 1L, secondStart + 524287L)
+                val requestBuilder2 = Request.Builder()
+                    .url(url)
+                    .header("Range", "bytes=$secondStart-$secondEnd")
+
+                headers.forEach { (k, v) ->
+                    requestBuilder2.header(k, v)
+                }
+
+                val isSecondChunkOk = client.newCall(requestBuilder2.build()).execute().use { response ->
+                    val code = response.code
+                    val ok = code in 200..206
+                    if (!ok) {
+                        Log.w(TAG, "Probe chunk 2 ($secondStart-$secondEnd) failed: HTTP $code (stream has 1MB cap)")
+                    }
+                    ok
+                }
+
+                if (!isSecondChunkOk) return@withContext false
+            }
+
+            Log.d(TAG, "Stream validation probe SUCCESS for URL (playable=true)")
+            true
         } catch (e: Exception) {
-            Log.w(TAG, "Stream validation probe failed: ${e.message}")
+            Log.w(TAG, "Stream validation probe failed with exception: ${e.message}")
             false
         }
     }

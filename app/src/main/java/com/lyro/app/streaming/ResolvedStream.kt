@@ -7,5 +7,6 @@ data class ResolvedStream(
     val contentLength: Long?,
     val expiresAtEpochSeconds: Long? = null,
     val itag: Int? = null,
-    val clientProfileName: String? = null
+    val clientProfileName: String? = null,
+    val requestHeaders: Map<String, String> = emptyMap()
 )

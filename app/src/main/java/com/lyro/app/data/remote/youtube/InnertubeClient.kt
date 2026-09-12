@@ -279,7 +279,6 @@ object InnertubeClient {
                 put("playbackContext", JSONObject().apply {
                     put("contentPlaybackContext", JSONObject().apply {
                         put("html5Preference", "HTML5_PREF_WANTS")
-                        put("signatureTimestamp", 19800)
                     })
                 })
             }
