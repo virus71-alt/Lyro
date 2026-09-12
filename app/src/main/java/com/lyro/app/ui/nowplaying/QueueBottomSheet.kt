@@ -85,7 +85,8 @@ fun QueueBottomSheet(
             ) {
                 itemsIndexed(
                     items = queue,
-                    key = { index, song -> "${song.id}_$index" }
+                    key = { index, song -> "${song.id}_$index" },
+                    contentType = { _, _ -> "queue_item" }
                 ) { index, song ->
                     val isCurrent = song.id == currentSong?.id
                     val shape = RoundedCornerShape(8.dp)

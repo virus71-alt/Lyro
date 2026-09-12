@@ -263,7 +263,8 @@ fun SongsScreen(
             ) {
                 items(
                     items = songs,
-                    key = { it.id }
+                    key = { it.id },
+                    contentType = { "song_row" }
                 ) { song ->
                     SongListItem(
                         song = song,

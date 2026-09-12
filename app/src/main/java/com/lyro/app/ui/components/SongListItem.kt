@@ -128,11 +128,9 @@ fun SongListItem(
             Spacer(modifier = Modifier.width(8.dp))
 
             // Favorite button
-            NeoIconButton(
+            NeoListIconButton(
                 onClick = onFavoriteToggle,
-                backgroundColor = if (song.isFavorite) NeoHotPink else NeoWhite,
-                size = 32.dp,
-                shadowOffset = 2.dp
+                backgroundColor = if (song.isFavorite) NeoHotPink else NeoWhite
             ) {
                 Icon(
                     imageVector = if (song.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -145,11 +143,9 @@ fun SongListItem(
             Spacer(modifier = Modifier.width(4.dp))
 
             // More Options
-            NeoIconButton(
+            NeoListIconButton(
                 onClick = onMoreClick,
-                backgroundColor = NeoGrayLight,
-                size = 32.dp,
-                shadowOffset = 2.dp
+                backgroundColor = NeoGrayLight
             ) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
@@ -158,6 +154,37 @@ fun SongListItem(
                     modifier = Modifier.size(16.dp)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun NeoListIconButton(
+    onClick: () -> Unit,
+    backgroundColor: Color,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .padding(end = 2.dp, bottom = 2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .offset(x = 2.dp, y = 2.dp)
+                .background(NeoBlack, RoundedCornerShape(6.dp))
+        )
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .background(backgroundColor, RoundedCornerShape(6.dp))
+                .border(1.5.dp, NeoBlack, RoundedCornerShape(6.dp))
+                .clip(RoundedCornerShape(6.dp))
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            content()
         }
     }
 }

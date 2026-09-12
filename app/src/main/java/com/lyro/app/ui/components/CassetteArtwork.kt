@@ -23,8 +23,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.SubcomposeAsyncImage
-import coil.compose.SubcomposeAsyncImageContent
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.Image
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.data.model.Song
 
@@ -257,19 +257,34 @@ fun CassetteSpool(rotation: Float) {
 }
 
 /**
- * Thumbnail size Album Artwork with song-specific embedded artwork or distinct Neo-Brutal fallback
+ * High-performance thumbnail with LruCache and zero-jank background decoding
  */
 @Composable
 fun SongArtworkThumbnail(
     song: Song,
     modifier: Modifier = Modifier,
-    size: Dp = 50.dp
+    size: Dp = 48.dp
 ) {
-    val accentColor = remember(song.id, song.title) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var bitmap by remember(song.id) { mutableStateOf(com.lyro.app.core.artwork.ArtworkCache.get(song.id)) }
+    val accentColor = remember(song.id) {
         val hash = (song.id.hashCode() * 31 + song.title.hashCode())
         val index = kotlin.math.abs(hash) % NeoAccentPalette.size
         NeoAccentPalette[index]
     }
+
+    LaunchedEffect(song.id) {
+        if (bitmap == null && !com.lyro.app.core.artwork.ArtworkCache.hasAttempted(song.id)) {
+            val loaded = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.lyro.app.core.artwork.ArtworkCache.loadThumbnail(context, song.id, song.contentUri)
+            }
+            if (loaded != null) {
+                bitmap = loaded
+            }
+        }
+    }
+
+    val currentBitmap = bitmap
 
     Box(
         modifier = modifier
@@ -279,21 +294,16 @@ fun SongArtworkThumbnail(
             .clip(RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
-        SubcomposeAsyncImage(
-            model = song.artworkUri,
-            contentDescription = song.title,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            loading = {
-                BrutalistFallbackArtwork(song = song, accentColor = accentColor, size = size)
-            },
-            error = {
-                BrutalistFallbackArtwork(song = song, accentColor = accentColor, size = size)
-            },
-            success = {
-                SubcomposeAsyncImageContent()
-            }
-        )
+        if (currentBitmap != null) {
+            Image(
+                bitmap = currentBitmap.asImageBitmap(),
+                contentDescription = song.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            BrutalistFallbackArtwork(song = song, accentColor = accentColor, size = size)
+        }
     }
 }
 
