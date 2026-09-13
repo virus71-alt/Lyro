@@ -40,7 +40,8 @@ fun NeoCard(
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(
-        modifier = modifier.padding(end = shadowOffset, bottom = shadowOffset)
+        modifier = modifier.padding(end = shadowOffset, bottom = shadowOffset),
+        propagateMinConstraints = true
     ) {
         // Hard-edged solid shadow underneath
         Box(
@@ -97,7 +98,8 @@ fun NeoButton(
     )
 
     Box(
-        modifier = modifier.padding(end = shadowOffset, bottom = shadowOffset)
+        modifier = modifier.padding(end = shadowOffset, bottom = shadowOffset),
+        propagateMinConstraints = true
     ) {
         // Hard shadow layer
         Box(

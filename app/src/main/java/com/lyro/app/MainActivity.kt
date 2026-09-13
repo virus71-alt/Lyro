@@ -125,9 +125,15 @@ class MainActivity : ComponentActivity() {
                         ActiveScreen.MAIN -> {
                             Box(modifier = Modifier.fillMaxSize()) {
                                 Column(modifier = Modifier.fillMaxSize()) {
+                                    val isOnlineMode by songsViewModel.isOnlineMode.collectAsState()
                                     // Top App Bar
                                     NeoBrutalAppBar(
                                         title = "LYRO",
+                                        isOnlineMode = isOnlineMode,
+                                        onToggleOnlineMode = {
+                                            songsViewModel.setOnlineMode(!isOnlineMode)
+                                            currentTab = CurrentTab.TRACKS
+                                        },
                                         onSettingsClick = { activeScreen = ActiveScreen.SETTINGS }
                                     )
 

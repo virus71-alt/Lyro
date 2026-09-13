@@ -104,71 +104,9 @@ class MusicRepository(
             e.printStackTrace()
         }
 
-        // If no songs found on physical device/emulator, provide demo tracks so user can experience Neo-Brutal UI!
-        if (songList.isEmpty()) {
-            songList.addAll(getDemoSongs(favoriteIds))
-        }
-
         _allSongs.value = songList
         refreshPlaylists()
         songList
-    }
-
-    private fun getDemoSongs(favoriteIds: Set<Long>): List<Song> {
-        return listOf(
-            Song(
-                id = 1001L,
-                title = "Cyber Tape 99",
-                artist = "Neon Brutal",
-                album = "Acid Mixtape Vol. 1",
-                albumId = 1L,
-                duration = 214000L,
-                contentUriString = "asset:///sample1.mp3",
-                albumArtUriString = null,
-                size = 8450000L,
-                dateAdded = System.currentTimeMillis() / 1000,
-                isFavorite = favoriteIds.contains(1001L)
-            ),
-            Song(
-                id = 1002L,
-                title = "Retrograde Bassline",
-                artist = "Analog Syndicate",
-                album = "Hard Edge Cuts",
-                albumId = 2L,
-                duration = 186000L,
-                contentUriString = "asset:///sample2.mp3",
-                albumArtUriString = null,
-                size = 7200000L,
-                dateAdded = System.currentTimeMillis() / 1000 - 1000,
-                isFavorite = favoriteIds.contains(1002L)
-            ),
-            Song(
-                id = 1003L,
-                title = "Midnight Tokyo Drift",
-                artist = "Kuroshio",
-                album = "Synthetic Horizon",
-                albumId = 3L,
-                duration = 245000L,
-                contentUriString = "asset:///sample3.mp3",
-                albumArtUriString = null,
-                size = 9800000L,
-                dateAdded = System.currentTimeMillis() / 1000 - 2000,
-                isFavorite = favoriteIds.contains(1003L)
-            ),
-            Song(
-                id = 1004L,
-                title = "Electric Velvet",
-                artist = "Lyro Sound System",
-                album = "Neo Brutalism EP",
-                albumId = 4L,
-                duration = 198000L,
-                contentUriString = "asset:///sample4.mp3",
-                albumArtUriString = null,
-                size = 7600000L,
-                dateAdded = System.currentTimeMillis() / 1000 - 3000,
-                isFavorite = favoriteIds.contains(1004L)
-            )
-        )
     }
 
     suspend fun refreshPlaylists() = withContext(Dispatchers.IO) {

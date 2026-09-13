@@ -82,6 +82,27 @@ class PlaybackManager(
         _playbackError.value = null
     }
 
+    fun clearCurrentTrack() {
+        withController { it.stop() }
+        _currentTrack.value = null
+        _isPlaying.value = false
+        _currentPosition.value = 0L
+        _duration.value = 0L
+        _playbackError.value = null
+        _queue.value = emptyList()
+        stopPositionUpdates()
+    }
+
+    fun validateCurrentTrack(validSongs: List<Song>) {
+        val track = _currentTrack.value
+        if (track is LocalTrack) {
+            val exists = validSongs.any { it.id == track.song.id }
+            if (!exists) {
+                clearCurrentTrack()
+            }
+        }
+    }
+
     private val _currentPosition = MutableStateFlow(0L)
     val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
 

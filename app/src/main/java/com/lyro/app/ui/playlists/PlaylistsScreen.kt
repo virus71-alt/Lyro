@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.data.model.Playlist
-import com.lyro.app.data.model.Song
+import com.lyro.app.ui.components.NeoEmptyState
 import com.lyro.app.ui.songs.SongsViewModel
 
 @Composable
@@ -154,62 +154,74 @@ fun PlaylistsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Playlists Grid
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 120.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            items(playlists, key = { it.id }) { playlist ->
-                val bg = NeoAccentPalette[playlist.colorIndex % NeoAccentPalette.size]
+        if (playlists.isEmpty()) {
+            NeoEmptyState(
+                icon = Icons.Default.LibraryMusic,
+                iconBackgroundColor = NeoCyan,
+                title = "NO CUSTOM MIXTAPES",
+                description = "You haven't created any mixtapes yet. Organize your favorite songs into custom collections!",
+                primaryButtonText = "+ CREATE NEW MIXTAPE",
+                primaryButtonColor = NeoAcidGreen,
+                onPrimaryButtonClick = { showCreateDialog = true }
+            )
+        } else {
+            // Playlists Grid
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 120.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(playlists, key = { it.id }) { playlist ->
+                    val bg = NeoAccentPalette[playlist.colorIndex % NeoAccentPalette.size]
 
-                NeoCard(
-                    backgroundColor = bg,
-                    shadowOffset = 3.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onPlaylistClick(playlist) }
-                ) {
-                    Column(
+                    NeoCard(
+                        backgroundColor = bg,
+                        shadowOffset = 3.dp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(14.dp)
+                            .clickable { onPlaylistClick(playlist) }
                     ) {
-                        Box(
+                        Column(
                             modifier = Modifier
-                                .size(40.dp)
-                                .background(NeoWhite, RoundedCornerShape(8.dp))
-                                .border(2.dp, NeoBlack, RoundedCornerShape(8.dp)),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(14.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.LibraryMusic,
-                                contentDescription = null,
-                                tint = NeoBlack,
-                                modifier = Modifier.size(22.dp)
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(NeoWhite, RoundedCornerShape(8.dp))
+                                    .border(2.dp, NeoBlack, RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LibraryMusic,
+                                    contentDescription = null,
+                                    tint = NeoBlack,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            Text(
+                                text = playlist.name,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 15.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = NeoBlack
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            NeoBadge(
+                                text = "${playlist.songCount} TUNES",
+                                backgroundColor = NeoWhite,
+                                textColor = NeoBlack
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Text(
-                            text = playlist.name,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = NeoBlack
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        NeoBadge(
-                            text = "${playlist.songCount} TUNES",
-                            backgroundColor = NeoWhite,
-                            textColor = NeoBlack
-                        )
                     }
                 }
             }

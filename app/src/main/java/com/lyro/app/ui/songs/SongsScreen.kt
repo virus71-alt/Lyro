@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.data.model.Song
 import com.lyro.app.data.repository.SortOrder
+import com.lyro.app.ui.components.NeoEmptyState
+import com.lyro.app.ui.components.NeoLoadingState
 import com.lyro.app.ui.components.OnlineSongListItem
 import com.lyro.app.ui.components.SongListItem
 
@@ -46,6 +48,7 @@ fun SongsScreen(
     val isResolvingStream by viewModel.isResolvingStream.collectAsState()
     val playbackError by viewModel.playbackError.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     val isOnlineMode by viewModel.isOnlineMode.collectAsState()
     val onlineResults by viewModel.onlineSearchResults.collectAsState()
@@ -61,84 +64,6 @@ fun SongsScreen(
             .fillMaxSize()
             .background(NeoBgLight)
     ) {
-        // Unified Neo-Brutalist Segmented Mode Switcher
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-                .padding(end = 4.dp, bottom = 4.dp)
-        ) {
-            // Drop shadow
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .offset(x = 4.dp, y = 4.dp)
-                    .background(NeoBlack, RoundedCornerShape(12.dp))
-            )
-
-            // Segmented container
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(NeoWhite, RoundedCornerShape(12.dp))
-                    .border(2.5.dp, NeoBlack, RoundedCornerShape(12.dp))
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // LOCAL TUNES tab
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (!isOnlineMode) NeoAcidGreen else androidx.compose.ui.graphics.Color.Transparent)
-                        .then(
-                            if (!isOnlineMode) Modifier.border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
-                            else Modifier
-                        )
-                        .clickable(
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                            indication = null,
-                            onClick = { viewModel.setOnlineMode(false) }
-                        )
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "LOCAL TUNES",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 12.sp,
-                        color = NeoBlack
-                    )
-                }
-
-                // ONLINE SEARCH tab
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isOnlineMode) NeoCyan else androidx.compose.ui.graphics.Color.Transparent)
-                        .then(
-                            if (isOnlineMode) Modifier.border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
-                            else Modifier
-                        )
-                        .clickable(
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                            indication = null,
-                            onClick = { viewModel.setOnlineMode(true) }
-                        )
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "ONLINE SEARCH 🌐",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 12.sp,
-                        color = NeoBlack
-                    )
-                }
-            }
-        }
-
         // Resolving Stream Banner
         if (isResolvingStream) {
             Box(
@@ -225,51 +150,6 @@ fun SongsScreen(
             }
         }
 
-        // Storage Permission Banner if not granted (only when in local mode)
-        if (!hasPermission && !isOnlineMode) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                NeoCard(
-                    backgroundColor = NeoCyberYellow,
-                    shadowOffset = 4.dp
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "DEVICE ACCESS REQUIRED",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp,
-                            color = NeoBlack
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Lyro needs storage access to scan and play your offline audio files.",
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 12.sp,
-                            color = NeoBlack
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        NeoButton(
-                            onClick = onRequestPermission,
-                            backgroundColor = NeoHotPink
-                        ) {
-                            Text(
-                                text = "ALLOW ACCESS",
-                                color = NeoWhite,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
         // Neo-Brutalist Search Bar
         Box(
             modifier = Modifier
@@ -344,85 +224,32 @@ fun SongsScreen(
         if (isOnlineMode) {
             // ONLINE SEARCH CONTENT
             if (isSearchingOnline) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = NeoBlack, strokeWidth = 3.dp)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "SEARCHING YOUTUBE MUSIC...",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 13.sp,
-                            color = NeoBlack
-                        )
-                    }
-                }
+                NeoLoadingState(
+                    title = "SEARCHING YOUTUBE MUSIC...",
+                    subtitle = "Finding online tracks for \"$searchQuery\"..."
+                )
             } else if (onlineSearchError != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    NeoCard(
-                        backgroundColor = NeoLavender,
-                        shadowOffset = 6.dp
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "ONLINE SEARCH",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black,
-                                color = NeoBlack
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = onlineSearchError ?: "",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = NeoBlack.copy(alpha = 0.8f)
-                            )
-                        }
-                    }
-                }
+                NeoEmptyState(
+                    icon = Icons.Default.SearchOff,
+                    iconBackgroundColor = NeoLavender,
+                    title = "ONLINE SEARCH",
+                    description = onlineSearchError ?: "No tracks found",
+                    primaryButtonText = "CLEAR SEARCH",
+                    primaryButtonColor = NeoCyan,
+                    onPrimaryButtonClick = { viewModel.onSearchQueryChanged("") }
+                )
             } else if (onlineResults.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    NeoCard(
-                        backgroundColor = NeoCyan,
-                        shadowOffset = 6.dp
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "DISCOVER ONLINE MUSIC",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black,
-                                color = NeoBlack
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Type any song title, artist, or trending track above to stream online!",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = NeoBlack.copy(alpha = 0.8f)
-                            )
-                        }
-                    }
-                }
+                NeoEmptyState(
+                    icon = Icons.Default.MusicNote,
+                    iconBackgroundColor = NeoCyan,
+                    title = "DISCOVER ONLINE MUSIC",
+                    description = "Type any song title, artist, or trending track above to stream millions of songs online!",
+                    tips = listOf(
+                        "Search by track name, artist, or album",
+                        "Tap any track to begin instant streaming",
+                        "Powered by high-quality YouTube Music audio"
+                    )
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -445,113 +272,136 @@ fun SongsScreen(
             }
         } else {
             // LOCAL MUSIC CONTENT
-            // Filter & Sort Chips Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                NeoChip(
-                    text = "ALL TUNES (${songs.size})",
-                    selected = !favoritesOnly,
-                    onClick = { viewModel.setFavoritesFilter(false) },
-                    activeColor = NeoAcidGreen
+            if (!hasPermission) {
+                NeoEmptyState(
+                    icon = Icons.Default.Security,
+                    iconBackgroundColor = NeoHotPink,
+                    title = "STORAGE ACCESS REQUIRED",
+                    description = "Lyro needs permission to read audio files from your device storage to discover and play your offline music library.",
+                    primaryButtonText = "ALLOW STORAGE ACCESS",
+                    primaryButtonColor = NeoHotPink,
+                    onPrimaryButtonClick = onRequestPermission,
+                    secondaryButtonText = "STREAM ONLINE INSTEAD 🌐",
+                    secondaryButtonColor = NeoCyan,
+                    onSecondaryButtonClick = { viewModel.setOnlineMode(true) }
                 )
-
-                NeoChip(
-                    text = "FAVORITES ♥",
-                    selected = favoritesOnly,
-                    onClick = { viewModel.setFavoritesFilter(true) },
-                    activeColor = NeoHotPink
+            } else if (isLoading) {
+                NeoLoadingState(
+                    title = "SCANNING STORAGE FOR TUNES...",
+                    subtitle = "Searching and indexing offline audio tracks on your device..."
                 )
-
-                NeoChip(
-                    text = if (sortOrder == SortOrder.TITLE) "SORT: A-Z" else "A-Z",
-                    selected = sortOrder == SortOrder.TITLE,
-                    onClick = { viewModel.onSortOrderChanged(SortOrder.TITLE) },
-                    activeColor = NeoCyberYellow
-                )
-
-                NeoChip(
-                    text = if (sortOrder == SortOrder.DATE_ADDED) "SORT: NEWEST" else "NEWEST",
-                    selected = sortOrder == SortOrder.DATE_ADDED,
-                    onClick = { viewModel.onSortOrderChanged(SortOrder.DATE_ADDED) },
-                    activeColor = NeoCyan
-                )
-
-                NeoChip(
-                    text = if (sortOrder == SortOrder.DURATION) "SORT: LENGTH" else "LENGTH",
-                    selected = sortOrder == SortOrder.DURATION,
-                    onClick = { viewModel.onSortOrderChanged(SortOrder.DURATION) },
-                    activeColor = NeoLavender
-                )
-            }
-
-            // Songs List or Empty State
-            if (songs.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    NeoCard(
-                        backgroundColor = NeoLavender,
-                        shadowOffset = 6.dp
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "NO TUNES FOUND",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black,
-                                color = NeoBlack
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = if (searchQuery.isNotEmpty()) "No results matching \"$searchQuery\"" else "Add audio files to your device or rescan!",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = NeoBlack.copy(alpha = 0.8f)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            NeoButton(
-                                onClick = { viewModel.loadSongs() },
-                                backgroundColor = NeoAcidGreen
-                            ) {
-                                Text(
-                                    text = "RESCAN STORAGE",
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 12.sp,
-                                    color = NeoBlack
-                                )
-                            }
-                        }
-                    }
-                }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp)
+                // Filter & Sort Chips Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items(
-                        items = songs,
-                        key = { it.id },
-                        contentType = { "song_row" }
-                    ) { song ->
-                        SongListItem(
-                            song = song,
-                            isCurrentSong = currentSong?.id == song.id,
-                            isPlaying = isPlaying && currentSong?.id == song.id,
-                            onClick = { viewModel.playSong(song) },
-                            onFavoriteToggle = { viewModel.toggleFavorite(song) },
-                            onMoreClick = { selectedSongForMenu = song }
+                    NeoChip(
+                        text = "ALL TUNES (${songs.size})",
+                        selected = !favoritesOnly,
+                        onClick = { viewModel.setFavoritesFilter(false) },
+                        activeColor = NeoAcidGreen
+                    )
+
+                    NeoChip(
+                        text = "FAVORITES ♥",
+                        selected = favoritesOnly,
+                        onClick = { viewModel.setFavoritesFilter(true) },
+                        activeColor = NeoHotPink
+                    )
+
+                    NeoChip(
+                        text = if (sortOrder == SortOrder.TITLE) "SORT: A-Z" else "A-Z",
+                        selected = sortOrder == SortOrder.TITLE,
+                        onClick = { viewModel.onSortOrderChanged(SortOrder.TITLE) },
+                        activeColor = NeoCyberYellow
+                    )
+
+                    NeoChip(
+                        text = if (sortOrder == SortOrder.DATE_ADDED) "SORT: NEWEST" else "NEWEST",
+                        selected = sortOrder == SortOrder.DATE_ADDED,
+                        onClick = { viewModel.onSortOrderChanged(SortOrder.DATE_ADDED) },
+                        activeColor = NeoCyan
+                    )
+
+                    NeoChip(
+                        text = if (sortOrder == SortOrder.DURATION) "SORT: LENGTH" else "LENGTH",
+                        selected = sortOrder == SortOrder.DURATION,
+                        onClick = { viewModel.onSortOrderChanged(SortOrder.DURATION) },
+                        activeColor = NeoLavender
+                    )
+                }
+
+                // Songs List or Empty State
+                if (songs.isEmpty()) {
+                    if (favoritesOnly) {
+                        NeoEmptyState(
+                            icon = Icons.Default.FavoriteBorder,
+                            iconBackgroundColor = NeoHotPink,
+                            title = "NO FAVORITE TUNES YET",
+                            description = "You haven't added any tracks to your favorites yet. Tap the heart icon (♥) on any song to save it here!",
+                            primaryButtonText = "VIEW ALL TUNES",
+                            primaryButtonColor = NeoAcidGreen,
+                            onPrimaryButtonClick = { viewModel.setFavoritesFilter(false) },
+                            secondaryButtonText = "SEARCH ONLINE 🌐",
+                            secondaryButtonColor = NeoCyan,
+                            onSecondaryButtonClick = { viewModel.setOnlineMode(true) }
                         )
+                    } else if (searchQuery.isNotBlank()) {
+                        NeoEmptyState(
+                            icon = Icons.Default.SearchOff,
+                            iconBackgroundColor = NeoLavender,
+                            title = "NO MATCHING TUNES",
+                            description = "Couldn't find any offline tracks matching \"$searchQuery\". Try searching YouTube Music instead.",
+                            primaryButtonText = "SEARCH ONLINE FOR \"${searchQuery.take(20)}\" 🌐",
+                            primaryButtonColor = NeoCyan,
+                            onPrimaryButtonClick = { viewModel.setOnlineMode(true) },
+                            secondaryButtonText = "CLEAR SEARCH FILTER",
+                            secondaryButtonColor = NeoWhite,
+                            onSecondaryButtonClick = { viewModel.onSearchQueryChanged("") }
+                        )
+                    } else {
+                        NeoEmptyState(
+                            icon = Icons.Default.MusicOff,
+                            iconBackgroundColor = NeoCyberYellow,
+                            title = "NO SONGS FOUND ON DEVICE",
+                            description = "We scanned your device storage, but couldn't find any offline audio files (.mp3, .m4a, .flac, .wav).",
+                            tips = listOf(
+                                "Put audio files into your phone's 'Music' or 'Download' folder",
+                                "Tap 'Rescan Storage' below to refresh the library",
+                                "Or stream millions of songs for free using Online Search!"
+                            ),
+                            primaryButtonText = "RESCAN STORAGE 🔄",
+                            primaryButtonColor = NeoAcidGreen,
+                            onPrimaryButtonClick = { viewModel.loadSongs() },
+                            secondaryButtonText = "TRY ONLINE SEARCH 🌐",
+                            secondaryButtonColor = NeoCyan,
+                            onSecondaryButtonClick = { viewModel.setOnlineMode(true) }
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp)
+                    ) {
+                        items(
+                            items = songs,
+                            key = { it.id },
+                            contentType = { "song_row" }
+                        ) { song ->
+                            SongListItem(
+                                song = song,
+                                isCurrentSong = currentSong?.id == song.id,
+                                isPlaying = isPlaying && currentSong?.id == song.id,
+                                onClick = { viewModel.playSong(song) },
+                                onFavoriteToggle = { viewModel.toggleFavorite(song) },
+                                onMoreClick = { selectedSongForMenu = song }
+                            )
+                        }
                     }
                 }
             }

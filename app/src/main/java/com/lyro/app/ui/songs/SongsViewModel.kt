@@ -87,7 +87,9 @@ class SongsViewModel(
     fun loadSongs() {
         viewModelScope.launch {
             _isLoading.value = true
-            repository.loadSongs()
+            val loaded = repository.loadSongs()
+            playbackManager.validateCurrentTrack(loaded)
+            delay(300)
             _isLoading.value = false
         }
     }
