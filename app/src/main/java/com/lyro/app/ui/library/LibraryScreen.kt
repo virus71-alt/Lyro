@@ -32,6 +32,9 @@ import com.lyro.app.data.repository.SortOrder
 import com.lyro.app.ui.components.LyroEmptyState
 import com.lyro.app.ui.components.SongRow
 import com.lyro.app.ui.home.SectionHeader
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.lyro.app.ui.songs.SongsViewModel
 
 enum class LibraryFilter {
@@ -47,6 +50,8 @@ fun LibraryScreen(
     hasPermission: Boolean,
     onRequestPermission: () -> Unit,
     onPlaylistClick: (Playlist) -> Unit,
+    listState: LazyListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() },
+    contentPadding: PaddingValues = PaddingValues(bottom = 140.dp),
     modifier: Modifier = Modifier
 ) {
     val songs by viewModel.songs.collectAsState()
@@ -56,16 +61,22 @@ fun LibraryScreen(
     val currentSong by viewModel.currentSong.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
 
-    var selectedFilter by remember { mutableStateOf(LibraryFilter.ALL) }
+    var selectedFilter by rememberSaveable { mutableStateOf(LibraryFilter.ALL) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
     var selectedSongForMenu by remember { mutableStateOf<Song?>(null) }
 
+    // If a filter is active, back press resets filter to ALL before leaving Library
+    BackHandler(enabled = selectedFilter != LibraryFilter.ALL) {
+        selectedFilter = LibraryFilter.ALL
+    }
+
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .background(LyroBackground),
-        contentPadding = PaddingValues(bottom = 120.dp)
+        contentPadding = contentPadding
     ) {
         // 1. Top Header
         item(key = "library_header") {

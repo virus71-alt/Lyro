@@ -27,6 +27,9 @@ import com.lyro.app.data.model.OnlineTrack
 import com.lyro.app.data.model.Playlist
 import com.lyro.app.data.model.Song
 import com.lyro.app.ui.components.SongArtworkThumbnail
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.lyro.app.ui.components.SongRow
 import com.lyro.app.ui.songs.SongsViewModel
 
@@ -37,6 +40,8 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     onLikedSongsClick: () -> Unit,
     onPlaylistClick: (Playlist) -> Unit,
+    listState: LazyListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() },
+    contentPadding: PaddingValues = PaddingValues(bottom = 140.dp),
     modifier: Modifier = Modifier
 ) {
     val quickPicks by viewModel.quickPicks.collectAsState()
@@ -51,16 +56,18 @@ fun HomeScreen(
     val isPlaying by viewModel.isPlaying.collectAsState()
 
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .background(LyroBackground),
-        contentPadding = PaddingValues(bottom = 120.dp)
+        contentPadding = contentPadding
     ) {
         // 1. Top App Bar: Clean Branding + Search & Settings Actions
         item(key = "home_top_bar") {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .statusBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically

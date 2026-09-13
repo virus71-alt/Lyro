@@ -5,48 +5,35 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.lyro.app.core.designsystem.*
+import com.lyro.app.core.designsystem.LyroBackground
+import com.lyro.app.core.designsystem.LyroTheme
 import com.lyro.app.ui.components.MiniPlayer
 import com.lyro.app.ui.explore.ExploreScreen
 import com.lyro.app.ui.home.HomeScreen
 import com.lyro.app.ui.library.LibraryScreen
+import com.lyro.app.ui.navigation.LyroBottomNavigation
+import com.lyro.app.ui.navigation.MainDestination
+import com.lyro.app.ui.navigation.OverlayScreen
 import com.lyro.app.ui.nowplaying.NowPlayingScreen
 import com.lyro.app.ui.nowplaying.NowPlayingViewModel
 import com.lyro.app.ui.settings.SettingsScreen
 import com.lyro.app.ui.songs.SongsViewModel
-
-enum class CurrentTab {
-    HOME,
-    EXPLORE,
-    LIBRARY
-}
-
-enum class ActiveScreen {
-    MAIN,
-    NOW_PLAYING,
-    SETTINGS
-}
 
 class MainActivity : ComponentActivity() {
 
@@ -77,8 +64,14 @@ class MainActivity : ComponentActivity() {
                 val currentPosition by playbackManager.currentPosition.collectAsState()
                 val duration by playbackManager.duration.collectAsState()
 
-                var currentTab by remember { mutableStateOf(CurrentTab.HOME) }
-                var activeScreen by remember { mutableStateOf(ActiveScreen.MAIN) }
+                // Primary Navigation & Overlay States
+                var currentDestination by rememberSaveable { mutableStateOf(MainDestination.HOME) }
+                var activeOverlay by rememberSaveable { mutableStateOf(OverlayScreen.NONE) }
+
+                // Preserved scroll states across bottom destination switches
+                val homeListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+                val exploreListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+                val libraryListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
 
                 // Permission state
                 val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -111,77 +104,92 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Dynamic bottom padding calculation:
+                // Prevents list content from being hidden behind MiniPlayer and BottomNavigation
+                val bottomPadding = if (currentSong != null) 148.dp else 76.dp
+                val contentPadding = PaddingValues(bottom = bottomPadding)
+
+                // Predictable Android Back Navigation:
+                // 1. Overlay screens (Now Playing, Settings) dismiss back to the exact active tab
+                // 2. Secondary tabs (Explore, Library) return back to Home root
+                // 3. Home root exits activity
+                BackHandler(enabled = activeOverlay != OverlayScreen.NONE) {
+                    activeOverlay = OverlayScreen.NONE
+                }
+
+                BackHandler(enabled = activeOverlay == OverlayScreen.NONE && currentDestination != MainDestination.HOME) {
+                    currentDestination = MainDestination.HOME
+                }
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = LyroBackground
                 ) {
-                    when (activeScreen) {
-                        ActiveScreen.NOW_PLAYING -> {
-                            NowPlayingScreen(
-                                viewModel = nowPlayingViewModel,
-                                playerPreferences = playerPreferences,
-                                onBackClick = { activeScreen = ActiveScreen.MAIN }
-                            )
-                        }
-
-                        ActiveScreen.SETTINGS -> {
-                            SettingsScreen(
-                                viewModel = songsViewModel,
-                                playerPreferences = playerPreferences,
-                                onBackClick = { activeScreen = ActiveScreen.MAIN }
-                            )
-                        }
-
-                        ActiveScreen.MAIN -> {
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                // Body Content (Tab-based primary navigation)
-                                Box(modifier = Modifier.fillMaxSize()) {
-                                    when (currentTab) {
-                                        CurrentTab.HOME -> {
-                                            HomeScreen(
-                                                viewModel = songsViewModel,
-                                                onSearchClick = {
-                                                    currentTab = CurrentTab.EXPLORE
-                                                },
-                                                onSettingsClick = {
-                                                    activeScreen = ActiveScreen.SETTINGS
-                                                },
-                                                onLikedSongsClick = {
-                                                    currentTab = CurrentTab.LIBRARY
-                                                },
-                                                onPlaylistClick = { _ ->
-                                                    currentTab = CurrentTab.LIBRARY
-                                                }
-                                            )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // 1. Destination Content with Restrained Crossfade
+                        Crossfade(
+                            targetState = currentDestination,
+                            animationSpec = tween(durationMillis = 180),
+                            label = "MainDestinationCrossfade"
+                        ) { destination ->
+                            when (destination) {
+                                MainDestination.HOME -> {
+                                    HomeScreen(
+                                        viewModel = songsViewModel,
+                                        listState = homeListState,
+                                        contentPadding = contentPadding,
+                                        onSearchClick = {
+                                            currentDestination = MainDestination.EXPLORE
+                                        },
+                                        onSettingsClick = {
+                                            activeOverlay = OverlayScreen.SETTINGS
+                                        },
+                                        onLikedSongsClick = {
+                                            currentDestination = MainDestination.LIBRARY
+                                        },
+                                        onPlaylistClick = { _ ->
+                                            currentDestination = MainDestination.LIBRARY
                                         }
-
-                                        CurrentTab.EXPLORE -> {
-                                            ExploreScreen(
-                                                viewModel = songsViewModel
-                                            )
-                                        }
-
-                                        CurrentTab.LIBRARY -> {
-                                            LibraryScreen(
-                                                viewModel = songsViewModel,
-                                                hasPermission = hasPermission,
-                                                onRequestPermission = {
-                                                    permissionLauncher.launch(audioPermission)
-                                                },
-                                                onPlaylistClick = { _ -> }
-                                            )
-                                        }
-                                    }
+                                    )
                                 }
 
-                                // Persistent Floating Bottom Container: MiniPlayer + Bottom Navigation
-                                Column(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .fillMaxWidth()
-                                        .navigationBarsPadding()
-                                ) {
-                                    // Persistent Mini Player
+                                MainDestination.EXPLORE -> {
+                                    ExploreScreen(
+                                        viewModel = songsViewModel,
+                                        listState = exploreListState,
+                                        contentPadding = contentPadding
+                                    )
+                                }
+
+                                MainDestination.LIBRARY -> {
+                                    LibraryScreen(
+                                        viewModel = songsViewModel,
+                                        listState = libraryListState,
+                                        contentPadding = contentPadding,
+                                        hasPermission = hasPermission,
+                                        onRequestPermission = {
+                                            permissionLauncher.launch(audioPermission)
+                                        },
+                                        onPlaylistClick = { _ -> }
+                                    )
+                                }
+                            }
+                        }
+
+                        // 2. Persistent Floating Bottom Container: MiniPlayer + LyroBottomNavigation
+                        // Visible across all 3 destinations; hidden when an overlay screen is active
+                        AnimatedVisibility(
+                            visible = activeOverlay == OverlayScreen.NONE,
+                            enter = fadeIn(animationSpec = tween(150)),
+                            exit = fadeOut(animationSpec = tween(150)),
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .navigationBarsPadding()
+                            ) {
+                                if (currentSong != null) {
                                     MiniPlayer(
                                         song = currentSong,
                                         isPlaying = isPlaying,
@@ -189,89 +197,59 @@ class MainActivity : ComponentActivity() {
                                         duration = duration,
                                         onPlayPauseClick = { playbackManager.togglePlayPause() },
                                         onNextClick = { playbackManager.skipNext() },
-                                        onExpandClick = { activeScreen = ActiveScreen.NOW_PLAYING }
-                                    )
-
-                                    // Minimal Material-Style Bottom Navigation Bar
-                                    LyroBottomNavBar(
-                                        currentTab = currentTab,
-                                        onTabSelected = { currentTab = it }
+                                        onExpandClick = { activeOverlay = OverlayScreen.NOW_PLAYING }
                                     )
                                 }
+
+                                LyroBottomNavigation(
+                                    currentDestination = currentDestination,
+                                    onDestinationSelected = { selected ->
+                                        currentDestination = selected
+                                    }
+                                )
                             }
+                        }
+
+                        // 3. Fullscreen Overlay: Now Playing Screen (Vertical Slide + Fade)
+                        AnimatedVisibility(
+                            visible = activeOverlay == OverlayScreen.NOW_PLAYING,
+                            enter = slideInVertically(
+                                initialOffsetY = { it },
+                                animationSpec = tween(280)
+                            ) + fadeIn(tween(280)),
+                            exit = slideOutVertically(
+                                targetOffsetY = { it },
+                                animationSpec = tween(240)
+                            ) + fadeOut(tween(240))
+                        ) {
+                            NowPlayingScreen(
+                                viewModel = nowPlayingViewModel,
+                                playerPreferences = playerPreferences,
+                                onBackClick = { activeOverlay = OverlayScreen.NONE }
+                            )
+                        }
+
+                        // 4. Fullscreen Overlay: Settings Screen (Vertical Slide + Fade)
+                        AnimatedVisibility(
+                            visible = activeOverlay == OverlayScreen.SETTINGS,
+                            enter = slideInVertically(
+                                initialOffsetY = { it },
+                                animationSpec = tween(280)
+                            ) + fadeIn(tween(280)),
+                            exit = slideOutVertically(
+                                targetOffsetY = { it },
+                                animationSpec = tween(240)
+                            ) + fadeOut(tween(240))
+                        ) {
+                            SettingsScreen(
+                                viewModel = songsViewModel,
+                                playerPreferences = playerPreferences,
+                                onBackClick = { activeOverlay = OverlayScreen.NONE }
+                            )
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun LyroBottomNavBar(
-    currentTab: CurrentTab,
-    onTabSelected: (CurrentTab) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(LyroBackground)
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceAround,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        LyroNavButton(
-            label = "Home",
-            icon = Icons.Default.Home,
-            selected = currentTab == CurrentTab.HOME,
-            onClick = { onTabSelected(CurrentTab.HOME) }
-        )
-
-        LyroNavButton(
-            label = "Explore",
-            icon = Icons.Default.Explore,
-            selected = currentTab == CurrentTab.EXPLORE,
-            onClick = { onTabSelected(CurrentTab.EXPLORE) }
-        )
-
-        LyroNavButton(
-            label = "Library",
-            icon = Icons.Default.LibraryMusic,
-            selected = currentTab == CurrentTab.LIBRARY,
-            onClick = { onTabSelected(CurrentTab.LIBRARY) }
-        )
-    }
-}
-
-@Composable
-fun LyroNavButton(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val selectedColor = LyroTextPrimary
-    val unselectedColor = LyroTextMuted
-
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = if (selected) LyroTextPrimary else unselectedColor,
-            modifier = Modifier.size(24.dp)
-        )
-        Text(
-            text = label,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            fontSize = 11.sp,
-            color = if (selected) selectedColor else unselectedColor
-        )
     }
 }

@@ -27,6 +27,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyro.app.core.designsystem.*
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.lyro.app.data.download.DownloadStatus
 import com.lyro.app.ui.components.OnlineSongListItem
 import com.lyro.app.ui.components.SongListItem
@@ -38,6 +42,8 @@ import com.lyro.app.ui.songs.SongsViewModel
 @Composable
 fun ExploreScreen(
     viewModel: SongsViewModel,
+    listState: LazyListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() },
+    contentPadding: PaddingValues = PaddingValues(bottom = 140.dp),
     modifier: Modifier = Modifier
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -54,11 +60,17 @@ fun ExploreScreen(
     val isPlaying by viewModel.isPlaying.collectAsState()
     val isResolvingStream by viewModel.isResolvingStream.collectAsState()
 
+    // Back button clears active search query first before delegating to parent
+    BackHandler(enabled = searchQuery.isNotBlank()) {
+        viewModel.onSearchQueryChanged("")
+    }
+
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .background(LyroBackground),
-        contentPadding = PaddingValues(bottom = 120.dp)
+        contentPadding = contentPadding
     ) {
         // 1. Top Title & Unified Search Bar
         item(key = "explore_header") {
