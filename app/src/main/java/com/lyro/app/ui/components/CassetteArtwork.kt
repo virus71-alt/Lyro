@@ -274,11 +274,12 @@ fun SongArtworkThumbnail(
         NeoAccentPalette[index]
     }
 
-    val onlineArtUrl = song.albumArtUriString?.takeIf { it.startsWith("http") }
+    val artUrl = song.albumArtUriString?.takeIf { it.isNotBlank() }
         ?: song.contentUriString.takeIf { it.startsWith("http") }
+    var isImageError by remember(song.id, artUrl) { mutableStateOf(false) }
 
-    LaunchedEffect(song.id) {
-        if (onlineArtUrl == null && bitmap == null && !com.lyro.app.core.artwork.ArtworkCache.hasAttempted(song.id)) {
+    LaunchedEffect(song.id, artUrl, isImageError) {
+        if ((artUrl.isNullOrBlank() || isImageError) && bitmap == null && !com.lyro.app.core.artwork.ArtworkCache.hasAttempted(song.id)) {
             val loaded = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 com.lyro.app.core.artwork.ArtworkCache.loadThumbnail(context, song.id, song.contentUri)
             }
@@ -298,12 +299,15 @@ fun SongArtworkThumbnail(
             .clip(RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
-        if (!onlineArtUrl.isNullOrBlank()) {
+        if (!artUrl.isNullOrBlank() && !isImageError) {
             AsyncImage(
-                model = onlineArtUrl,
+                model = artUrl,
                 contentDescription = song.title,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                onError = {
+                    isImageError = true
+                }
             )
         } else if (currentBitmap != null) {
             Image(

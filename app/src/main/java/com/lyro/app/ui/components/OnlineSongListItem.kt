@@ -7,7 +7,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -24,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.Color
 import com.lyro.app.core.designsystem.*
+import com.lyro.app.data.download.DownloadStatus
 import com.lyro.app.data.model.OnlineTrack
 import com.lyro.app.data.model.PlayableTrack
 
@@ -33,6 +37,8 @@ fun OnlineSongListItem(
     isCurrentTrack: Boolean,
     isPlaying: Boolean,
     isResolving: Boolean,
+    downloadStatus: DownloadStatus,
+    onDownloadClick: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -165,34 +171,105 @@ fun OnlineSongListItem(
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
 
-            // Play Icon Button
-            Box(
-                modifier = Modifier
-                    .padding(end = 2.dp, bottom = 2.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                // 1-Click Download Button
+                val downloadBg = when (downloadStatus) {
+                    is DownloadStatus.Completed -> NeoAcidGreen
+                    is DownloadStatus.Downloading -> NeoCyberYellow
+                    is DownloadStatus.Failed -> NeoHotPink
+                    is DownloadStatus.Idle -> NeoWhite
+                }
+
                 Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .offset(x = 2.dp, y = 2.dp)
-                        .background(NeoBlack, RoundedCornerShape(6.dp))
-                )
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .background(if (isCurrentTrack) NeoAcidGreen else NeoWhite, RoundedCornerShape(6.dp))
-                        .border(1.5.dp, NeoBlack, RoundedCornerShape(6.dp))
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable(onClick = onClick),
-                    contentAlignment = Alignment.Center
+                    modifier = Modifier.padding(end = 2.dp, bottom = 2.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Play",
-                        tint = NeoBlack,
-                        modifier = Modifier.size(20.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .offset(x = 2.dp, y = 2.dp)
+                            .background(NeoBlack, RoundedCornerShape(6.dp))
                     )
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(downloadBg, RoundedCornerShape(6.dp))
+                            .border(1.5.dp, NeoBlack, RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(
+                                enabled = downloadStatus !is DownloadStatus.Downloading && downloadStatus !is DownloadStatus.Completed,
+                                onClick = onDownloadClick
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        when (downloadStatus) {
+                            is DownloadStatus.Downloading -> {
+                                CircularProgressIndicator(
+                                    progress = { downloadStatus.progress },
+                                    modifier = Modifier.size(16.dp),
+                                    color = NeoBlack,
+                                    strokeWidth = 2.dp,
+                                    trackColor = NeoBlack.copy(alpha = 0.2f)
+                                )
+                            }
+                            is DownloadStatus.Completed -> {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Downloaded",
+                                    tint = NeoBlack,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            is DownloadStatus.Failed -> {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Retry Download",
+                                    tint = NeoWhite,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            is DownloadStatus.Idle -> {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = "Download to Device",
+                                    tint = NeoBlack,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Play Icon Button
+                Box(
+                    modifier = Modifier.padding(end = 2.dp, bottom = 2.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .offset(x = 2.dp, y = 2.dp)
+                            .background(NeoBlack, RoundedCornerShape(6.dp))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(if (isCurrentTrack) NeoAcidGreen else NeoWhite, RoundedCornerShape(6.dp))
+                            .border(1.5.dp, NeoBlack, RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(onClick = onClick),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Play",
+                            tint = NeoBlack,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }

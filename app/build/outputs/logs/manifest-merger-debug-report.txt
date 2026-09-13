@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:2:1-59:12
-INJECTED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:2:1-59:12
-INJECTED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:2:1-59:12
-INJECTED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:2:1-59:12
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:2:1-63:12
+INJECTED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:2:1-63:12
+INJECTED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:2:1-63:12
+INJECTED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:2:1-63:12
 MERGED from [androidx.media3:media3-session:1.3.1] C:\Users\Rishu\.gradle\caches\8.9\transforms\381b9e08afe64c3d5c19460d973efc94\transformed\media3-session-1.3.1\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.media3:media3-extractor:1.3.1] C:\Users\Rishu\.gradle\caches\8.9\transforms\d50cb61c4abb2979b9b7887ca47ffd8e\transformed\media3-extractor-1.3.1\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.media3:media3-container:1.3.1] C:\Users\Rishu\.gradle\caches\8.9\transforms\c202c5fce372ff2e75dd06281fbecbfc\transformed\media3-container-1.3.1\AndroidManifest.xml:17:1-22:12
@@ -93,37 +93,45 @@ ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:7:5-9:38
 		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:9:9-35
 	android:name
 		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:8:9-64
+uses-permission#android.permission.WRITE_EXTERNAL_STORAGE
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:10:5-13:40
+	android:maxSdkVersion
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:12:9-35
+	tools:ignore
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:13:9-37
+	android:name
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:11:9-65
 uses-permission#android.permission.FOREGROUND_SERVICE
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:12:5-77
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:16:5-77
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:12:22-74
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:16:22-74
 uses-permission#android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:13:5-92
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:17:5-92
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:13:22-89
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:17:22-89
 uses-permission#android.permission.POST_NOTIFICATIONS
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:14:5-77
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:18:5-77
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:14:22-74
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:18:22-74
 uses-permission#android.permission.WAKE_LOCK
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:15:5-68
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:19:5-68
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:15:22-65
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:19:22-65
 uses-permission#android.permission.INTERNET
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:18:5-67
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:22:5-67
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:18:22-64
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:22:22-64
 uses-permission#android.permission.ACCESS_NETWORK_STATE
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:19:5-79
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:23:5-79
 MERGED from [androidx.media3:media3-common:1.3.1] C:\Users\Rishu\.gradle\caches\8.9\transforms\f6fe042d3506d8d6c03e868fb6f53b32\transformed\media3-common-1.3.1\AndroidManifest.xml:22:5-79
 MERGED from [androidx.media3:media3-common:1.3.1] C:\Users\Rishu\.gradle\caches\8.9\transforms\f6fe042d3506d8d6c03e868fb6f53b32\transformed\media3-common-1.3.1\AndroidManifest.xml:22:5-79
 MERGED from [androidx.media3:media3-exoplayer:1.3.1] C:\Users\Rishu\.gradle\caches\8.9\transforms\3e26a279b5271addc37cc624a447e93a\transformed\media3-exoplayer-1.3.1\AndroidManifest.xml:22:5-79
 MERGED from [androidx.media3:media3-exoplayer:1.3.1] C:\Users\Rishu\.gradle\caches\8.9\transforms\3e26a279b5271addc37cc624a447e93a\transformed\media3-exoplayer-1.3.1\AndroidManifest.xml:22:5-79
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:19:22-76
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:23:22-76
 application
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:21:5-57:19
-INJECTED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:21:5-57:19
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:25:5-61:19
+INJECTED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:25:5-61:19
 MERGED from [androidx.compose.ui:ui-test-manifest:1.6.8] C:\Users\Rishu\.gradle\caches\8.9\transforms\80ff57d83f04587dc1521e3d80a56957\transformed\ui-test-manifest-1.6.8\AndroidManifest.xml:22:5-26:19
 MERGED from [androidx.compose.ui:ui-test-manifest:1.6.8] C:\Users\Rishu\.gradle\caches\8.9\transforms\80ff57d83f04587dc1521e3d80a56957\transformed\ui-test-manifest-1.6.8\AndroidManifest.xml:22:5-26:19
 MERGED from [androidx.compose.ui:ui-tooling-android:1.6.8] C:\Users\Rishu\.gradle\caches\8.9\transforms\71bae93a0a971eb58a0820718992f53c\transformed\ui-tooling-release\AndroidManifest.xml:22:5-26:19
@@ -145,67 +153,67 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\Rishu\.gradle\cach
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.13.1] C:\Users\Rishu\.gradle\caches\8.9\transforms\75ea9556da06a2ddba1460016a6e4412\transformed\core-1.13.1\AndroidManifest.xml:28:18-86
 	android:supportsRtl
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:29:9-35
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:33:9-35
 	android:label
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:27:9-41
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:31:9-41
 	android:fullBackupContent
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:25:9-54
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:29:9-54
 	android:roundIcon
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:28:9-54
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:32:9-54
 	tools:targetApi
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:31:9-29
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:35:9-29
 	android:icon
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:26:9-43
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:30:9-43
 	android:allowBackup
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:23:9-35
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:27:9-35
 	android:theme
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:30:9-42
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:34:9-42
 	android:dataExtractionRules
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:24:9-65
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:28:9-65
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:22:9-40
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:26:9-40
 activity#com.lyro.app.MainActivity
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:33:9-44:20
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:37:9-48:20
 	android:label
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:36:13-45
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:40:13-45
 	android:launchMode
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:37:13-43
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:41:13-43
 	android:windowSoftInputMode
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:39:13-55
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:43:13-55
 	android:exported
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:35:13-36
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:39:13-36
 	android:theme
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:38:13-46
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:42:13-46
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:34:13-41
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:38:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:40:13-43:29
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:44:13-47:29
 action#android.intent.action.MAIN
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:41:17-69
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:45:17-69
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:41:25-66
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:45:25-66
 category#android.intent.category.LAUNCHER
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:42:17-77
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:46:17-77
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:42:27-74
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:46:27-74
 service#com.lyro.app.service.LyroMediaService
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:47:9-55:19
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:51:9-59:19
 	android:exported
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:49:13-36
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:53:13-36
 	android:foregroundServiceType
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:50:13-58
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:54:13-58
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:48:13-53
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:52:13-53
 intent-filter#action:name:android.media.browse.MediaBrowserService+action:name:androidx.media3.session.MediaSessionService
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:51:13-54:29
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:55:13-58:29
 action#androidx.media3.session.MediaSessionService
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:52:17-86
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:56:17-86
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:52:25-83
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:56:25-83
 action#android.media.browse.MediaBrowserService
-ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:53:17-83
+ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:57:17-83
 	android:name
-		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:53:25-80
+		ADDED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml:57:25-80
 uses-sdk
 INJECTED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from C:\Projects\Lyro\app\src\main\AndroidManifest.xml

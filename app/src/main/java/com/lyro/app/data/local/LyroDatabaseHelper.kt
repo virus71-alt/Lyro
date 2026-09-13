@@ -10,13 +10,14 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
     companion object {
         private const val DATABASE_NAME = "lyro_music.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
 
         // Tables
         const val TABLE_FAVORITES = "favorites"
         const val TABLE_PLAYLISTS = "playlists"
         const val TABLE_PLAYLIST_SONGS = "playlist_songs"
         const val TABLE_HISTORY = "history"
+        const val TABLE_DOWNLOADED_METADATA = "downloaded_metadata"
 
         // Columns
         const val COL_SONG_ID = "song_id"
@@ -29,6 +30,15 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
         const val COL_LAST_PLAYED = "last_played"
         const val COL_PLAY_COUNT = "play_count"
+
+        // Downloaded Metadata Columns
+        const val COL_META_VIDEO_ID = "video_id"
+        const val COL_META_DISPLAY_NAME = "display_name"
+        const val COL_META_TITLE = "title"
+        const val COL_META_ARTIST = "artist"
+        const val COL_META_ALBUM = "album"
+        const val COL_META_THUMBNAIL_URI = "thumbnail_uri"
+        const val COL_META_DURATION = "duration_ms"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -72,14 +82,38 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
             )
             """.trimIndent()
         )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_DOWNLOADED_METADATA (
+                $COL_META_VIDEO_ID TEXT PRIMARY KEY,
+                $COL_META_DISPLAY_NAME TEXT,
+                $COL_META_TITLE TEXT NOT NULL,
+                $COL_META_ARTIST TEXT NOT NULL,
+                $COL_META_ALBUM TEXT,
+                $COL_META_THUMBNAIL_URI TEXT,
+                $COL_META_DURATION INTEGER DEFAULT 0
+            )
+            """.trimIndent()
+        )
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_FAVORITES")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_PLAYLISTS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_PLAYLIST_SONGS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_HISTORY")
-        onCreate(db)
+        if (oldVersion < 2) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS $TABLE_DOWNLOADED_METADATA (
+                    $COL_META_VIDEO_ID TEXT PRIMARY KEY,
+                    $COL_META_DISPLAY_NAME TEXT,
+                    $COL_META_TITLE TEXT NOT NULL,
+                    $COL_META_ARTIST TEXT NOT NULL,
+                    $COL_META_ALBUM TEXT,
+                    $COL_META_THUMBNAIL_URI TEXT,
+                    $COL_META_DURATION INTEGER DEFAULT 0
+                )
+                """.trimIndent()
+            )
+        }
     }
 
     // --- Favorites ---
@@ -221,4 +255,57 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         cursor.close()
         return list
     }
+
+    // --- Downloaded Song Metadata ---
+    fun saveDownloadedMetadata(meta: DownloadedMetadata) {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put(COL_META_VIDEO_ID, meta.videoId)
+            put(COL_META_DISPLAY_NAME, meta.displayName)
+            put(COL_META_TITLE, meta.title)
+            put(COL_META_ARTIST, meta.artist)
+            put(COL_META_ALBUM, meta.album)
+            put(COL_META_THUMBNAIL_URI, meta.thumbnailUri)
+            put(COL_META_DURATION, meta.durationMs)
+        }
+        db.insertWithOnConflict(TABLE_DOWNLOADED_METADATA, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun getAllDownloadedMetadata(): List<DownloadedMetadata> {
+        val list = mutableListOf<DownloadedMetadata>()
+        val db = readableDatabase
+        try {
+            val cursor = db.rawQuery(
+                "SELECT $COL_META_VIDEO_ID, $COL_META_DISPLAY_NAME, $COL_META_TITLE, $COL_META_ARTIST, $COL_META_ALBUM, $COL_META_THUMBNAIL_URI, $COL_META_DURATION FROM $TABLE_DOWNLOADED_METADATA",
+                null
+            )
+            while (cursor.moveToNext()) {
+                list.add(
+                    DownloadedMetadata(
+                        videoId = cursor.getString(0) ?: "",
+                        displayName = cursor.getString(1) ?: "",
+                        title = cursor.getString(2) ?: "",
+                        artist = cursor.getString(3) ?: "",
+                        album = cursor.getString(4),
+                        thumbnailUri = cursor.getString(5),
+                        durationMs = cursor.getLong(6)
+                    )
+                )
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            // In case table does not exist
+        }
+        return list
+    }
 }
+
+data class DownloadedMetadata(
+    val videoId: String,
+    val displayName: String,
+    val title: String,
+    val artist: String,
+    val album: String?,
+    val thumbnailUri: String?,
+    val durationMs: Long = 0L
+)

@@ -25,6 +25,9 @@ class LyroApplication : Application(), ImageLoaderFactory {
     lateinit var playerPreferences: com.lyro.app.data.preferences.PlayerPreferences
         private set
 
+    lateinit var musicDownloader: com.lyro.app.data.download.MusicDownloader
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -33,6 +36,7 @@ class LyroApplication : Application(), ImageLoaderFactory {
         musicRepository = MusicRepository(this, databaseHelper)
         onlineMusicRepository = com.lyro.app.data.repository.OnlineMusicRepository()
         playbackManager = PlaybackManager(this, musicRepository)
+        musicDownloader = com.lyro.app.data.download.MusicDownloader(this, musicRepository)
     }
 
     override fun newImageLoader(): ImageLoader {

@@ -2,6 +2,9 @@ package com.lyro.app.ui.songs
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lyro.app.LyroApplication
+import com.lyro.app.data.download.DownloadStatus
+import com.lyro.app.data.download.MusicDownloader
 import com.lyro.app.data.model.OnlineTrack
 import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Playlist
@@ -18,8 +21,26 @@ import kotlinx.coroutines.launch
 class SongsViewModel(
     private val repository: MusicRepository,
     private val onlineRepository: OnlineMusicRepository,
-    private val playbackManager: PlaybackManager
+    private val playbackManager: PlaybackManager,
+    private val musicDownloader: MusicDownloader = LyroApplication.instance.musicDownloader
 ) : ViewModel() {
+
+    val downloadStatuses: StateFlow<Map<String, DownloadStatus>> = musicDownloader.downloadStatuses
+    val lastCompletedDownload: StateFlow<OnlineTrack?> = musicDownloader.lastCompletedTrack
+
+    fun clearLastCompletedDownload() {
+        musicDownloader.clearLastCompletedTrack()
+    }
+
+    fun isTrackDownloaded(track: OnlineTrack): Boolean {
+        return musicDownloader.isTrackDownloaded(track)
+    }
+
+    fun downloadTrack(track: OnlineTrack) {
+        viewModelScope.launch {
+            musicDownloader.downloadTrack(track)
+        }
+    }
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()

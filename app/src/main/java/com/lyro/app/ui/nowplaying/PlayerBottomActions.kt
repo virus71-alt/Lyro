@@ -1,28 +1,39 @@
 package com.lyro.app.ui.nowplaying
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.lyro.app.core.designsystem.*
+import com.lyro.app.data.download.DownloadStatus
 import com.lyro.app.data.model.Song
 
 @Composable
 fun PlayerBottomActions(
     currentSong: Song?,
     sleepTimerMinutesLeft: Int?,
+    downloadStatus: DownloadStatus = DownloadStatus.Idle,
     onFavoriteClick: (Song) -> Unit,
+    onDownloadClick: () -> Unit = {},
     onSleepTimerClick: () -> Unit,
     onQueueClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -41,6 +52,66 @@ fun PlayerBottomActions(
                 tint = if (isFav) NeoWhite else NeoBlack,
                 modifier = Modifier.size(22.dp)
             )
+        }
+
+        // Download Button
+        val isDownloaded = downloadStatus is DownloadStatus.Completed
+        val isDownloading = downloadStatus is DownloadStatus.Downloading
+        val isFailed = downloadStatus is DownloadStatus.Failed
+
+        val downloadBg = when {
+            isDownloaded -> NeoAcidGreen
+            isFailed -> NeoHotPink
+            else -> NeoWhite
+        }
+
+        NeoIconButton(
+            onClick = {
+                if (isDownloaded) {
+                    Toast.makeText(context, "Song already saved to local storage!", Toast.LENGTH_SHORT).show()
+                } else if (!isDownloading) {
+                    onDownloadClick()
+                }
+            },
+            backgroundColor = downloadBg,
+            size = 44.dp
+        ) {
+            when {
+                isDownloading -> {
+                    val progress = (downloadStatus as DownloadStatus.Downloading).progress
+                    CircularProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.size(20.dp),
+                        color = NeoBlack,
+                        strokeWidth = 2.5.dp,
+                        trackColor = NeoBlack.copy(alpha = 0.2f)
+                    )
+                }
+                isDownloaded -> {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Downloaded to Local Storage",
+                        tint = NeoBlack,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                isFailed -> {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Retry Download",
+                        tint = NeoWhite,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                else -> {
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = "Download to Local Storage",
+                        tint = NeoBlack,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
         }
 
         // Sleep Timer Button
@@ -64,7 +135,7 @@ fun PlayerBottomActions(
             size = 44.dp
         ) {
             Icon(
-                imageVector = Icons.Default.QueueMusic,
+                imageVector = Icons.AutoMirrored.Filled.QueueMusic,
                 contentDescription = "Queue",
                 tint = NeoBlack,
                 modifier = Modifier.size(22.dp)

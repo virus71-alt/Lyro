@@ -35,6 +35,7 @@ fun CassettePlayerScreen(
     val repeatMode by viewModel.repeatMode.collectAsState()
     val queue by viewModel.queue.collectAsState()
     val sleepTimerMinutesLeft by viewModel.sleepTimerMinutesLeft.collectAsState()
+    val downloadStatus by viewModel.currentDownloadStatus.collectAsState()
 
     var showQueueSheet by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
@@ -285,11 +286,13 @@ fun CassettePlayerScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Bottom Action Bar: Favorite, Sleep Timer, Queue
+        // Bottom Action Bar: Favorite, Download, Sleep Timer, Queue
         PlayerBottomActions(
             currentSong = currentSong,
             sleepTimerMinutesLeft = sleepTimerMinutesLeft,
+            downloadStatus = downloadStatus,
             onFavoriteClick = { viewModel.toggleFavorite(it) },
+            onDownloadClick = { viewModel.downloadCurrentTrack() },
             onSleepTimerClick = { showSleepTimerDialog = true },
             onQueueClick = { showQueueSheet = true }
         )

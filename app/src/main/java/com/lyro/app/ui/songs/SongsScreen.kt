@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyro.app.core.designsystem.*
+import com.lyro.app.data.download.DownloadStatus
 import com.lyro.app.data.model.Song
 import com.lyro.app.data.repository.SortOrder
 import com.lyro.app.ui.components.NeoEmptyState
@@ -54,6 +55,8 @@ fun SongsScreen(
     val onlineResults by viewModel.onlineSearchResults.collectAsState()
     val isSearchingOnline by viewModel.isSearchingOnline.collectAsState()
     val onlineSearchError by viewModel.onlineSearchError.collectAsState()
+    val downloadStatuses by viewModel.downloadStatuses.collectAsState()
+    val lastCompletedDownload by viewModel.lastCompletedDownload.collectAsState()
 
     var selectedSongForMenu by remember { mutableStateOf<Song?>(null) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
@@ -143,6 +146,69 @@ fun SongsScreen(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Dismiss",
                             tint = NeoWhite,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Download Completed Banner
+        lastCompletedDownload?.let { completed ->
+            LaunchedEffect(completed.videoId) {
+                kotlinx.coroutines.delay(3500)
+                viewModel.clearLastCompletedDownload()
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .padding(end = 3.dp, bottom = 3.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .offset(x = 3.dp, y = 3.dp)
+                        .background(NeoBlack, RoundedCornerShape(8.dp))
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(NeoAcidGreen, RoundedCornerShape(8.dp))
+                        .border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = NeoBlack,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "DOWNLOADED: ${completed.title} - Added to Offline Tunes!",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp,
+                            color = NeoBlack,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { viewModel.clearLastCompletedDownload() },
+                        modifier = Modifier.size(20.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Dismiss",
+                            tint = NeoBlack,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -260,11 +326,16 @@ fun SongsScreen(
                         key = { it.videoId },
                         contentType = { "online_item" }
                     ) { track ->
+                        val status = downloadStatuses[track.videoId]
+                            ?: if (viewModel.isTrackDownloaded(track)) DownloadStatus.Completed else DownloadStatus.Idle
+
                         OnlineSongListItem(
                             track = track,
                             isCurrentTrack = currentTrack?.id == track.videoId,
                             isPlaying = isPlaying && currentTrack?.id == track.videoId,
                             isResolving = isResolvingStream && currentTrack?.id == track.videoId,
+                            downloadStatus = status,
+                            onDownloadClick = { viewModel.downloadTrack(track) },
                             onClick = { viewModel.playOnlineTrack(track) }
                         )
                     }
