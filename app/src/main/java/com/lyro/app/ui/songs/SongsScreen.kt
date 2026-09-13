@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -26,8 +27,8 @@ import com.lyro.app.core.designsystem.*
 import com.lyro.app.data.download.DownloadStatus
 import com.lyro.app.data.model.Song
 import com.lyro.app.data.repository.SortOrder
-import com.lyro.app.ui.components.NeoEmptyState
-import com.lyro.app.ui.components.NeoLoadingState
+import com.lyro.app.ui.components.LyroEmptyState
+import com.lyro.app.ui.components.LyroLoadingState
 import com.lyro.app.ui.components.OnlineSongListItem
 import com.lyro.app.ui.components.SongListItem
 
@@ -65,90 +66,66 @@ fun SongsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(NeoBgLight)
+            .background(LyroBackground)
     ) {
         // Resolving Stream Banner
         if (isResolvingStream) {
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .padding(end = 3.dp, bottom = 3.dp)
+                    .background(LyroSurfaceElevated, RoundedCornerShape(10.dp))
+                    .border(1.dp, LyroDivider, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .offset(x = 3.dp, y = 3.dp)
-                        .background(NeoBlack, RoundedCornerShape(8.dp))
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = LyroAccent
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(NeoCyberYellow, RoundedCornerShape(8.dp))
-                        .border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.5.dp,
-                        color = NeoBlack
-                    )
-                    Text(
-                        text = "RESOLVING AUDIO STREAM...",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 11.sp,
-                        color = NeoBlack
-                    )
-                }
+                Text(
+                    text = "Resolving audio stream...",
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    color = LyroTextPrimary
+                )
             }
         }
 
         // Playback Error Banner with Dismiss Button
         playbackError?.let { error ->
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .padding(end = 3.dp, bottom = 3.dp)
+                    .background(LyroError.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                    .border(1.dp, LyroError.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .offset(x = 3.dp, y = 3.dp)
-                        .background(NeoBlack, RoundedCornerShape(8.dp))
+                Text(
+                    text = error,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    color = LyroError,
+                    modifier = Modifier.weight(1f)
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(NeoHotPink, RoundedCornerShape(8.dp))
-                        .border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                IconButton(
+                    onClick = { viewModel.clearPlaybackError() },
+                    modifier = Modifier.size(22.dp)
                 ) {
-                    Text(
-                        text = error,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
-                        color = NeoWhite,
-                        modifier = Modifier.weight(1f)
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Dismiss",
+                        tint = LyroError,
+                        modifier = Modifier.size(16.dp)
                     )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    IconButton(
-                        onClick = { viewModel.clearPlaybackError() },
-                        modifier = Modifier.size(20.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Dismiss",
-                            tint = NeoWhite,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
                 }
             }
         }
@@ -159,113 +136,93 @@ fun SongsScreen(
                 kotlinx.coroutines.delay(3500)
                 viewModel.clearLastCompletedDownload()
             }
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .padding(end = 3.dp, bottom = 3.dp)
+                    .background(LyroAccentMuted, RoundedCornerShape(10.dp))
+                    .border(1.dp, LyroAccent.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .offset(x = 3.dp, y = 3.dp)
-                        .background(NeoBlack, RoundedCornerShape(8.dp))
-                )
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(NeoAcidGreen, RoundedCornerShape(8.dp))
-                        .border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            tint = NeoBlack,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = "DOWNLOADED: ${completed.title} - Added to Offline Tunes!",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 11.sp,
-                            color = NeoBlack,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = LyroAccent,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "Downloaded: ${completed.title}",
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 12.sp,
+                        color = LyroTextPrimary,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
 
-                    IconButton(
-                        onClick = { viewModel.clearLastCompletedDownload() },
-                        modifier = Modifier.size(20.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Dismiss",
-                            tint = NeoBlack,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                IconButton(
+                    onClick = { viewModel.clearLastCompletedDownload() },
+                    modifier = Modifier.size(22.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Dismiss",
+                        tint = LyroTextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         }
 
-        // Neo-Brutalist Search Bar
+        // Modern Minimal Search Bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 6.dp)
-                .padding(end = 3.dp, bottom = 3.dp)
         ) {
-            // Shadow
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .offset(x = 3.dp, y = 3.dp)
-                    .background(NeoBlack, RoundedCornerShape(10.dp))
-            )
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(NeoWhite, RoundedCornerShape(10.dp))
-                    .border(2.dp, NeoBlack, RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .height(48.dp)
+                    .background(LyroSurfaceElevated, RoundedCornerShape(12.dp))
+                    .border(1.dp, LyroDivider, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = "Search",
-                    tint = NeoBlack,
+                    tint = LyroTextSecondary,
                     modifier = Modifier.size(20.dp)
                 )
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
                 Box(modifier = Modifier.weight(1f)) {
                     if (searchQuery.isEmpty()) {
                         Text(
-                            text = if (isOnlineMode) "Search YouTube Music songs, artists..." else "Search local tracks, artists, albums...",
-                            color = NeoBlack.copy(alpha = 0.45f),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                            text = if (isOnlineMode) "Search YouTube Music songs, artists..." else "Search local tracks, artists...",
+                            color = LyroTextMuted,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Normal
                         )
                     }
                     BasicTextField(
                         value = searchQuery,
                         onValueChange = { viewModel.onSearchQueryChanged(it) },
                         singleLine = true,
-                        cursorBrush = SolidColor(NeoBlack),
+                        cursorBrush = SolidColor(LyroAccent),
                         textStyle = TextStyle(
-                            color = NeoBlack,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
+                            color = LyroTextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Normal
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -274,12 +231,12 @@ fun SongsScreen(
                 if (searchQuery.isNotEmpty()) {
                     IconButton(
                         onClick = { viewModel.onSearchQueryChanged("") },
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(24.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Clear",
-                            tint = NeoBlack,
+                            tint = LyroTextSecondary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -290,30 +247,27 @@ fun SongsScreen(
         if (isOnlineMode) {
             // ONLINE SEARCH CONTENT
             if (isSearchingOnline) {
-                NeoLoadingState(
-                    title = "SEARCHING YOUTUBE MUSIC...",
-                    subtitle = "Finding online tracks for \"$searchQuery\"..."
+                LyroLoadingState(
+                    title = "Searching Online Music...",
+                    subtitle = "Finding tracks for \"$searchQuery\""
                 )
             } else if (onlineSearchError != null) {
-                NeoEmptyState(
+                LyroEmptyState(
                     icon = Icons.Default.SearchOff,
-                    iconBackgroundColor = NeoLavender,
-                    title = "ONLINE SEARCH",
-                    description = onlineSearchError ?: "No tracks found",
-                    primaryButtonText = "CLEAR SEARCH",
-                    primaryButtonColor = NeoCyan,
+                    title = "No Tracks Found",
+                    description = onlineSearchError ?: "No matching results found.",
+                    primaryButtonText = "Clear Search",
                     onPrimaryButtonClick = { viewModel.onSearchQueryChanged("") }
                 )
             } else if (onlineResults.isEmpty()) {
-                NeoEmptyState(
+                LyroEmptyState(
                     icon = Icons.Default.MusicNote,
-                    iconBackgroundColor = NeoCyan,
-                    title = "DISCOVER ONLINE MUSIC",
-                    description = "Type any song title, artist, or trending track above to stream millions of songs online!",
+                    title = "Discover Online Music",
+                    description = "Search millions of songs, artists, and albums for instant online streaming.",
                     tips = listOf(
-                        "Search by track name, artist, or album",
+                        "Search by song title, artist, or album",
                         "Tap any track to begin instant streaming",
-                        "Powered by high-quality YouTube Music audio"
+                        "Download any song with 1-click for offline playback"
                     )
                 )
             } else {
@@ -344,22 +298,19 @@ fun SongsScreen(
         } else {
             // LOCAL MUSIC CONTENT
             if (!hasPermission) {
-                NeoEmptyState(
+                LyroEmptyState(
                     icon = Icons.Default.Security,
-                    iconBackgroundColor = NeoHotPink,
-                    title = "STORAGE ACCESS REQUIRED",
-                    description = "Lyro needs permission to read audio files from your device storage to discover and play your offline music library.",
-                    primaryButtonText = "ALLOW STORAGE ACCESS",
-                    primaryButtonColor = NeoHotPink,
+                    title = "Storage Access Required",
+                    description = "Lyro needs storage access to find and play audio files on your device.",
+                    primaryButtonText = "Allow Storage Access",
                     onPrimaryButtonClick = onRequestPermission,
-                    secondaryButtonText = "STREAM ONLINE INSTEAD 🌐",
-                    secondaryButtonColor = NeoCyan,
+                    secondaryButtonText = "Stream Online Instead",
                     onSecondaryButtonClick = { viewModel.setOnlineMode(true) }
                 )
             } else if (isLoading) {
-                NeoLoadingState(
-                    title = "SCANNING STORAGE FOR TUNES...",
-                    subtitle = "Searching and indexing offline audio tracks on your device..."
+                LyroLoadingState(
+                    title = "Scanning Local Library...",
+                    subtitle = "Searching and indexing audio tracks on your device..."
                 )
             } else {
                 // Filter & Sort Chips Row
@@ -371,86 +322,72 @@ fun SongsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    NeoChip(
-                        text = "ALL TUNES (${songs.size})",
+                    LyroChip(
+                        text = "All Tracks (${songs.size})",
                         selected = !favoritesOnly,
-                        onClick = { viewModel.setFavoritesFilter(false) },
-                        activeColor = NeoAcidGreen
+                        onClick = { viewModel.setFavoritesFilter(false) }
                     )
 
-                    NeoChip(
-                        text = "FAVORITES ♥",
+                    LyroChip(
+                        text = "Favorites ♥",
                         selected = favoritesOnly,
-                        onClick = { viewModel.setFavoritesFilter(true) },
-                        activeColor = NeoHotPink
+                        onClick = { viewModel.setFavoritesFilter(true) }
                     )
 
-                    NeoChip(
-                        text = if (sortOrder == SortOrder.TITLE) "SORT: A-Z" else "A-Z",
+                    LyroChip(
+                        text = if (sortOrder == SortOrder.TITLE) "A-Z ✓" else "A-Z",
                         selected = sortOrder == SortOrder.TITLE,
-                        onClick = { viewModel.onSortOrderChanged(SortOrder.TITLE) },
-                        activeColor = NeoCyberYellow
+                        onClick = { viewModel.onSortOrderChanged(SortOrder.TITLE) }
                     )
 
-                    NeoChip(
-                        text = if (sortOrder == SortOrder.DATE_ADDED) "SORT: NEWEST" else "NEWEST",
+                    LyroChip(
+                        text = if (sortOrder == SortOrder.DATE_ADDED) "Newest ✓" else "Newest",
                         selected = sortOrder == SortOrder.DATE_ADDED,
-                        onClick = { viewModel.onSortOrderChanged(SortOrder.DATE_ADDED) },
-                        activeColor = NeoCyan
+                        onClick = { viewModel.onSortOrderChanged(SortOrder.DATE_ADDED) }
                     )
 
-                    NeoChip(
-                        text = if (sortOrder == SortOrder.DURATION) "SORT: LENGTH" else "LENGTH",
+                    LyroChip(
+                        text = if (sortOrder == SortOrder.DURATION) "Length ✓" else "Length",
                         selected = sortOrder == SortOrder.DURATION,
-                        onClick = { viewModel.onSortOrderChanged(SortOrder.DURATION) },
-                        activeColor = NeoLavender
+                        onClick = { viewModel.onSortOrderChanged(SortOrder.DURATION) }
                     )
                 }
 
                 // Songs List or Empty State
                 if (songs.isEmpty()) {
                     if (favoritesOnly) {
-                        NeoEmptyState(
+                        LyroEmptyState(
                             icon = Icons.Default.FavoriteBorder,
-                            iconBackgroundColor = NeoHotPink,
-                            title = "NO FAVORITE TUNES YET",
-                            description = "You haven't added any tracks to your favorites yet. Tap the heart icon (♥) on any song to save it here!",
-                            primaryButtonText = "VIEW ALL TUNES",
-                            primaryButtonColor = NeoAcidGreen,
+                            title = "No Favorite Songs",
+                            description = "You haven't marked any songs as favorites yet. Tap the heart on any track to add it here.",
+                            primaryButtonText = "View All Tracks",
                             onPrimaryButtonClick = { viewModel.setFavoritesFilter(false) },
-                            secondaryButtonText = "SEARCH ONLINE 🌐",
-                            secondaryButtonColor = NeoCyan,
+                            secondaryButtonText = "Search Online",
                             onSecondaryButtonClick = { viewModel.setOnlineMode(true) }
                         )
                     } else if (searchQuery.isNotBlank()) {
-                        NeoEmptyState(
+                        LyroEmptyState(
                             icon = Icons.Default.SearchOff,
-                            iconBackgroundColor = NeoLavender,
-                            title = "NO MATCHING TUNES",
-                            description = "Couldn't find any offline tracks matching \"$searchQuery\". Try searching YouTube Music instead.",
-                            primaryButtonText = "SEARCH ONLINE FOR \"${searchQuery.take(20)}\" 🌐",
-                            primaryButtonColor = NeoCyan,
+                            title = "No Matches Found",
+                            description = "No local tracks matched \"$searchQuery\". Try searching online instead.",
+                            primaryButtonText = "Search Online for \"${searchQuery.take(20)}\"",
                             onPrimaryButtonClick = { viewModel.setOnlineMode(true) },
-                            secondaryButtonText = "CLEAR SEARCH FILTER",
-                            secondaryButtonColor = NeoWhite,
+                            secondaryButtonText = "Clear Filter",
                             onSecondaryButtonClick = { viewModel.onSearchQueryChanged("") }
                         )
                     } else {
-                        NeoEmptyState(
+                        LyroEmptyState(
                             icon = Icons.Default.MusicOff,
-                            iconBackgroundColor = NeoCyberYellow,
-                            title = "NO SONGS FOUND ON DEVICE",
-                            description = "We scanned your device storage, but couldn't find any offline audio files (.mp3, .m4a, .flac, .wav).",
+                            title = "No Songs Found",
+                            description = "No audio files were detected on your device storage.",
                             tips = listOf(
-                                "Put audio files into your phone's 'Music' or 'Download' folder",
-                                "Tap 'Rescan Storage' below to refresh the library",
-                                "Or stream millions of songs for free using Online Search!"
+                                "Add audio files (.mp3, .m4a, .flac) to your Music or Download folder",
+                                "Tap 'Rescan Storage' to refresh your library",
+                                "Or stream music online using the Online switch above"
                             ),
-                            primaryButtonText = "RESCAN STORAGE 🔄",
-                            primaryButtonColor = NeoAcidGreen,
+                            primaryButtonText = "Rescan Storage",
                             onPrimaryButtonClick = { viewModel.loadSongs() },
-                            secondaryButtonText = "TRY ONLINE SEARCH 🌐",
-                            secondaryButtonColor = NeoCyan,
+                            secondaryButtonText = "Switch to Online Search",
                             onSecondaryButtonClick = { viewModel.setOnlineMode(true) }
                         )
                     }
@@ -483,44 +420,54 @@ fun SongsScreen(
     selectedSongForMenu?.let { song ->
         ModalBottomSheet(
             onDismissRequest = { selectedSongForMenu = null },
-            containerColor = NeoBgLight,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+            containerColor = LyroSurfaceElevated,
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 10.dp)
+                        .width(36.dp)
+                        .height(4.dp)
+                        .background(LyroTextMuted.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
+                )
+            }
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+                    .padding(bottom = 24.dp)
             ) {
                 Text(
-                    text = "ADD TO PLAYLIST",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Black,
-                    color = NeoBlack
+                    text = "Add to Mixtape",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = LyroTextPrimary
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "${song.title} - ${song.artist}",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = NeoBlack.copy(alpha = 0.7f)
+                    text = "${song.title} • ${song.artist}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = LyroTextSecondary,
+                    maxLines = 1
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                NeoButton(
-                    onClick = {
-                        showCreatePlaylistDialog = true
-                    },
-                    backgroundColor = NeoAcidGreen,
+                LyroButton(
+                    onClick = { showCreatePlaylistDialog = true },
+                    backgroundColor = LyroAccent,
+                    contentColor = Color.Black,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = NeoBlack)
+                    Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "CREATE NEW PLAYLIST",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 12.sp,
-                        color = NeoBlack
+                        text = "Create New Mixtape",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        color = Color.Black
                     )
                 }
 
@@ -528,44 +475,38 @@ fun SongsScreen(
 
                 if (playlists.isEmpty()) {
                     Text(
-                        text = "No playlists created yet.",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = NeoBlack.copy(alpha = 0.5f),
+                        text = "No mixtapes created yet.",
+                        fontSize = 13.sp,
+                        color = LyroTextMuted,
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
                 } else {
                     playlists.forEach { pl ->
-                        Box(
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
-                        ) {
-                            NeoButton(
-                                onClick = {
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(LyroSurface)
+                                .clickable {
                                     viewModel.addSongToPlaylist(pl.id, song.id)
                                     selectedSongForMenu = null
-                                },
-                                backgroundColor = NeoWhite,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = pl.name,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = NeoBlack
-                                    )
-                                    NeoBadge(
-                                        text = "${pl.songCount} TUNES",
-                                        backgroundColor = NeoCyberYellow
-                                    )
                                 }
-                            }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = pl.name,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp,
+                                color = LyroTextPrimary
+                            )
+                            Text(
+                                text = "${pl.songCount} tracks",
+                                fontSize = 12.sp,
+                                color = LyroTextSecondary
+                            )
                         }
                     }
                 }
@@ -578,52 +519,49 @@ fun SongsScreen(
         AlertDialog(
             onDismissRequest = { showCreatePlaylistDialog = false },
             confirmButton = {
-                NeoButton(
+                TextButton(
                     onClick = {
                         if (newPlaylistName.isNotBlank()) {
                             viewModel.createPlaylist(newPlaylistName, (0..6).random())
                             newPlaylistName = ""
                             showCreatePlaylistDialog = false
                         }
-                    },
-                    backgroundColor = NeoAcidGreen
+                    }
                 ) {
-                    Text("SAVE", fontWeight = FontWeight.Black, color = NeoBlack)
+                    Text("Create", color = LyroAccent, fontWeight = FontWeight.SemiBold)
                 }
             },
             dismissButton = {
-                NeoButton(
-                    onClick = { showCreatePlaylistDialog = false },
-                    backgroundColor = NeoWhite
-                ) {
-                    Text("CANCEL", fontWeight = FontWeight.Bold, color = NeoBlack)
+                TextButton(onClick = { showCreatePlaylistDialog = false }) {
+                    Text("Cancel", color = LyroTextSecondary)
                 }
             },
             title = {
-                Text("NEW PLAYLIST", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                Text("New Mixtape", fontWeight = FontWeight.SemiBold, fontSize = 17.sp, color = LyroTextPrimary)
             },
             text = {
                 Column {
-                    Text("Enter playlist title:", fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Enter mixtape name:", fontSize = 13.sp, color = LyroTextSecondary)
+                    Spacer(modifier = Modifier.height(10.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(NeoWhite, RoundedCornerShape(8.dp))
-                            .border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
-                            .padding(10.dp)
+                            .background(LyroSurface, RoundedCornerShape(10.dp))
+                            .border(1.dp, LyroDivider, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
                     ) {
                         BasicTextField(
                             value = newPlaylistName,
                             onValueChange = { newPlaylistName = it },
                             singleLine = true,
-                            textStyle = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            cursorBrush = SolidColor(LyroAccent),
+                            textStyle = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = LyroTextPrimary)
                         )
                     }
                 }
             },
-            containerColor = NeoBgLight,
-            shape = RoundedCornerShape(12.dp)
+            containerColor = LyroSurfaceElevated,
+            shape = RoundedCornerShape(16.dp)
         )
     }
 }

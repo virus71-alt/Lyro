@@ -3,6 +3,7 @@ package com.lyro.app.ui.nowplaying
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -76,11 +77,11 @@ fun WheelPlayerScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(NeoBgLight)
+            .background(LyroBackground)
             .statusBarsPadding()
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
@@ -90,102 +91,94 @@ fun WheelPlayerScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            NeoIconButton(
+            IconButton(
                 onClick = onBackClick,
-                backgroundColor = NeoWhite,
-                size = 40.dp
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
                     contentDescription = "Collapse",
-                    tint = NeoBlack,
-                    modifier = Modifier.size(26.dp)
+                    tint = LyroTextPrimary,
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
-            NeoBadge(
-                text = "NOW PLAYING",
-                backgroundColor = NeoAcidGreen,
-                textColor = NeoBlack
+            Text(
+                text = "Now Playing",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = LyroTextSecondary
             )
 
             // Balancer spacer matching collapse button size
             Spacer(modifier = Modifier.size(40.dp))
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Hero Artwork: Real Album Artwork with Neo-Brutalist Frame
+        // Hero Artwork: Album Artwork with sleek minimal rounded corners
+        val artShape = RoundedCornerShape(16.dp)
         Box(
-            modifier = Modifier.padding(end = 5.dp, bottom = 5.dp)
+            modifier = Modifier
+                .size(175.dp)
+                .clip(artShape)
+                .background(LyroSurfaceElevated)
+                .border(1.dp, LyroDivider, artShape)
         ) {
-            // Drop shadow
-            Box(
-                modifier = Modifier
-                    .size(175.dp)
-                    .offset(x = 5.dp, y = 5.dp)
-                    .background(NeoBlack, RoundedCornerShape(16.dp))
-            )
-
             if (currentSong != null) {
                 SongArtworkThumbnail(
                     song = currentSong!!,
-                    modifier = Modifier
-                        .size(175.dp)
-                        .clip(RoundedCornerShape(16.dp)),
+                    modifier = Modifier.fillMaxSize(),
                     size = 175.dp
                 )
             } else {
                 Box(
-                    modifier = Modifier
-                        .size(175.dp)
-                        .background(NeoLavender, RoundedCornerShape(16.dp))
-                        .border(3.dp, NeoBlack, RoundedCornerShape(16.dp)),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "LYRO",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 22.sp,
-                        color = NeoBlack
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = null,
+                        tint = LyroTextMuted,
+                        modifier = Modifier.size(48.dp)
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Song Title & Artist (No fake LOSSLESS or file size badges)
+        // Clean Song Title & Artist
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = currentSong?.title ?: "No Song Selected",
-                fontWeight = FontWeight.Black,
-                fontSize = 18.sp,
+                text = currentSong?.title ?: "No Track Playing",
+                fontWeight = FontWeight.Bold,
+                fontSize = 19.sp,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = NeoBlack
+                color = LyroTextPrimary
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = currentSong?.artist ?: "Select a song to start",
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
+                fontWeight = FontWeight.Normal,
+                fontSize = 14.sp,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = NeoBlack.copy(alpha = 0.7f)
+                color = LyroTextSecondary
             )
 
             if (sleepTimerMinutesLeft != null) {
-                Spacer(modifier = Modifier.height(6.dp))
-                NeoBadge(
-                    text = "TIMER: ${sleepTimerMinutesLeft}M",
-                    backgroundColor = NeoHotPink,
-                    textColor = NeoWhite
+                Spacer(modifier = Modifier.height(8.dp))
+                LyroBadge(
+                    text = "Sleep Timer: ${sleepTimerMinutesLeft}m",
+                    backgroundColor = LyroAccentMuted,
+                    textColor = LyroAccent
                 )
             }
         }
@@ -202,176 +195,159 @@ fun WheelPlayerScreen(
         ) {
             Text(
                 text = NowPlayingUtils.formatTime(displayPositionMs),
-                fontWeight = FontWeight.Black,
+                fontWeight = if (isDraggingWheel) FontWeight.SemiBold else FontWeight.Normal,
                 fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace,
-                color = if (isDraggingWheel) NeoHotPink else NeoBlack
+                color = if (isDraggingWheel) LyroAccent else LyroTextSecondary
             )
 
             if (isDraggingWheel) {
-                NeoBadge(
-                    text = "ROTATING TO SEEK",
-                    backgroundColor = NeoCyberYellow,
-                    textColor = NeoBlack
+                LyroBadge(
+                    text = "Rotating to seek",
+                    backgroundColor = LyroAccentMuted,
+                    textColor = LyroAccent
                 )
             }
 
             Text(
                 text = NowPlayingUtils.formatTime(duration),
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.Normal,
                 fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace,
-                color = NeoBlack
+                color = LyroTextSecondary
             )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Interactive Tactile Wheel
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .padding(bottom = 6.dp, end = 6.dp)
-        ) {
-            // Wheel Drop Shadow
-            Box(
-                modifier = Modifier
-                    .size(220.dp)
-                    .offset(x = 5.dp, y = 5.dp)
-                    .background(NeoBlack, CircleShape)
-            )
-
-            // Main Tactile Wheel Surface
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(220.dp)
-                    .background(NeoWhite, CircleShape)
-                    .border(3.5.dp, NeoBlack, CircleShape)
-                    .clip(CircleShape)
-                    .onGloballyPositioned { coordinates ->
-                        wheelCenter = Offset(
-                            coordinates.size.width / 2f,
-                            coordinates.size.height / 2f
-                        )
-                    }
-                    .semantics {
-                        progressBarRangeInfo = ProgressBarRangeInfo(displayProgress, 0f..1f)
-                        setProgress { target ->
-                            viewModel.seekTo((target * duration).toLong())
-                            true
-                        }
-                    }
-                    .pointerInput(Unit) {
-                        detectDragGestures(
-                            onDragStart = { offset ->
-                                isDraggingWheel = true
-                                previewProgress = currentProgress
-                                val dx = offset.x - wheelCenter.x
-                                val dy = offset.y - wheelCenter.y
-                                lastAngle = (atan2(dy, dx) * (180f / PI.toFloat()) + 360f) % 360f
-                            },
-                            onDragEnd = {
-                                isDraggingWheel = false
-                                val targetMs = (previewProgress * duration).toLong()
-                                viewModel.seekTo(targetMs)
-                            },
-                            onDragCancel = {
-                                isDraggingWheel = false
-                            },
-                            onDrag = { change, _ ->
-                                change.consume()
-                                val dx = change.position.x - wheelCenter.x
-                                val dy = change.position.y - wheelCenter.y
-                                val currentAngle = (atan2(dy, dx) * (180f / PI.toFloat()) + 360f) % 360f
-
-                                // Calculate angular delta and normalize to [-180, 180] to prevent wraparound jump
-                                var delta = currentAngle - lastAngle
-                                if (delta > 180f) {
-                                    delta -= 360f
-                                } else if (delta < -180f) {
-                                    delta += 360f
-                                }
-
-                                // Map angular delta to progress change (1 full circle = 100% track length)
-                                val progressDelta = delta / 360f
-                                previewProgress = (previewProgress + progressDelta).coerceIn(0f, 1f)
-                                lastAngle = currentAngle
-                            }
-                        )
-                    }
-            ) {
-                // Wheel Canvas: Track, Acid Green Progress Arc, and Tactile Tick Dots
-                Canvas(modifier = Modifier.fillMaxSize().padding(14.dp)) {
-                    val diameter = size.minDimension
-                    val radius = diameter / 2f
-                    val strokeWidth = 14.dp.toPx()
-                    val arcSize = Size(diameter - strokeWidth, diameter - strokeWidth)
-                    val topLeft = Offset(strokeWidth / 2f, strokeWidth / 2f)
-
-                    // Background Track
-                    drawArc(
-                        color = NeoGrayLight,
-                        startAngle = 0f,
-                        sweepAngle = 360f,
-                        useCenter = false,
-                        topLeft = topLeft,
-                        size = arcSize,
-                        style = Stroke(width = strokeWidth)
-                    )
-
-                    // Active Progress Arc (From 12 o'clock = -90 degrees)
-                    val sweepAngle = 360f * displayProgress
-                    if (sweepAngle > 0f) {
-                        drawArc(
-                            color = NeoAcidGreen,
-                            startAngle = -90f,
-                            sweepAngle = sweepAngle,
-                            useCenter = false,
-                            topLeft = topLeft,
-                            size = arcSize,
-                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                        )
-                    }
-
-                    // 12 Tactile Dots around the circumference
-                    val dotTrackRadius = radius - strokeWidth - 10.dp.toPx()
-                    for (i in 0 until 12) {
-                        val angleDeg = i * 30f - 90f
-                        val angleRad = angleDeg * (PI / 180f).toFloat()
-                        val dotCenter = Offset(
-                            center.x + dotTrackRadius * cos(angleRad),
-                            center.y + dotTrackRadius * sin(angleRad)
-                        )
-                        val isPassed = (i * 30f) <= (sweepAngle)
-                        drawCircle(
-                            color = if (isPassed) NeoBlack else NeoGrayMedium,
-                            radius = 3.dp.toPx(),
-                            center = dotCenter
-                        )
-                    }
-                }
-
-                // Center Tactile Hub
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(72.dp)
-                        .background(NeoWhite, CircleShape)
-                        .border(3.dp, NeoBlack, CircleShape)
-                        .clip(CircleShape)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .background(if (isPlaying) NeoAcidGreen else NeoBlack, CircleShape)
-                            .border(2.dp, NeoBlack, CircleShape)
-                    )
-                }
-            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
+
+        // Interactive Minimalist Charcoal Wheel
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(220.dp)
+                .clip(CircleShape)
+                .background(LyroSurfaceElevated)
+                .border(1.dp, LyroDivider, CircleShape)
+                .onGloballyPositioned { coordinates ->
+                    wheelCenter = Offset(
+                        coordinates.size.width / 2f,
+                        coordinates.size.height / 2f
+                    )
+                }
+                .semantics {
+                    progressBarRangeInfo = ProgressBarRangeInfo(displayProgress, 0f..1f)
+                    setProgress { target ->
+                        viewModel.seekTo((target * duration).toLong())
+                        true
+                    }
+                }
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            isDraggingWheel = true
+                            previewProgress = currentProgress
+                            val dx = offset.x - wheelCenter.x
+                            val dy = offset.y - wheelCenter.y
+                            lastAngle = (atan2(dy, dx) * (180f / PI.toFloat()) + 360f) % 360f
+                        },
+                        onDragEnd = {
+                            isDraggingWheel = false
+                            val targetMs = (previewProgress * duration).toLong()
+                            viewModel.seekTo(targetMs)
+                        },
+                        onDragCancel = {
+                            isDraggingWheel = false
+                        },
+                        onDrag = { change, _ ->
+                            change.consume()
+                            val dx = change.position.x - wheelCenter.x
+                            val dy = change.position.y - wheelCenter.y
+                            val currentAngle = (atan2(dy, dx) * (180f / PI.toFloat()) + 360f) % 360f
+
+                            var delta = currentAngle - lastAngle
+                            if (delta > 180f) {
+                                delta -= 360f
+                            } else if (delta < -180f) {
+                                delta += 360f
+                            }
+
+                            val progressDelta = delta / 360f
+                            previewProgress = (previewProgress + progressDelta).coerceIn(0f, 1f)
+                            lastAngle = currentAngle
+                        }
+                    )
+                }
+        ) {
+            // Wheel Canvas: Track, Accent Progress Arc, and Tactile Dots
+            Canvas(modifier = Modifier.fillMaxSize().padding(14.dp)) {
+                val diameter = size.minDimension
+                val radius = diameter / 2f
+                val strokeWidth = 10.dp.toPx()
+                val arcSize = Size(diameter - strokeWidth, diameter - strokeWidth)
+                val topLeft = Offset(strokeWidth / 2f, strokeWidth / 2f)
+
+                // Background Track
+                drawArc(
+                    color = LyroSurfaceHighlight,
+                    startAngle = 0f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
+                    style = Stroke(width = strokeWidth)
+                )
+
+                // Active Progress Arc (From 12 o'clock = -90 degrees)
+                val sweepAngle = 360f * displayProgress
+                if (sweepAngle > 0f) {
+                    drawArc(
+                        color = LyroAccent,
+                        startAngle = -90f,
+                        sweepAngle = sweepAngle,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSize,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                }
+
+                // 12 Tactile Dots around the circumference
+                val dotTrackRadius = radius - strokeWidth - 8.dp.toPx()
+                for (i in 0 until 12) {
+                    val angleDeg = i * 30f - 90f
+                    val angleRad = angleDeg * (PI / 180f).toFloat()
+                    val dotCenter = Offset(
+                        center.x + dotTrackRadius * cos(angleRad),
+                        center.y + dotTrackRadius * sin(angleRad)
+                    )
+                    val isPassed = (i * 30f) <= sweepAngle
+                    drawCircle(
+                        color = if (isPassed) LyroAccent else LyroTextMuted.copy(alpha = 0.3f),
+                        radius = 2.5.dp.toPx(),
+                        center = dotCenter
+                    )
+                }
+            }
+
+            // Center Tactile Hub
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(68.dp)
+                    .clip(CircleShape)
+                    .background(LyroSurface)
+                    .border(1.dp, LyroDivider, CircleShape)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(if (isPlaying) LyroAccent else LyroSurfaceHighlight)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Main Transport Controls
         Row(
@@ -380,85 +356,82 @@ fun WheelPlayerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Shuffle
-            NeoIconButton(
+            IconButton(
                 onClick = { viewModel.toggleShuffle() },
-                backgroundColor = if (isShuffle) NeoCyberYellow else NeoWhite,
-                size = 44.dp
+                modifier = Modifier.size(44.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Shuffle,
                     contentDescription = "Shuffle",
-                    tint = NeoBlack,
-                    modifier = Modifier.size(20.dp)
+                    tint = if (isShuffle) LyroAccent else LyroTextSecondary,
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
             // Previous
-            NeoIconButton(
+            IconButton(
                 onClick = { viewModel.skipPrevious() },
-                backgroundColor = NeoWhite,
-                size = 48.dp
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.SkipPrevious,
                     contentDescription = "Previous",
-                    tint = NeoBlack,
-                    modifier = Modifier.size(26.dp)
+                    tint = LyroTextPrimary,
+                    modifier = Modifier.size(32.dp)
                 )
             }
 
-            // Large Play/Pause Button
-            NeoIconButton(
-                onClick = { viewModel.togglePlayPause() },
-                backgroundColor = NeoAcidGreen,
-                size = 64.dp,
-                shadowOffset = 5.dp
+            // Large Play/Pause Circular Accent Button
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(LyroAccent)
+                    .clickable { viewModel.togglePlayPause() },
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = NeoBlack,
-                    modifier = Modifier.size(36.dp)
+                    tint = Color.Black,
+                    modifier = Modifier.size(34.dp)
                 )
             }
 
             // Next
-            NeoIconButton(
+            IconButton(
                 onClick = { viewModel.skipNext() },
-                backgroundColor = NeoWhite,
-                size = 48.dp
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = "Next",
-                    tint = NeoBlack,
-                    modifier = Modifier.size(26.dp)
+                    tint = LyroTextPrimary,
+                    modifier = Modifier.size(32.dp)
                 )
             }
 
             // Repeat Mode
-            val repeatBg = when (repeatMode) {
-                Player.REPEAT_MODE_ONE -> NeoHotPink
-                Player.REPEAT_MODE_ALL -> NeoCyberYellow
-                else -> NeoWhite
+            val repeatTint = when (repeatMode) {
+                Player.REPEAT_MODE_OFF -> LyroTextSecondary
+                else -> LyroAccent
             }
-            NeoIconButton(
+            IconButton(
                 onClick = { viewModel.cycleRepeatMode() },
-                backgroundColor = repeatBg,
-                size = 44.dp
+                modifier = Modifier.size(44.dp)
             ) {
                 Icon(
                     imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
                     contentDescription = "Repeat",
-                    tint = if (repeatMode == Player.REPEAT_MODE_ONE) NeoWhite else NeoBlack,
-                    modifier = Modifier.size(20.dp)
+                    tint = repeatTint,
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        // Bottom Action Bar: Favorite, Download, Sleep Timer, Queue
+        // Bottom Actions: Favorite, Download, Sleep Timer, Queue
         PlayerBottomActions(
             currentSong = currentSong,
             sleepTimerMinutesLeft = sleepTimerMinutesLeft,

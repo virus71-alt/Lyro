@@ -1,9 +1,10 @@
 package com.lyro.app.ui.nowplaying
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -11,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -52,11 +55,11 @@ fun CassettePlayerScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(NeoBgLight)
+            .background(LyroBackground)
             .statusBarsPadding()
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
@@ -66,36 +69,36 @@ fun CassettePlayerScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            NeoIconButton(
+            IconButton(
                 onClick = onBackClick,
-                backgroundColor = NeoWhite,
-                size = 40.dp
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
                     contentDescription = "Collapse",
-                    tint = NeoBlack,
-                    modifier = Modifier.size(26.dp)
+                    tint = LyroTextPrimary,
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
-            NeoBadge(
-                text = "NOW PLAYING",
-                backgroundColor = NeoAcidGreen,
-                textColor = NeoBlack
+            Text(
+                text = "Now Playing",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = LyroTextSecondary
             )
 
-            // Balancer spacer matching collapse button size
+            // Balancer spacer matching collapse button
             Spacer(modifier = Modifier.size(40.dp))
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Hero Cassette Tape View
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = 4.dp),
             contentAlignment = Alignment.Center
         ) {
             CassetteArtwork(
@@ -105,54 +108,48 @@ fun CassettePlayerScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Song Title & Artist Card (Without fake LOSSLESS or file size badges)
-        NeoCard(
-            backgroundColor = NeoWhite,
-            shadowOffset = 4.dp,
-            modifier = Modifier.fillMaxWidth()
+        // Clean Song Title & Artist (No boxed card, no fake lossless badges)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = currentSong?.title ?: "No Song Selected",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 18.sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = NeoBlack
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = currentSong?.artist ?: "Choose a track from library",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = NeoBlack.copy(alpha = 0.7f)
-                )
+            Text(
+                text = currentSong?.title ?: "No Track Playing",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = LyroTextPrimary
+            )
 
-                if (sleepTimerMinutesLeft != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    NeoBadge(
-                        text = "TIMER: ${sleepTimerMinutesLeft}M",
-                        backgroundColor = NeoHotPink,
-                        textColor = NeoWhite
-                    )
-                }
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = currentSong?.artist ?: "Select a song to start playback",
+                fontWeight = FontWeight.Normal,
+                fontSize = 15.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = LyroTextSecondary
+            )
+
+            if (sleepTimerMinutesLeft != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                LyroBadge(
+                    text = "Sleep Timer: ${sleepTimerMinutesLeft}m",
+                    backgroundColor = LyroAccentMuted,
+                    textColor = LyroAccent
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // Chunky Neo-Brutalist Seekbar
+        // Minimal Seekbar
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -168,9 +165,9 @@ fun CassettePlayerScreen(
                     viewModel.seekTo(targetMs)
                 },
                 colors = SliderDefaults.colors(
-                    thumbColor = NeoBlack,
-                    activeTrackColor = NeoAcidGreen,
-                    inactiveTrackColor = NeoGrayMedium
+                    thumbColor = LyroAccent,
+                    activeTrackColor = LyroAccent,
+                    inactiveTrackColor = LyroDivider
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -184,109 +181,106 @@ fun CassettePlayerScreen(
                 val currentMs = if (isUserSeeking) (seekSliderPosition * duration).toLong() else currentPosition
                 Text(
                     text = NowPlayingUtils.formatTime(currentMs),
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Normal,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
-                    color = NeoBlack
+                    color = LyroTextSecondary
                 )
                 Text(
                     text = NowPlayingUtils.formatTime(duration),
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Normal,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
-                    color = NeoBlack
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Main Tactile Transport Controls
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Shuffle
-            NeoIconButton(
-                onClick = { viewModel.toggleShuffle() },
-                backgroundColor = if (isShuffle) NeoCyberYellow else NeoWhite,
-                size = 44.dp
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Shuffle,
-                    contentDescription = "Shuffle",
-                    tint = NeoBlack,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            // Previous
-            NeoIconButton(
-                onClick = { viewModel.skipPrevious() },
-                backgroundColor = NeoWhite,
-                size = 48.dp
-            ) {
-                Icon(
-                    imageVector = Icons.Default.SkipPrevious,
-                    contentDescription = "Previous",
-                    tint = NeoBlack,
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-
-            // Giant Play/Pause Button
-            NeoIconButton(
-                onClick = { viewModel.togglePlayPause() },
-                backgroundColor = NeoAcidGreen,
-                size = 64.dp,
-                shadowOffset = 5.dp
-            ) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = NeoBlack,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-
-            // Next
-            NeoIconButton(
-                onClick = { viewModel.skipNext() },
-                backgroundColor = NeoWhite,
-                size = 48.dp
-            ) {
-                Icon(
-                    imageVector = Icons.Default.SkipNext,
-                    contentDescription = "Next",
-                    tint = NeoBlack,
-                    modifier = Modifier.size(26.dp)
-                )
-            }
-
-            // Repeat Mode
-            val repeatBg = when (repeatMode) {
-                Player.REPEAT_MODE_ONE -> NeoHotPink
-                Player.REPEAT_MODE_ALL -> NeoCyberYellow
-                else -> NeoWhite
-            }
-            NeoIconButton(
-                onClick = { viewModel.cycleRepeatMode() },
-                backgroundColor = repeatBg,
-                size = 44.dp
-            ) {
-                Icon(
-                    imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
-                    contentDescription = "Repeat",
-                    tint = if (repeatMode == Player.REPEAT_MODE_ONE) NeoWhite else NeoBlack,
-                    modifier = Modifier.size(20.dp)
+                    color = LyroTextSecondary
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Bottom Action Bar: Favorite, Download, Sleep Timer, Queue
+        // Main Transport Controls
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Shuffle
+            IconButton(
+                onClick = { viewModel.toggleShuffle() },
+                modifier = Modifier.size(44.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Shuffle,
+                    contentDescription = "Shuffle",
+                    tint = if (isShuffle) LyroAccent else LyroTextSecondary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            // Previous
+            IconButton(
+                onClick = { viewModel.skipPrevious() },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SkipPrevious,
+                    contentDescription = "Previous",
+                    tint = LyroTextPrimary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            // Play/Pause circular accent button
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(LyroAccent)
+                    .clickable { viewModel.togglePlayPause() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    tint = Color.Black,
+                    modifier = Modifier.size(34.dp)
+                )
+            }
+
+            // Next
+            IconButton(
+                onClick = { viewModel.skipNext() },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SkipNext,
+                    contentDescription = "Next",
+                    tint = LyroTextPrimary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            // Repeat Mode
+            val repeatTint = when (repeatMode) {
+                Player.REPEAT_MODE_OFF -> LyroTextSecondary
+                else -> LyroAccent
+            }
+            IconButton(
+                onClick = { viewModel.cycleRepeatMode() },
+                modifier = Modifier.size(44.dp)
+            ) {
+                Icon(
+                    imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
+                    contentDescription = "Repeat",
+                    tint = repeatTint,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Bottom Actions: Favorite, Download, Sleep Timer, Queue
         PlayerBottomActions(
             currentSong = currentSong,
             sleepTimerMinutesLeft = sleepTimerMinutesLeft,

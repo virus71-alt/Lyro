@@ -2,11 +2,15 @@ package com.lyro.app.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
@@ -23,8 +28,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.foundation.Image
 import coil.compose.AsyncImage
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.data.model.Song
@@ -34,8 +37,8 @@ fun CassetteArtwork(
     song: Song?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
-    cassetteColor: Color = NeoCyberYellow,
-    labelColor: Color = NeoAcidGreen
+    cassetteColor: Color = LyroSurfaceElevated,
+    labelColor: Color = LyroSurfaceHighlight
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "tapeSpin")
     val rotation by infiniteTransition.animateFloat(
@@ -49,172 +52,162 @@ fun CassetteArtwork(
     )
 
     val currentRotation = if (isPlaying) rotation else 0f
+    val cassetteShape = RoundedCornerShape(16.dp)
 
-    // Outer Brutalist Shadow and Frame
-    Box(
+    // Main Cassette Body (Minimal Dark Deck)
+    Column(
         modifier = modifier
-            .padding(end = 6.dp, bottom = 6.dp)
+            .fillMaxWidth()
+            .clip(cassetteShape)
+            .background(cassetteColor)
+            .border(1.dp, LyroDivider, cassetteShape)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Drop shadow
+        // Top Cassette Header: Brand & Side A
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "LYRO AUDIO",
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                letterSpacing = 1.2.sp,
+                fontFamily = FontFamily.Monospace,
+                color = LyroTextSecondary
+            )
+
+            Box(
+                modifier = Modifier
+                    .background(LyroAccentMuted, RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = "SIDE A",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 9.sp,
+                    color = LyroAccent
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Middle Label / Song Info Card
+        val labelShape = RoundedCornerShape(8.dp)
         Box(
             modifier = Modifier
-                .matchParentSize()
-                .offset(x = 6.dp, y = 6.dp)
-                .background(NeoBlack, RoundedCornerShape(14.dp))
-        )
+                .fillMaxWidth()
+                .clip(labelShape)
+                .background(labelColor)
+                .border(1.dp, LyroDivider, labelShape)
+                .padding(10.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = song?.title ?: "No Track Playing",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = LyroTextPrimary
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = song?.artist ?: "Lyro Hi-Fi Audio",
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = LyroTextSecondary
+                )
+            }
+        }
 
-        // Main Cassette Body
-        Column(
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Cassette Window with Rotating Dual Spools
+        val windowShape = RoundedCornerShape(8.dp)
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(cassetteColor, RoundedCornerShape(14.dp))
-                .border(3.dp, NeoBlack, RoundedCornerShape(14.dp))
-                .padding(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .height(68.dp)
+                .clip(windowShape)
+                .background(LyroSurface)
+                .border(1.dp, LyroDivider, windowShape)
+                .padding(horizontal = 20.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // Top Cassette Header: Brand & Side A
+            // Tape bridge line
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.55f)
+                    .height(6.dp)
+                    .background(LyroDivider)
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "LYRO TAPE",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 11.sp,
-                    letterSpacing = 1.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = NeoBlack
-                )
+                // Left spool
+                CassetteSpool(rotation = currentRotation)
 
+                // Center tape status indicator
                 Box(
                     modifier = Modifier
-                        .background(NeoHotPink, RoundedCornerShape(4.dp))
-                        .border(1.5.dp, NeoBlack, RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .background(LyroSurfaceElevated, RoundedCornerShape(4.dp))
+                        .border(1.dp, LyroDivider, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = "SIDE A",
-                        fontWeight = FontWeight.Black,
+                        text = if (isPlaying) "PLAY" else "PAUSE",
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 9.sp,
-                        color = NeoWhite
+                        fontFamily = FontFamily.Monospace,
+                        color = if (isPlaying) LyroAccent else LyroTextMuted
                     )
                 }
+
+                // Right spool
+                CassetteSpool(rotation = currentRotation)
             }
+        }
 
-            Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-            // Middle Label / Song Info Card
+        // Bottom Tape Guide & Metadata
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(labelColor, RoundedCornerShape(8.dp))
-                    .border(2.5.dp, NeoBlack, RoundedCornerShape(8.dp))
-                    .padding(8.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = song?.title ?: "No Track Playing",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = NeoBlack
-                    )
-                    Text(
-                        text = song?.artist ?: "Lyro Hi-Fi Audio",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = NeoBlack.copy(alpha = 0.8f)
-                    )
-                }
-            }
+                    .size(6.dp)
+                    .background(LyroTextMuted.copy(alpha = 0.4f), CircleShape)
+            )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "HI-FI STEREO • 90 MIN",
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.8.sp,
+                fontFamily = FontFamily.Monospace,
+                color = LyroTextMuted
+            )
 
-            // Cassette Window with Rotating Dual Spools
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(68.dp)
-                    .background(NeoGrayLight, RoundedCornerShape(8.dp))
-                    .border(2.5.dp, NeoBlack, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                // Tape bridge line
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.6f)
-                        .height(8.dp)
-                        .background(NeoBlack)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Left spool
-                    CassetteSpool(rotation = currentRotation)
-
-                    // Center tape window counter
-                    Box(
-                        modifier = Modifier
-                            .background(NeoWhite, RoundedCornerShape(3.dp))
-                            .border(1.5.dp, NeoBlack, RoundedCornerShape(3.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = if (isPlaying) "PLAY" else "PAUSE",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 8.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = NeoBlack
-                        )
-                    }
-
-                    // Right spool
-                    CassetteSpool(rotation = currentRotation)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Bottom Tape Guide & Screws
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(NeoWhite, CircleShape)
-                        .border(1.5.dp, NeoBlack, CircleShape)
-                )
-
-                Text(
-                    text = "HI-FI STEREO • 90 MIN",
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = NeoBlack
-                )
-
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(NeoWhite, CircleShape)
-                        .border(1.5.dp, NeoBlack, CircleShape)
-                )
-            }
+                    .size(6.dp)
+                    .background(LyroTextMuted.copy(alpha = 0.4f), CircleShape)
+            )
         }
     }
 }
@@ -225,16 +218,16 @@ fun CassetteSpool(rotation: Float) {
         modifier = Modifier
             .size(38.dp)
             .rotate(rotation)
-            .background(NeoWhite, CircleShape)
-            .border(2.dp, NeoBlack, CircleShape),
+            .background(LyroSurfaceElevated, CircleShape)
+            .border(1.dp, LyroDivider, CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.size(24.dp)) {
             val center = Offset(size.width / 2, size.height / 2)
             drawCircle(
-                color = NeoBlack,
+                color = Color.White.copy(alpha = 0.3f),
                 radius = size.width / 3,
-                style = Stroke(width = 3.dp.toPx())
+                style = Stroke(width = 2.dp.toPx())
             )
             for (i in 0 until 6) {
                 val angle = (i * 60) * (Math.PI / 180).toFloat()
@@ -247,10 +240,10 @@ fun CassetteSpool(rotation: Float) {
                     center.y + (size.height / 2) * kotlin.math.sin(angle)
                 )
                 drawLine(
-                    color = NeoBlack,
+                    color = Color.White.copy(alpha = 0.5f),
                     start = start,
                     end = end,
-                    strokeWidth = 2.dp.toPx()
+                    strokeWidth = 1.5.dp.toPx()
                 )
             }
         }
@@ -268,11 +261,6 @@ fun SongArtworkThumbnail(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var bitmap by remember(song.id) { mutableStateOf(com.lyro.app.core.artwork.ArtworkCache.get(song.id)) }
-    val accentColor = remember(song.id) {
-        val hash = (song.id.hashCode() * 31 + song.title.hashCode())
-        val index = kotlin.math.abs(hash) % NeoAccentPalette.size
-        NeoAccentPalette[index]
-    }
 
     val artUrl = song.albumArtUriString?.takeIf { it.isNotBlank() }
         ?: song.contentUriString.takeIf { it.startsWith("http") }
@@ -290,13 +278,13 @@ fun SongArtworkThumbnail(
     }
 
     val currentBitmap = bitmap
+    val thumbShape = RoundedCornerShape(8.dp)
 
     Box(
         modifier = modifier
             .size(size)
-            .background(accentColor, RoundedCornerShape(8.dp))
-            .border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
-            .clip(RoundedCornerShape(8.dp)),
+            .clip(thumbShape)
+            .background(LyroSurfaceElevated),
         contentAlignment = Alignment.Center
     ) {
         if (!artUrl.isNullOrBlank() && !isImageError) {
@@ -317,44 +305,37 @@ fun SongArtworkThumbnail(
                 contentScale = ContentScale.Crop
             )
         } else {
-            BrutalistFallbackArtwork(song = song, accentColor = accentColor, size = size)
+            LyroFallbackArtwork(song = song, size = size)
         }
     }
 }
 
 @Composable
-fun BrutalistFallbackArtwork(
+fun LyroFallbackArtwork(
     song: Song,
-    accentColor: Color,
     size: Dp
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(accentColor),
+            .background(LyroSurfaceHighlight),
         contentAlignment = Alignment.Center
     ) {
-        // Stylized Mini Brutalist Vinyl Record
-        Box(
-            modifier = Modifier
-                .size(size * 0.74f)
-                .background(NeoBlack, CircleShape)
-                .border(1.5.dp, NeoWhite, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(size * 0.32f)
-                    .background(NeoWhite, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = song.title.firstOrNull { it.isLetterOrDigit() }?.toString()?.uppercase() ?: "♪",
-                    fontSize = (size.value * 0.22f).sp,
-                    fontWeight = FontWeight.Black,
-                    color = NeoBlack
-                )
-            }
+        val initial = song.title.firstOrNull { it.isLetterOrDigit() }?.toString()?.uppercase()
+        if (initial != null) {
+            Text(
+                text = initial,
+                fontSize = (size.value * 0.35f).sp,
+                fontWeight = FontWeight.SemiBold,
+                color = LyroTextSecondary
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.MusicNote,
+                contentDescription = null,
+                tint = LyroTextMuted,
+                modifier = Modifier.size(size * 0.45f)
+            )
         }
     }
 }

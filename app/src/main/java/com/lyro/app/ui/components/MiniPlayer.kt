@@ -1,9 +1,7 @@
 package com.lyro.app.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -11,10 +9,8 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,36 +35,20 @@ fun MiniPlayer(
 ) {
     if (song == null) return
 
-    val interactionSource = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(12.dp)
     val progress = if (duration > 0) (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f) else 0f
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp)
-            .padding(end = 4.dp, bottom = 4.dp)
+            .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
-        // Hard shadow
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .offset(x = 4.dp, y = 4.dp)
-                .background(NeoBlack, shape)
-        )
-
-        // Main mini player card
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(NeoCyberYellow, shape)
-                .border(2.5.dp, NeoBlack, shape)
                 .clip(shape)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = onExpandClick
-                )
+                .background(LyroSurfaceElevated)
+                .clickable(onClick = onExpandClick)
         ) {
             Row(
                 modifier = Modifier
@@ -76,10 +56,10 @@ fun MiniPlayer(
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Mini Artwork
-                SongArtworkThumbnail(song = song, size = 44.dp)
+                // Artwork Thumbnail
+                SongArtworkThumbnail(song = song, size = 48.dp)
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 // Title & Artist
                 Column(
@@ -87,77 +67,76 @@ fun MiniPlayer(
                 ) {
                     Text(
                         text = song.title,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = NeoBlack
+                        color = LyroTextPrimary
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = song.artist,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = NeoBlack.copy(alpha = 0.8f)
+                        color = LyroTextSecondary
                     )
                 }
 
-                // Audio visualizer bars
+                // Audio visualizer bars (accent color, minimal)
                 AudioVisualizerBar(
                     isPlaying = isPlaying,
-                    barColor = NeoBlack,
-                    maxHeight = 16.dp,
-                    barWidth = 3.dp
+                    barColor = LyroAccent,
+                    maxHeight = 14.dp,
+                    barWidth = 2.dp
                 )
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
-                // Play / Pause tactile button
-                NeoIconButton(
+                // Play / Pause button
+                LyroIconButton(
                     onClick = onPlayPauseClick,
-                    backgroundColor = NeoAcidGreen,
-                    size = 36.dp,
-                    shadowOffset = 2.dp
+                    size = 38.dp,
+                    backgroundColor = Color.Transparent
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = NeoBlack,
-                        modifier = Modifier.size(22.dp)
+                        tint = LyroTextPrimary,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
-                // Skip next button
-                NeoIconButton(
+                // Next button
+                LyroIconButton(
                     onClick = onNextClick,
-                    backgroundColor = NeoWhite,
-                    size = 36.dp,
-                    shadowOffset = 2.dp
+                    size = 38.dp,
+                    backgroundColor = Color.Transparent
                 ) {
                     Icon(
                         imageVector = Icons.Default.SkipNext,
                         contentDescription = "Next",
-                        tint = NeoBlack,
+                        tint = LyroTextSecondary,
                         modifier = Modifier.size(22.dp)
                     )
                 }
             }
 
-            // Neo-Brutalist Progress bar at the bottom
+            // Thin accent progress line
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(4.dp)
-                    .background(NeoBlack.copy(alpha = 0.15f))
+                    .height(2.dp)
+                    .background(LyroDivider)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
                         .fillMaxWidth(fraction = progress)
-                        .background(NeoBlack)
+                        .background(LyroAccent)
                 )
             }
         }

@@ -15,6 +15,13 @@ fun NowPlayingScreen(
     val playerStyle by playerPreferences.playerStyle.collectAsState()
 
     when (playerStyle) {
+        PlayerStyle.MINIMAL -> {
+            MinimalPlayerScreen(
+                viewModel = viewModel,
+                onBackClick = onBackClick,
+                modifier = modifier
+            )
+        }
         PlayerStyle.CASSETTE -> {
             CassettePlayerScreen(
                 viewModel = viewModel,

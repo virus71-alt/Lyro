@@ -1,7 +1,6 @@
 package com.lyro.app.ui.nowplaying
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,55 +34,62 @@ fun QueueBottomSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = NeoBgLight,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        containerColor = LyroSurfaceElevated,
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 10.dp)
+                    .width(36.dp)
+                    .height(4.dp)
+                    .background(LyroTextMuted.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
+            )
+        }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 30.dp)
+                .padding(bottom = 32.dp)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                    .padding(horizontal = 20.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Column {
                     Text(
-                        text = "PLAYING QUEUE",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black,
-                        color = NeoBlack
+                        text = "Playing Queue",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LyroTextPrimary
                     )
-                    NeoBadge(
-                        text = "${queue.size} TUNES",
-                        backgroundColor = NeoCyberYellow
+                    Text(
+                        text = "${queue.size} tracks",
+                        fontSize = 12.sp,
+                        color = LyroTextSecondary
                     )
                 }
 
-                NeoIconButton(
+                IconButton(
                     onClick = onDismiss,
-                    backgroundColor = NeoWhite,
-                    size = 32.dp,
-                    shadowOffset = 2.dp
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close",
-                        tint = NeoBlack,
-                        modifier = Modifier.size(16.dp)
+                        tint = LyroTextSecondary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
+
             LazyColumn(
                 modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
             ) {
                 itemsIndexed(
                     items = queue,
@@ -89,76 +97,60 @@ fun QueueBottomSheet(
                     contentType = { _, _ -> "queue_item" }
                 ) { index, song ->
                     val isCurrent = song.id == currentSong?.id
-                    val shape = RoundedCornerShape(8.dp)
+                    val shape = RoundedCornerShape(10.dp)
+                    val bg = if (isCurrent) LyroSurfaceHighlight else Color.Transparent
 
-                    Box(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .padding(end = 2.dp, bottom = 2.dp)
+                            .padding(vertical = 2.dp)
+                            .clip(shape)
+                            .background(bg)
+                            .clickable { onSongClick(song) }
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .offset(x = 2.dp, y = 2.dp)
-                                .background(NeoBlack, shape)
+                        Text(
+                            text = String.format("%02d", index + 1),
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 12.sp,
+                            color = if (isCurrent) LyroAccent else LyroTextMuted,
+                            modifier = Modifier.width(24.dp)
                         )
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(if (isCurrent) NeoAcidGreen else NeoWhite, shape)
-                                .border(2.dp, NeoBlack, shape)
-                                .clickable { onSongClick(song) }
-                                .padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        SongArtworkThumbnail(song = song, size = 42.dp)
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = String.format("%02d", index + 1),
-                                fontWeight = FontWeight.Black,
-                                fontSize = 11.sp,
-                                color = NeoBlack
+                                text = song.title,
+                                fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Medium,
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = if (isCurrent) LyroAccent else LyroTextPrimary
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = song.artist,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = LyroTextSecondary
+                            )
+                        }
 
-                            Spacer(modifier = Modifier.width(10.dp))
-
-                            SongArtworkThumbnail(song = song, size = 36.dp)
-
-                            Spacer(modifier = Modifier.width(10.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = song.title,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = NeoBlack
-                                )
-                                Text(
-                                    text = song.artist,
-                                    fontSize = 11.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = NeoBlack.copy(alpha = 0.7f)
-                                )
-                            }
-
-                            if (isCurrent) {
-                                AudioVisualizerBar(
-                                    isPlaying = isPlaying,
-                                    barColor = NeoBlack,
-                                    maxHeight = 14.dp,
-                                    barWidth = 2.5.dp
-                                )
-                            } else {
-                                Text(
-                                    text = song.formattedDuration(),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = NeoBlack.copy(alpha = 0.6f)
-                                )
-                            }
+                        if (isCurrent) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            AudioVisualizerBar(
+                                isPlaying = isPlaying,
+                                barColor = LyroAccent,
+                                maxHeight = 12.dp,
+                                barWidth = 2.dp
+                            )
                         }
                     }
                 }

@@ -10,13 +10,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,17 +28,18 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.ui.components.MiniPlayer
-import com.lyro.app.ui.components.NeoBrutalAppBar
+import com.lyro.app.ui.explore.ExploreScreen
+import com.lyro.app.ui.home.HomeScreen
+import com.lyro.app.ui.library.LibraryScreen
 import com.lyro.app.ui.nowplaying.NowPlayingScreen
 import com.lyro.app.ui.nowplaying.NowPlayingViewModel
-import com.lyro.app.ui.playlists.PlaylistsScreen
 import com.lyro.app.ui.settings.SettingsScreen
-import com.lyro.app.ui.songs.SongsScreen
 import com.lyro.app.ui.songs.SongsViewModel
 
 enum class CurrentTab {
-    TRACKS,
-    MIXTAPES
+    HOME,
+    EXPLORE,
+    LIBRARY
 }
 
 enum class ActiveScreen {
@@ -67,14 +68,16 @@ class MainActivity : ComponentActivity() {
                         musicDownloader = app.musicDownloader
                     )
                 }
-                val nowPlayingViewModel = remember { NowPlayingViewModel(playbackManager, repository, app.musicDownloader) }
+                val nowPlayingViewModel = remember {
+                    NowPlayingViewModel(playbackManager, repository, app.musicDownloader)
+                }
 
                 val currentSong by playbackManager.currentSong.collectAsState()
                 val isPlaying by playbackManager.isPlaying.collectAsState()
                 val currentPosition by playbackManager.currentPosition.collectAsState()
                 val duration by playbackManager.duration.collectAsState()
 
-                var currentTab by remember { mutableStateOf(CurrentTab.TRACKS) }
+                var currentTab by remember { mutableStateOf(CurrentTab.HOME) }
                 var activeScreen by remember { mutableStateOf(ActiveScreen.MAIN) }
 
                 // Permission state
@@ -110,7 +113,7 @@ class MainActivity : ComponentActivity() {
 
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = NeoBgLight
+                    color = LyroBackground
                 ) {
                     when (activeScreen) {
                         ActiveScreen.NOW_PLAYING -> {
@@ -131,49 +134,47 @@ class MainActivity : ComponentActivity() {
 
                         ActiveScreen.MAIN -> {
                             Box(modifier = Modifier.fillMaxSize()) {
-                                Column(modifier = Modifier.fillMaxSize()) {
-                                    val isOnlineMode by songsViewModel.isOnlineMode.collectAsState()
-                                    // Top App Bar
-                                    NeoBrutalAppBar(
-                                        title = "LYRO",
-                                        isOnlineMode = isOnlineMode,
-                                        onToggleOnlineMode = {
-                                            songsViewModel.setOnlineMode(!isOnlineMode)
-                                            currentTab = CurrentTab.TRACKS
-                                        },
-                                        onSettingsClick = { activeScreen = ActiveScreen.SETTINGS }
-                                    )
+                                // Body Content (Tab-based primary navigation)
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    when (currentTab) {
+                                        CurrentTab.HOME -> {
+                                            HomeScreen(
+                                                viewModel = songsViewModel,
+                                                onSearchClick = {
+                                                    currentTab = CurrentTab.EXPLORE
+                                                },
+                                                onSettingsClick = {
+                                                    activeScreen = ActiveScreen.SETTINGS
+                                                },
+                                                onLikedSongsClick = {
+                                                    currentTab = CurrentTab.LIBRARY
+                                                },
+                                                onPlaylistClick = { _ ->
+                                                    currentTab = CurrentTab.LIBRARY
+                                                }
+                                            )
+                                        }
 
-                                    // Body content
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        when (currentTab) {
-                                            CurrentTab.TRACKS -> {
-                                                SongsScreen(
-                                                    viewModel = songsViewModel,
-                                                    hasPermission = hasPermission,
-                                                    onRequestPermission = {
-                                                        permissionLauncher.launch(audioPermission)
-                                                    }
-                                                )
-                                            }
+                                        CurrentTab.EXPLORE -> {
+                                            ExploreScreen(
+                                                viewModel = songsViewModel
+                                            )
+                                        }
 
-                                            CurrentTab.MIXTAPES -> {
-                                                PlaylistsScreen(
-                                                    viewModel = songsViewModel,
-                                                    onPlaylistClick = { _ ->
-                                                        currentTab = CurrentTab.TRACKS
-                                                    },
-                                                    onLikedSongsClick = {
-                                                        songsViewModel.setFavoritesFilter(true)
-                                                        currentTab = CurrentTab.TRACKS
-                                                    }
-                                                )
-                                            }
+                                        CurrentTab.LIBRARY -> {
+                                            LibraryScreen(
+                                                viewModel = songsViewModel,
+                                                hasPermission = hasPermission,
+                                                onRequestPermission = {
+                                                    permissionLauncher.launch(audioPermission)
+                                                },
+                                                onPlaylistClick = { _ -> }
+                                            )
                                         }
                                     }
                                 }
 
-                                // Bottom floating container: MiniPlayer + Bottom Navigation
+                                // Persistent Floating Bottom Container: MiniPlayer + Bottom Navigation
                                 Column(
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
@@ -191,8 +192,8 @@ class MainActivity : ComponentActivity() {
                                         onExpandClick = { activeScreen = ActiveScreen.NOW_PLAYING }
                                     )
 
-                                    // Neo-Brutalist Bottom Navigation Bar
-                                    NeoBottomNavBar(
+                                    // Minimal Material-Style Bottom Navigation Bar
+                                    LyroBottomNavBar(
                                         currentTab = currentTab,
                                         onTabSelected = { currentTab = it }
                                     )
@@ -207,81 +208,70 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun NeoBottomNavBar(
+fun LyroBottomNavBar(
     currentTab: CurrentTab,
     onTabSelected: (CurrentTab) -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(NeoBgLight)
-            .border(width = 2.dp, color = NeoBlack)
-            .padding(horizontal = 24.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+            .background(LyroBackground)
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Tracks Tab Button
-        NeoNavButton(
-            label = "TRACKS",
-            icon = Icons.Default.MusicNote,
-            selected = currentTab == CurrentTab.TRACKS,
-            activeColor = NeoAcidGreen,
-            onClick = { onTabSelected(CurrentTab.TRACKS) }
+        LyroNavButton(
+            label = "Home",
+            icon = Icons.Default.Home,
+            selected = currentTab == CurrentTab.HOME,
+            onClick = { onTabSelected(CurrentTab.HOME) }
         )
 
-        // Mixtapes Tab Button
-        NeoNavButton(
-            label = "MIXTAPES",
+        LyroNavButton(
+            label = "Explore",
+            icon = Icons.Default.Explore,
+            selected = currentTab == CurrentTab.EXPLORE,
+            onClick = { onTabSelected(CurrentTab.EXPLORE) }
+        )
+
+        LyroNavButton(
+            label = "Library",
             icon = Icons.Default.LibraryMusic,
-            selected = currentTab == CurrentTab.MIXTAPES,
-            activeColor = NeoCyberYellow,
-            onClick = { onTabSelected(CurrentTab.MIXTAPES) }
+            selected = currentTab == CurrentTab.LIBRARY,
+            onClick = { onTabSelected(CurrentTab.LIBRARY) }
         )
     }
 }
 
 @Composable
-fun NeoNavButton(
+fun LyroNavButton(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     selected: Boolean,
-    activeColor: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(10.dp)
+    val selectedColor = LyroTextPrimary
+    val unselectedColor = LyroTextMuted
 
-    Box(modifier = Modifier.padding(end = 2.dp, bottom = 2.dp)) {
-        if (selected) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .offset(x = 2.dp, y = 2.dp)
-                    .background(NeoBlack, shape)
-            )
-        }
-
-        Row(
-            modifier = Modifier
-                .background(if (selected) activeColor else NeoBgLight, shape)
-                .border(if (selected) 2.dp else 0.dp, if (selected) NeoBlack else androidx.compose.ui.graphics.Color.Transparent, shape)
-                .clip(shape)
-                .clickable(onClick = onClick)
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = NeoBlack,
-                modifier = Modifier.size(20.dp)
-            )
-            Text(
-                text = label,
-                fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
-                fontSize = 12.sp,
-                color = NeoBlack
-            )
-        }
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = if (selected) LyroTextPrimary else unselectedColor,
+            modifier = Modifier.size(24.dp)
+        )
+        Text(
+            text = label,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            fontSize = 11.sp,
+            color = if (selected) selectedColor else unselectedColor
+        )
     }
 }

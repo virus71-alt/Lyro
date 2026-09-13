@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -19,6 +20,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -26,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.data.model.Playlist
-import com.lyro.app.ui.components.NeoEmptyState
+import com.lyro.app.ui.components.LyroEmptyState
 import com.lyro.app.ui.songs.SongsViewModel
 
 @Composable
@@ -46,10 +49,10 @@ fun PlaylistsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(NeoBgLight)
+            .background(LyroBackground)
             .padding(horizontal = 16.dp)
     ) {
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Create Playlist Row & Header
         Row(
@@ -58,110 +61,107 @@ fun PlaylistsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "YOUR MIXTAPES",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Black,
-                color = NeoBlack
+                text = "Your Library",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = LyroTextPrimary
             )
 
-            NeoButton(
+            LyroButton(
                 onClick = { showCreateDialog = true },
-                backgroundColor = NeoAcidGreen
+                backgroundColor = LyroSurfaceElevated,
+                contentColor = LyroTextPrimary,
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "New",
-                    tint = NeoBlack,
+                    tint = LyroAccent,
                     modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "NEW MIXTAPE",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 11.sp,
-                    color = NeoBlack
+                    text = "New Mixtape",
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    color = LyroTextPrimary
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Featured Card: Liked Songs / Favorites Tape
-        NeoCard(
-            backgroundColor = NeoHotPink,
-            shadowOffset = 4.dp,
+        // Featured Hero Card: Liked Songs / Favorites
+        val likedCardShape = RoundedCornerShape(16.dp)
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(likedCardShape)
+                .background(LyroSurfaceElevated)
+                .border(1.dp, LyroDivider, likedCardShape)
                 .clickable { onLikedSongsClick() }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .background(NeoWhite, RoundedCornerShape(10.dp))
-                            .border(2.dp, NeoBlack, RoundedCornerShape(10.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Favorite,
-                            contentDescription = "Favorites",
-                            tint = NeoHotPink,
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = "FAVORITE TUNES",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            color = NeoWhite
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "$likedCount Liked Tracks",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            color = NeoWhite.copy(alpha = 0.9f)
-                        )
-                    }
-                }
-
-                NeoIconButton(
-                    onClick = onLikedSongsClick,
-                    backgroundColor = NeoWhite,
-                    size = 40.dp
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .background(LyroAccentMuted, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Play",
-                        tint = NeoBlack,
-                        modifier = Modifier.size(24.dp)
+                        imageVector = Icons.Default.Favorite,
+                        contentDescription = "Favorites",
+                        tint = LyroAccent,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = "Liked Songs",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp,
+                        color = LyroTextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "$likedCount tracks",
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 13.sp,
+                        color = LyroTextSecondary
                     )
                 }
             }
+
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(LyroAccent, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color.Black,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         if (playlists.isEmpty()) {
-            NeoEmptyState(
+            LyroEmptyState(
                 icon = Icons.Default.LibraryMusic,
-                iconBackgroundColor = NeoCyan,
-                title = "NO CUSTOM MIXTAPES",
-                description = "You haven't created any mixtapes yet. Organize your favorite songs into custom collections!",
-                primaryButtonText = "+ CREATE NEW MIXTAPE",
-                primaryButtonColor = NeoAcidGreen,
+                title = "No Custom Mixtapes",
+                description = "You haven't created any mixtapes yet. Organize your favorite tracks into custom collections.",
+                primaryButtonText = "Create New Mixtape",
                 onPrimaryButtonClick = { showCreateDialog = true }
             )
         } else {
@@ -174,54 +174,50 @@ fun PlaylistsScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(playlists, key = { it.id }) { playlist ->
-                    val bg = NeoAccentPalette[playlist.colorIndex % NeoAccentPalette.size]
+                    val cardShape = RoundedCornerShape(14.dp)
 
-                    NeoCard(
-                        backgroundColor = bg,
-                        shadowOffset = 3.dp,
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(cardShape)
+                            .background(LyroSurfaceElevated)
+                            .border(1.dp, LyroDivider, cardShape)
                             .clickable { onPlaylistClick(playlist) }
+                            .padding(14.dp)
                     ) {
-                        Column(
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp)
+                                .size(44.dp)
+                                .background(LyroSurfaceHighlight, RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(NeoWhite, RoundedCornerShape(8.dp))
-                                    .border(2.dp, NeoBlack, RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.LibraryMusic,
-                                    contentDescription = null,
-                                    tint = NeoBlack,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            Text(
-                                text = playlist.name,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 15.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = NeoBlack
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            NeoBadge(
-                                text = "${playlist.songCount} TUNES",
-                                backgroundColor = NeoWhite,
-                                textColor = NeoBlack
+                            Icon(
+                                imageVector = Icons.Default.LibraryMusic,
+                                contentDescription = null,
+                                tint = LyroAccent,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = playlist.name,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = LyroTextPrimary
+                        )
+
+                        Spacer(modifier = Modifier.height(3.dp))
+
+                        Text(
+                            text = "${playlist.songCount} tracks",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = LyroTextSecondary
+                        )
                     }
                 }
             }
@@ -232,52 +228,49 @@ fun PlaylistsScreen(
         AlertDialog(
             onDismissRequest = { showCreateDialog = false },
             confirmButton = {
-                NeoButton(
+                TextButton(
                     onClick = {
                         if (playlistName.isNotBlank()) {
                             viewModel.createPlaylist(playlistName, (0..6).random())
                             playlistName = ""
                             showCreateDialog = false
                         }
-                    },
-                    backgroundColor = NeoAcidGreen
+                    }
                 ) {
-                    Text("CREATE", fontWeight = FontWeight.Black, color = NeoBlack)
+                    Text("Create", color = LyroAccent, fontWeight = FontWeight.SemiBold)
                 }
             },
             dismissButton = {
-                NeoButton(
-                    onClick = { showCreateDialog = false },
-                    backgroundColor = NeoWhite
-                ) {
-                    Text("CANCEL", fontWeight = FontWeight.Bold, color = NeoBlack)
+                TextButton(onClick = { showCreateDialog = false }) {
+                    Text("Cancel", color = LyroTextSecondary)
                 }
             },
             title = {
-                Text("NEW MIXTAPE", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                Text("New Mixtape", fontWeight = FontWeight.SemiBold, fontSize = 17.sp, color = LyroTextPrimary)
             },
             text = {
                 Column {
-                    Text("Give your playlist a cool brutalist name:", fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Enter mixtape name:", fontSize = 13.sp, color = LyroTextSecondary)
+                    Spacer(modifier = Modifier.height(10.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(NeoWhite, RoundedCornerShape(8.dp))
-                            .border(2.dp, NeoBlack, RoundedCornerShape(8.dp))
-                            .padding(10.dp)
+                            .background(LyroSurface, RoundedCornerShape(10.dp))
+                            .border(1.dp, LyroDivider, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
                     ) {
                         BasicTextField(
                             value = playlistName,
                             onValueChange = { playlistName = it },
                             singleLine = true,
-                            textStyle = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            cursorBrush = SolidColor(LyroAccent),
+                            textStyle = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = LyroTextPrimary)
                         )
                     }
                 }
             },
-            containerColor = NeoBgLight,
-            shape = RoundedCornerShape(12.dp)
+            containerColor = LyroSurfaceElevated,
+            shape = RoundedCornerShape(16.dp)
         )
     }
 }

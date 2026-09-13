@@ -12,7 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,350 +39,285 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(NeoBgLight)
+            .background(LyroBackground)
             .statusBarsPadding()
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         // Top Header
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            NeoIconButton(
+            IconButton(
                 onClick = onBackClick,
-                backgroundColor = NeoWhite,
-                size = 40.dp
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = NeoBlack,
+                    tint = LyroTextPrimary,
                     modifier = Modifier.size(22.dp)
                 )
             }
 
+            Spacer(modifier = Modifier.width(8.dp))
+
             Text(
-                text = "LYRO SETTINGS",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Black,
-                color = NeoBlack
-            )
-
-            NeoBadge(
-                text = "v1.0",
-                backgroundColor = NeoCyberYellow,
-                textColor = NeoBlack
+                text = "Settings",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = LyroTextPrimary
             )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Hero Card (Accurate local + online description)
-        NeoCard(
-            backgroundColor = NeoAcidGreen,
-            shadowOffset = 4.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp)
-            ) {
-                Text(
-                    text = "LYRO MUSIC",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 22.sp,
-                    color = NeoBlack
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "A bold local + online music player designed with Neo-Brutalist aesthetics.",
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 13.sp,
-                    color = NeoBlack
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    NeoBadge(text = "HYBRID AUDIO", backgroundColor = NeoWhite)
-                    NeoBadge(text = "ZERO ADS", backgroundColor = NeoHotPink, textColor = NeoWhite)
-                    NeoBadge(text = "HI-FI STREAM", backgroundColor = NeoCyan)
-                }
-            }
-        }
+        // SECTION: Player Appearance
+        SettingsSectionHeader(title = "Player Appearance")
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Player Appearance Selection
-        Text(
-            text = "PLAYER APPEARANCE",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Black,
-            color = NeoBlack
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Cassette Player Style Option
-            PlayerStyleOptionCard(
-                title = "CASSETTE PLAYER",
-                description = "Original Lyro cassette tape design with animated reels.",
+            PlayerStyleOption(
+                title = "Minimal Player (Default)",
+                description = "Modern artwork-first player with clean spacing, thin seek bar, and refined controls.",
+                isSelected = currentStyle == PlayerStyle.MINIMAL,
+                onClick = { playerPreferences.setPlayerStyle(PlayerStyle.MINIMAL) }
+            )
+
+            PlayerStyleOption(
+                title = "Cassette Player",
+                description = "Classic retro cassette deck with animated spools and clean info.",
                 isSelected = currentStyle == PlayerStyle.CASSETTE,
                 onClick = { playerPreferences.setPlayerStyle(PlayerStyle.CASSETTE) }
             )
 
-            // Wheel Player Style Option
-            PlayerStyleOptionCard(
-                title = "WHEEL PLAYER",
+            PlayerStyleOption(
+                title = "Wheel Player",
                 description = "Circular tactile wheel controls with continuous drag seeking.",
                 isSelected = currentStyle == PlayerStyle.WHEEL,
                 onClick = { playerPreferences.setPlayerStyle(PlayerStyle.WHEEL) }
             )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
-        // Library Management
-        Text(
-            text = "LIBRARY CONTROLS",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Black,
-            color = NeoBlack
-        )
+        // SECTION: Library
+        SettingsSectionHeader(title = "Library")
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        NeoCard(
-            backgroundColor = NeoWhite,
-            shadowOffset = 4.dp,
-            modifier = Modifier.fillMaxWidth()
+        val cardShape = RoundedCornerShape(12.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(cardShape)
+                .background(LyroSurfaceElevated)
+                .border(1.dp, LyroDivider, cardShape)
+                .clickable { viewModel.loadSongs() }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Rescan Audio Storage",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 14.sp,
-                            color = NeoBlack
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Refresh track metadata and index newly downloaded music files.",
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 11.sp,
-                            color = NeoBlack.copy(alpha = 0.7f)
-                        )
-                    }
-
-                    NeoIconButton(
-                        onClick = { viewModel.loadSongs() },
-                        backgroundColor = NeoCyberYellow,
-                        size = 38.dp
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            tint = NeoBlack,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Rescan Audio Storage",
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp,
+                    color = LyroTextPrimary
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Refresh metadata and index new downloads and files",
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 12.sp,
+                    color = LyroTextSecondary
+                )
             }
+
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = "Rescan",
+                tint = LyroAccent,
+                modifier = Modifier.size(22.dp)
+            )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
-        // Audio Engine Info
-        Text(
-            text = "AUDIO ENGINE",
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Black,
-            color = NeoBlack
-        )
+        // SECTION: Audio Engine
+        SettingsSectionHeader(title = "Audio Engine")
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        NeoCard(
-            backgroundColor = NeoWhite,
-            shadowOffset = 4.dp,
-            modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(cardShape)
+                .background(LyroSurfaceElevated)
+                .border(1.dp, LyroDivider, cardShape)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(text = "Playback Backend", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    NeoBadge(text = "AndroidX Media3 ExoPlayer", backgroundColor = NeoLavender)
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(text = "Supported Formats", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    Text(text = "MP3, FLAC, AAC, WAV, OGG", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(text = "Headphone Unplug Pause", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    NeoBadge(text = "ENABLED", backgroundColor = NeoAcidGreen)
-                }
-            }
+            SettingsInfoRow(label = "Backend", value = "AndroidX Media3 ExoPlayer")
+            HorizontalDivider(color = LyroDivider, thickness = 0.8.dp)
+            SettingsInfoRow(label = "Supported Formats", value = "MP3, FLAC, AAC, WAV, OGG")
+            HorizontalDivider(color = LyroDivider, thickness = 0.8.dp)
+            SettingsInfoRow(label = "Pause on Headphone Disconnect", value = "Enabled")
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
-        // Privacy Card (Accurate description)
-        NeoCard(
-            backgroundColor = NeoLavender,
-            shadowOffset = 4.dp,
-            modifier = Modifier.fillMaxWidth()
+        // SECTION: About & Privacy
+        SettingsSectionHeader(title = "About")
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(cardShape)
+                .background(LyroSurfaceElevated)
+                .border(1.dp, LyroDivider, cardShape)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            SettingsInfoRow(label = "App Version", value = "1.0.0")
+            HorizontalDivider(color = LyroDivider, thickness = 0.8.dp)
+
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Security,
+                    imageVector = Icons.Default.Shield,
                     contentDescription = null,
-                    tint = NeoBlack,
-                    modifier = Modifier.size(28.dp)
+                    tint = LyroAccent,
+                    modifier = Modifier.size(20.dp)
                 )
                 Column {
                     Text(
                         text = "Private by Design",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 13.sp,
-                        color = NeoBlack
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp,
+                        color = LyroTextPrimary
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Lyro does not collect, track, or sell your listening data. Local audio files stay on your device, and online streaming connects directly to audio providers.",
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 11.sp,
-                        color = NeoBlack.copy(alpha = 0.8f)
+                        text = "Lyro does not track or sell listening data. Local audio files remain strictly on your device.",
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 12.sp,
+                        color = LyroTextSecondary,
+                        lineHeight = 17.sp
                     )
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(40.dp))
     }
 }
 
 @Composable
-private fun PlayerStyleOptionCard(
+private fun SettingsSectionHeader(title: String) {
+    Text(
+        text = title,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = LyroAccent,
+        letterSpacing = 0.5.sp
+    )
+}
+
+@Composable
+private fun SettingsInfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Normal,
+            color = LyroTextPrimary
+        )
+        Text(
+            text = value,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = LyroTextSecondary
+        )
+    }
+}
+
+@Composable
+private fun PlayerStyleOption(
     title: String,
     description: String,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(12.dp)
-    val cardBg = if (isSelected) NeoAcidGreen.copy(alpha = 0.15f) else NeoWhite
+    val cardBg = if (isSelected) LyroSurfaceHighlight else LyroSurfaceElevated
+    val borderColor = if (isSelected) LyroAccent else LyroDivider
 
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(end = 4.dp, bottom = 4.dp)
+            .clip(shape)
+            .background(cardBg)
+            .border(1.dp, borderColor, shape)
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // Hard drop shadow
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                fontSize = 15.sp,
+                color = if (isSelected) LyroAccent else LyroTextPrimary
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = description,
+                fontWeight = FontWeight.Normal,
+                fontSize = 12.sp,
+                color = LyroTextSecondary,
+                lineHeight = 16.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
         Box(
             modifier = Modifier
-                .matchParentSize()
-                .offset(x = 4.dp, y = 4.dp)
-                .background(NeoBlack, shape)
-        )
-
-        // Card content
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(cardBg, shape)
+                .size(24.dp)
+                .background(
+                    if (isSelected) LyroAccent else Color.Transparent,
+                    CircleShape
+                )
                 .border(
-                    width = if (isSelected) 2.5.dp else 2.dp,
-                    color = NeoBlack,
-                    shape = shape
-                )
-                .clip(shape)
-                .clickable(onClick = onClick)
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                    width = 1.5.dp,
+                    color = if (isSelected) LyroAccent else LyroTextMuted,
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = title,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 14.sp,
-                        color = NeoBlack
-                    )
-                    if (isSelected) {
-                        NeoBadge(
-                            text = "ACTIVE",
-                            backgroundColor = NeoAcidGreen,
-                            textColor = NeoBlack
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = description,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 11.sp,
-                    color = NeoBlack.copy(alpha = 0.75f)
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Selected",
+                    tint = Color.Black,
+                    modifier = Modifier.size(16.dp)
                 )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Selection Indicator
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .background(
-                        if (isSelected) NeoAcidGreen else NeoWhite,
-                        CircleShape
-                    )
-                    .border(2.dp, NeoBlack, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Selected",
-                        tint = NeoBlack,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
             }
         }
     }

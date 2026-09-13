@@ -12,17 +12,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.lyro.app.core.designsystem.NeoAcidGreen
-import com.lyro.app.core.designsystem.NeoBlack
+import com.lyro.app.core.designsystem.LyroAccent
 
 @Composable
 fun AudioVisualizerBar(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
-    barColor: Color = NeoAcidGreen,
+    barColor: Color = LyroAccent,
     barCount: Int = 4,
-    maxHeight: Dp = 20.dp,
-    barWidth: Dp = 3.5.dp
+    maxHeight: Dp = 16.dp,
+    barWidth: Dp = 3.dp
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "audioBars")
 
@@ -79,8 +78,7 @@ fun AudioVisualizerBar(
                 modifier = Modifier
                     .width(barWidth)
                     .height(maxHeight * scale)
-                    .background(barColor, RoundedCornerShape(2.dp))
-                    .border(1.dp, NeoBlack, RoundedCornerShape(2.dp))
+                    .background(barColor, RoundedCornerShape(1.5.dp))
             )
         }
     }

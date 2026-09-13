@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 enum class PlayerStyle {
+    MINIMAL,
     CASSETTE,
     WHEEL
 }
@@ -17,11 +18,11 @@ class PlayerPreferences(context: Context) {
     val playerStyle: StateFlow<PlayerStyle> = _playerStyle.asStateFlow()
 
     private fun loadPlayerStyle(): PlayerStyle {
-        val saved = prefs.getString(KEY_PLAYER_STYLE, PlayerStyle.CASSETTE.name)
+        val saved = prefs.getString(KEY_PLAYER_STYLE, PlayerStyle.MINIMAL.name)
         return try {
-            PlayerStyle.valueOf(saved ?: PlayerStyle.CASSETTE.name)
+            PlayerStyle.valueOf(saved ?: PlayerStyle.MINIMAL.name)
         } catch (e: Exception) {
-            PlayerStyle.CASSETTE
+            PlayerStyle.MINIMAL
         }
     }
 
