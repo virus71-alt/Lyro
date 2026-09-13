@@ -1,10 +1,17 @@
 package com.lyro.app.ui.nowplaying
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -46,7 +53,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 import com.lyro.app.core.haptics.rememberLyroHaptics
+import kotlinx.coroutines.delay
 import kotlin.math.abs
+import kotlin.math.sqrt
 
 @Composable
 fun WheelPlayerScreen(
@@ -77,6 +86,14 @@ fun WheelPlayerScreen(
 
     var showQueueSheet by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
+    var sleepTimerToastMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(sleepTimerToastMessage) {
+        if (sleepTimerToastMessage != null) {
+            delay(2000)
+            sleepTimerToastMessage = null
+        }
+    }
 
     // Wheel touch tracking state
     var isDraggingWheel by remember { mutableStateOf(false) }
@@ -280,6 +297,40 @@ fun WheelPlayerScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // Brief Sleep Timer Feedback Toast
+        AnimatedVisibility(
+            visible = sleepTimerToastMessage != null,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = LyroSurfaceElevated,
+                border = BorderStroke(1.dp, LyroAccent.copy(alpha = 0.5f)),
+                shadowElevation = 6.dp,
+                modifier = Modifier.padding(bottom = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Timer,
+                        contentDescription = null,
+                        tint = LyroAccent,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        text = sleepTimerToastMessage ?: "",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LyroTextPrimary
+                    )
+                }
+            }
+        }
+
         // Interactive Minimalist Charcoal Wheel
         Box(
             contentAlignment = Alignment.Center,
@@ -304,14 +355,23 @@ fun WheelPlayerScreen(
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = { offset ->
+                            val dx = offset.x - wheelCenter.x
+                            val dy = offset.y - wheelCenter.y
+                            val dist = sqrt(dx * dx + dy * dy)
+                            // center hub radius is ~34.dp (68.dp size), full wheel is 220.dp (radius 110.dp)
+                            // ~35% dead-zone radius cleanly isolates center tap shortcut from outer seek wheel drag
+                            val centerDeadZonePx = wheelCenter.x * 0.35f
+                            if (dist < centerDeadZonePx) {
+                                isDraggingWheel = false
+                                return@detectDragGestures
+                            }
                             isDraggingWheel = true
                             previewProgress = currentProgress
                             accumulatedAngle = 0f
-                            val dx = offset.x - wheelCenter.x
-                            val dy = offset.y - wheelCenter.y
                             lastAngle = (atan2(dy, dx) * (180f / PI.toFloat()) + 360f) % 360f
                         },
                         onDragEnd = {
+                            if (!isDraggingWheel) return@detectDragGestures
                             isDraggingWheel = false
                             haptics.strongClick()
                             val targetMs = (previewProgress * duration).toLong()
@@ -321,17 +381,13 @@ fun WheelPlayerScreen(
                             isDraggingWheel = false
                         },
                         onDrag = { change, _ ->
+                            if (!isDraggingWheel) return@detectDragGestures
                             change.consume()
                             val dx = change.position.x - wheelCenter.x
                             val dy = change.position.y - wheelCenter.y
                             val currentAngle = (atan2(dy, dx) * (180f / PI.toFloat()) + 360f) % 360f
 
-                            var delta = currentAngle - lastAngle
-                            if (delta > 180f) {
-                                delta -= 360f
-                            } else if (delta < -180f) {
-                                delta += 360f
-                            }
+                            val delta = SleepTimerUtils.normalizeAngleDelta(currentAngle, lastAngle)
 
                             // Tactile detent ticks every ~15 degrees of angular movement
                             accumulatedAngle += delta
@@ -398,7 +454,7 @@ fun WheelPlayerScreen(
                 }
             }
 
-            // Center Tactile Hub
+            // Center Tactile Hub (Quick Sleep Timer Shortcut: 15 → 30 → 45 → 60 → 15)
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -406,13 +462,34 @@ fun WheelPlayerScreen(
                     .clip(CircleShape)
                     .background(LyroSurface)
                     .border(1.dp, LyroDivider, CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {
+                            val nextPreset = SleepTimerUtils.getNextPreset(sleepTimerMinutesLeft)
+                            viewModel.setSleepTimer(nextPreset)
+                            haptics.click()
+                            sleepTimerToastMessage = "Sleep timer • $nextPreset min"
+                        }
+                    )
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(if (isPlaying) LyroAccent else LyroSurfaceHighlight)
-                )
+                if (sleepTimerToastMessage != null) {
+                    val displayMin = sleepTimerMinutesLeft ?: SleepTimerUtils.PRESETS.first()
+                    Text(
+                        text = "${displayMin}m",
+                        color = LyroAccent,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(if (isPlaying) LyroAccent else LyroSurfaceHighlight)
+                    )
+                }
             }
         }
 
@@ -557,6 +634,7 @@ fun WheelPlayerScreen(
     // Sleep Timer Dialog
     if (showSleepTimerDialog) {
         SleepTimerDialog(
+            currentMinutesLeft = sleepTimerMinutesLeft,
             onSetTimer = { viewModel.setSleepTimer(it) },
             onDismiss = { showSleepTimerDialog = false }
         )

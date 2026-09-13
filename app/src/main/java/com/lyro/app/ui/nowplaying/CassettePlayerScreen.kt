@@ -393,6 +393,7 @@ fun CassettePlayerScreen(
     // Sleep Timer Dialog
     if (showSleepTimerDialog) {
         SleepTimerDialog(
+            currentMinutesLeft = sleepTimerMinutesLeft,
             onSetTimer = { viewModel.setSleepTimer(it) },
             onDismiss = { showSleepTimerDialog = false }
         )
