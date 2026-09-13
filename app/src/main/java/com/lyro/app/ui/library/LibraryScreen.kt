@@ -54,6 +54,7 @@ fun LibraryScreen(
     contentPadding: PaddingValues = PaddingValues(bottom = 140.dp),
     modifier: Modifier = Modifier
 ) {
+    val haptics = com.lyro.app.core.haptics.rememberLyroHaptics()
     val songs by viewModel.songs.collectAsState()
     val likedSongs by viewModel.likedSongs.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
@@ -68,6 +69,7 @@ fun LibraryScreen(
 
     // If a filter is active, back press resets filter to ALL before leaving Library
     BackHandler(enabled = selectedFilter != LibraryFilter.ALL) {
+        haptics.selection()
         selectedFilter = LibraryFilter.ALL
     }
 
@@ -96,7 +98,10 @@ fun LibraryScreen(
                 )
 
                 IconButton(
-                    onClick = { showCreatePlaylistDialog = true },
+                    onClick = {
+                        haptics.click()
+                        showCreatePlaylistDialog = true
+                    },
                     modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
@@ -121,32 +126,57 @@ fun LibraryScreen(
                 LyroChip(
                     text = "All Tracks (${songs.size})",
                     selected = selectedFilter == LibraryFilter.ALL,
-                    onClick = { selectedFilter = LibraryFilter.ALL }
+                    onClick = {
+                        if (selectedFilter != LibraryFilter.ALL) {
+                            haptics.selection()
+                            selectedFilter = LibraryFilter.ALL
+                        }
+                    }
                 )
 
                 LyroChip(
                     text = "Playlists (${playlists.size})",
                     selected = selectedFilter == LibraryFilter.PLAYLISTS,
-                    onClick = { selectedFilter = LibraryFilter.PLAYLISTS }
+                    onClick = {
+                        if (selectedFilter != LibraryFilter.PLAYLISTS) {
+                            haptics.selection()
+                            selectedFilter = LibraryFilter.PLAYLISTS
+                        }
+                    }
                 )
 
                 LyroChip(
                     text = "Liked Songs (${likedSongs.size})",
                     selected = selectedFilter == LibraryFilter.LIKED,
-                    onClick = { selectedFilter = LibraryFilter.LIKED }
+                    onClick = {
+                        if (selectedFilter != LibraryFilter.LIKED) {
+                            haptics.selection()
+                            selectedFilter = LibraryFilter.LIKED
+                        }
+                    }
                 )
 
                 if (selectedFilter == LibraryFilter.ALL) {
                     LyroChip(
                         text = if (sortOrder == SortOrder.TITLE) "Sort: A-Z" else "Sort: Title",
                         selected = sortOrder == SortOrder.TITLE,
-                        onClick = { viewModel.onSortOrderChanged(SortOrder.TITLE) }
+                        onClick = {
+                            if (sortOrder != SortOrder.TITLE) {
+                                haptics.selection()
+                                viewModel.onSortOrderChanged(SortOrder.TITLE)
+                            }
+                        }
                     )
 
                     LyroChip(
                         text = if (sortOrder == SortOrder.DATE_ADDED) "Sort: Newest" else "Sort: Date",
                         selected = sortOrder == SortOrder.DATE_ADDED,
-                        onClick = { viewModel.onSortOrderChanged(SortOrder.DATE_ADDED) }
+                        onClick = {
+                            if (sortOrder != SortOrder.DATE_ADDED) {
+                                haptics.selection()
+                                viewModel.onSortOrderChanged(SortOrder.DATE_ADDED)
+                            }
+                        }
                     )
                 }
             }

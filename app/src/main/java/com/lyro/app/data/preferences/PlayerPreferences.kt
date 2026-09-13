@@ -31,8 +31,21 @@ class PlayerPreferences(context: Context) {
         _playerStyle.value = style
     }
 
+    private val _isHapticsEnabled = MutableStateFlow(loadHapticsEnabled())
+    val isHapticsEnabled: StateFlow<Boolean> = _isHapticsEnabled.asStateFlow()
+
+    private fun loadHapticsEnabled(): Boolean {
+        return prefs.getBoolean(KEY_HAPTICS_ENABLED, true)
+    }
+
+    fun setHapticsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_HAPTICS_ENABLED, enabled).apply()
+        _isHapticsEnabled.value = enabled
+    }
+
     companion object {
         private const val PREFS_NAME = "lyro_player_prefs"
         private const val KEY_PLAYER_STYLE = "player_style"
+        private const val KEY_HAPTICS_ENABLED = "haptics_enabled"
     }
 }

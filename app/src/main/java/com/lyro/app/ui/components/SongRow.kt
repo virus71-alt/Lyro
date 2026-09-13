@@ -27,9 +27,14 @@ import com.lyro.app.data.model.OnlineTrack
 import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Song
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import com.lyro.app.core.haptics.rememberLyroHaptics
+
 /**
  * Reusable, compact, modern music track row inspired by minimal streaming apps.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SongRow(
     title: String,
@@ -43,15 +48,29 @@ fun SongRow(
     onMoreClick: (() -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null
 ) {
+    val haptics = rememberLyroHaptics()
     val rowShape = RoundedCornerShape(10.dp)
     val rowBg = if (isCurrent) LyroSurfaceElevated.copy(alpha = 0.6f) else Color.Transparent
+
+    val hasMore = onMoreClick != null
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(rowShape)
             .background(rowBg)
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = {
+                    haptics.click()
+                    onClick()
+                },
+                onLongClick = if (hasMore) {
+                    {
+                        haptics.longPress()
+                        onMoreClick?.invoke()
+                    }
+                } else null
+            )
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -116,7 +135,10 @@ fun SongRow(
         } else if (onMoreClick != null) {
             Spacer(modifier = Modifier.width(4.dp))
             IconButton(
-                onClick = onMoreClick,
+                onClick = {
+                    haptics.click()
+                    onMoreClick()
+                },
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(

@@ -34,6 +34,7 @@ fun PlayerBottomActions(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val haptics = com.lyro.app.core.haptics.rememberLyroHaptics()
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -43,7 +44,12 @@ fun PlayerBottomActions(
         // Favorite Button
         val isFav = currentSong?.isFavorite == true
         IconButton(
-            onClick = { currentSong?.let { onFavoriteClick(it) } },
+            onClick = {
+                currentSong?.let {
+                    haptics.selection()
+                    onFavoriteClick(it)
+                }
+            },
             modifier = Modifier.size(44.dp)
         ) {
             Icon(
@@ -109,7 +115,10 @@ fun PlayerBottomActions(
 
         // Sleep Timer Button
         IconButton(
-            onClick = onSleepTimerClick,
+            onClick = {
+                haptics.click()
+                onSleepTimerClick()
+            },
             modifier = Modifier.size(44.dp)
         ) {
             Icon(
@@ -122,7 +131,10 @@ fun PlayerBottomActions(
 
         // Queue Button
         IconButton(
-            onClick = onQueueClick,
+            onClick = {
+                haptics.click()
+                onQueueClick()
+            },
             modifier = Modifier.size(44.dp)
         ) {
             Icon(

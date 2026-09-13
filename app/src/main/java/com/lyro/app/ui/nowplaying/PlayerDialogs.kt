@@ -15,12 +15,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyro.app.core.designsystem.*
+import com.lyro.app.core.haptics.rememberLyroHaptics
 
 @Composable
 fun SleepTimerDialog(
     onSetTimer: (Int?) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val haptics = rememberLyroHaptics()
     val shape = RoundedCornerShape(16.dp)
 
     AlertDialog(
@@ -29,6 +31,7 @@ fun SleepTimerDialog(
         dismissButton = {
             TextButton(
                 onClick = {
+                    haptics.click()
                     onSetTimer(null)
                     onDismiss()
                 }
@@ -57,6 +60,7 @@ fun SleepTimerDialog(
                             .clip(itemShape)
                             .background(LyroSurface)
                             .clickable {
+                                haptics.selection()
                                 onSetTimer(mins)
                                 onDismiss()
                             }

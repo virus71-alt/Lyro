@@ -35,6 +35,7 @@ fun MiniPlayer(
 ) {
     if (song == null) return
 
+    val haptics = com.lyro.app.core.haptics.rememberLyroHaptics()
     val shape = RoundedCornerShape(12.dp)
     val progress = if (duration > 0) (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f) else 0f
 
@@ -48,7 +49,10 @@ fun MiniPlayer(
                 .fillMaxWidth()
                 .clip(shape)
                 .background(LyroSurfaceElevated)
-                .clickable(onClick = onExpandClick)
+                .clickable {
+                    haptics.selection()
+                    onExpandClick()
+                }
         ) {
             Row(
                 modifier = Modifier
@@ -96,7 +100,10 @@ fun MiniPlayer(
 
                 // Play / Pause button
                 LyroIconButton(
-                    onClick = onPlayPauseClick,
+                    onClick = {
+                        haptics.click()
+                        onPlayPauseClick()
+                    },
                     size = 38.dp,
                     backgroundColor = Color.Transparent
                 ) {
@@ -112,7 +119,10 @@ fun MiniPlayer(
 
                 // Next button
                 LyroIconButton(
-                    onClick = onNextClick,
+                    onClick = {
+                        haptics.click()
+                        onNextClick()
+                    },
                     size = 38.dp,
                     backgroundColor = Color.Transparent
                 ) {

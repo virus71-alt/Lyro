@@ -25,9 +25,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lyro.app.core.designsystem.LyroBackground
-import com.lyro.app.core.designsystem.LyroTextMuted
-import com.lyro.app.core.designsystem.LyroTextPrimary
+import com.lyro.app.core.designsystem.*
+import com.lyro.app.core.haptics.rememberLyroHaptics
 
 /**
  * Premium minimal bottom navigation bar for Lyro.
@@ -40,6 +39,8 @@ fun LyroBottomNavigation(
     onDestinationSelected: (MainDestination) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = rememberLyroHaptics()
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -53,7 +54,12 @@ fun LyroBottomNavigation(
             LyroBottomNavItem(
                 destination = destination,
                 selected = destination == currentDestination,
-                onClick = { onDestinationSelected(destination) },
+                onClick = {
+                    if (destination != currentDestination) {
+                        haptics.selection()
+                        onDestinationSelected(destination)
+                    }
+                },
                 modifier = Modifier.weight(1f)
             )
         }

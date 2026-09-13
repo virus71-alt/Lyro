@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.ui.components.CassetteArtwork
+import com.lyro.app.core.haptics.rememberLyroHaptics
 
 @Composable
 fun CassettePlayerScreen(
@@ -30,6 +32,7 @@ fun CassettePlayerScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = rememberLyroHaptics()
     val currentSong by viewModel.currentSong.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val currentPosition by viewModel.currentPosition.collectAsState()
@@ -52,17 +55,29 @@ fun CassettePlayerScreen(
         if (duration > 0) (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f) else 0f
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(LyroBackground)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+    val backgroundGradient = Brush.verticalGradient(
+        colors = listOf(
+            LyroSurfaceElevated,
+            LyroBackground,
+            LyroBackground
+        )
+    )
+
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = LyroBackground
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(backgroundGradient)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
         // Top Header
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -70,7 +85,10 @@ fun CassettePlayerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = onBackClick,
+                onClick = {
+                    haptics.click()
+                    onBackClick()
+                },
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
@@ -161,6 +179,7 @@ fun CassettePlayerScreen(
                 },
                 onValueChangeFinished = {
                     isUserSeeking = false
+                    haptics.strongClick()
                     val targetMs = (seekSliderPosition * duration).toLong()
                     viewModel.seekTo(targetMs)
                 },
@@ -206,7 +225,10 @@ fun CassettePlayerScreen(
         ) {
             // Shuffle
             IconButton(
-                onClick = { viewModel.toggleShuffle() },
+                onClick = {
+                    haptics.selection()
+                    viewModel.toggleShuffle()
+                },
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(
@@ -219,7 +241,10 @@ fun CassettePlayerScreen(
 
             // Previous
             IconButton(
-                onClick = { viewModel.skipPrevious() },
+                onClick = {
+                    haptics.click()
+                    viewModel.skipPrevious()
+                },
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
@@ -236,7 +261,10 @@ fun CassettePlayerScreen(
                     .size(64.dp)
                     .clip(CircleShape)
                     .background(LyroAccent)
-                    .clickable { viewModel.togglePlayPause() },
+                    .clickable {
+                        haptics.click()
+                        viewModel.togglePlayPause()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -249,7 +277,10 @@ fun CassettePlayerScreen(
 
             // Next
             IconButton(
-                onClick = { viewModel.skipNext() },
+                onClick = {
+                    haptics.click()
+                    viewModel.skipNext()
+                },
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
@@ -266,7 +297,10 @@ fun CassettePlayerScreen(
                 else -> LyroAccent
             }
             IconButton(
-                onClick = { viewModel.cycleRepeatMode() },
+                onClick = {
+                    haptics.selection()
+                    viewModel.cycleRepeatMode()
+                },
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(
@@ -291,6 +325,7 @@ fun CassettePlayerScreen(
             onQueueClick = { showQueueSheet = true }
         )
     }
+}
 
     // Queue Bottom Sheet
     if (showQueueSheet) {

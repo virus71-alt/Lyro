@@ -30,12 +30,15 @@ import com.lyro.app.ui.components.SongArtworkThumbnail
  * Modern, clean, artwork-centric Minimal Now Playing Screen inspired by contemporary streaming players.
  * Large centered artwork, clean text hierarchy, thin slider, prominent circular play button, and minimal actions.
  */
+import com.lyro.app.core.haptics.rememberLyroHaptics
+
 @Composable
 fun MinimalPlayerScreen(
     viewModel: NowPlayingViewModel,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = rememberLyroHaptics()
     val currentSong by viewModel.currentSong.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val currentPosition by viewModel.currentPosition.collectAsState()
@@ -60,23 +63,27 @@ fun MinimalPlayerScreen(
 
     val backgroundGradient = Brush.verticalGradient(
         colors = listOf(
-            LyroSurfaceElevated.copy(alpha = 0.7f),
+            LyroSurfaceElevated,
             LyroBackground,
             LyroBackground
         )
     )
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(backgroundGradient)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = LyroBackground
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(backgroundGradient)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
         // 1. Top Header Row: Collapse, Centered "Now Playing", More
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -84,7 +91,10 @@ fun MinimalPlayerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = onBackClick,
+                onClick = {
+                    haptics.click()
+                    onBackClick()
+                },
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
@@ -103,7 +113,10 @@ fun MinimalPlayerScreen(
             )
 
             IconButton(
-                onClick = { showQueueSheet = true },
+                onClick = {
+                    haptics.click()
+                    showQueueSheet = true
+                },
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
@@ -197,6 +210,7 @@ fun MinimalPlayerScreen(
                 },
                 onValueChangeFinished = {
                     isUserSeeking = false
+                    haptics.strongClick()
                     val targetMs = (seekSliderPosition * duration).toLong()
                     viewModel.seekTo(targetMs)
                 },
@@ -242,7 +256,10 @@ fun MinimalPlayerScreen(
         ) {
             // Shuffle
             IconButton(
-                onClick = { viewModel.toggleShuffle() },
+                onClick = {
+                    haptics.selection()
+                    viewModel.toggleShuffle()
+                },
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(
@@ -255,7 +272,10 @@ fun MinimalPlayerScreen(
 
             // Previous
             IconButton(
-                onClick = { viewModel.skipPrevious() },
+                onClick = {
+                    haptics.click()
+                    viewModel.skipPrevious()
+                },
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
@@ -272,7 +292,10 @@ fun MinimalPlayerScreen(
                     .size(68.dp)
                     .clip(CircleShape)
                     .background(LyroAccent)
-                    .clickable { viewModel.togglePlayPause() },
+                    .clickable {
+                        haptics.click()
+                        viewModel.togglePlayPause()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -285,7 +308,10 @@ fun MinimalPlayerScreen(
 
             // Next
             IconButton(
-                onClick = { viewModel.skipNext() },
+                onClick = {
+                    haptics.click()
+                    viewModel.skipNext()
+                },
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
@@ -302,7 +328,10 @@ fun MinimalPlayerScreen(
                 else -> LyroAccent
             }
             IconButton(
-                onClick = { viewModel.cycleRepeatMode() },
+                onClick = {
+                    haptics.selection()
+                    viewModel.cycleRepeatMode()
+                },
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(
@@ -327,6 +356,7 @@ fun MinimalPlayerScreen(
             onQueueClick = { showQueueSheet = true }
         )
     }
+}
 
     // Queue Bottom Sheet
     if (showQueueSheet) {

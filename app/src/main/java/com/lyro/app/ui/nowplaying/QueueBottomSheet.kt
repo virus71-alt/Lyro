@@ -23,6 +23,8 @@ import com.lyro.app.data.model.Song
 import com.lyro.app.ui.components.AudioVisualizerBar
 import com.lyro.app.ui.components.SongArtworkThumbnail
 
+import com.lyro.app.core.haptics.rememberLyroHaptics
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QueueBottomSheet(
@@ -32,6 +34,7 @@ fun QueueBottomSheet(
     onSongClick: (Song) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val haptics = rememberLyroHaptics()
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = LyroSurfaceElevated,
@@ -73,7 +76,10 @@ fun QueueBottomSheet(
                 }
 
                 IconButton(
-                    onClick = onDismiss,
+                    onClick = {
+                        haptics.click()
+                        onDismiss()
+                    },
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
@@ -106,7 +112,10 @@ fun QueueBottomSheet(
                             .padding(vertical = 2.dp)
                             .clip(shape)
                             .background(bg)
-                            .clickable { onSongClick(song) }
+                            .clickable {
+                                haptics.click()
+                                onSongClick(song)
+                            }
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

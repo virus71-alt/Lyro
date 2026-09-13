@@ -27,6 +27,8 @@ import com.lyro.app.data.preferences.PlayerPreferences
 import com.lyro.app.data.preferences.PlayerStyle
 import com.lyro.app.ui.songs.SongsViewModel
 
+import com.lyro.app.core.haptics.rememberLyroHaptics
+
 @Composable
 fun SettingsScreen(
     viewModel: SongsViewModel,
@@ -34,24 +36,33 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = rememberLyroHaptics()
     val currentStyle by playerPreferences.playerStyle.collectAsState()
+    val isHapticsEnabled by playerPreferences.isHapticsEnabled.collectAsState()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(LyroBackground)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = LyroBackground
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(LyroBackground)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
         // Top Header
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = onBackClick,
+                onClick = {
+                    haptics.click()
+                    onBackClick()
+                },
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
@@ -87,28 +98,43 @@ fun SettingsScreen(
                 title = "Minimal Player (Default)",
                 description = "Modern artwork-first player with clean spacing, thin seek bar, and refined controls.",
                 isSelected = currentStyle == PlayerStyle.MINIMAL,
-                onClick = { playerPreferences.setPlayerStyle(PlayerStyle.MINIMAL) }
+                onClick = {
+                    if (currentStyle != PlayerStyle.MINIMAL) {
+                        haptics.selection()
+                        playerPreferences.setPlayerStyle(PlayerStyle.MINIMAL)
+                    }
+                }
             )
 
             PlayerStyleOption(
                 title = "Cassette Player",
                 description = "Classic retro cassette deck with animated spools and clean info.",
                 isSelected = currentStyle == PlayerStyle.CASSETTE,
-                onClick = { playerPreferences.setPlayerStyle(PlayerStyle.CASSETTE) }
+                onClick = {
+                    if (currentStyle != PlayerStyle.CASSETTE) {
+                        haptics.selection()
+                        playerPreferences.setPlayerStyle(PlayerStyle.CASSETTE)
+                    }
+                }
             )
 
             PlayerStyleOption(
                 title = "Wheel Player",
                 description = "Circular tactile wheel controls with continuous drag seeking.",
                 isSelected = currentStyle == PlayerStyle.WHEEL,
-                onClick = { playerPreferences.setPlayerStyle(PlayerStyle.WHEEL) }
+                onClick = {
+                    if (currentStyle != PlayerStyle.WHEEL) {
+                        haptics.selection()
+                        playerPreferences.setPlayerStyle(PlayerStyle.WHEEL)
+                    }
+                }
             )
         }
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // SECTION: Library
-        SettingsSectionHeader(title = "Library")
+        // SECTION: Feedback & Haptics
+        SettingsSectionHeader(title = "Feedback")
 
         Spacer(modifier = Modifier.height(10.dp))
 
@@ -119,7 +145,58 @@ fun SettingsScreen(
                 .clip(cardShape)
                 .background(LyroSurfaceElevated)
                 .border(1.dp, LyroDivider, cardShape)
-                .clickable { viewModel.loadSongs() }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Haptic feedback",
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp,
+                    color = LyroTextPrimary
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Tactile clicks for controls, navigation, and wheel detents",
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 12.sp,
+                    color = LyroTextSecondary
+                )
+            }
+
+            Switch(
+                checked = isHapticsEnabled,
+                onCheckedChange = { enabled ->
+                    haptics.selection()
+                    playerPreferences.setHapticsEnabled(enabled)
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.Black,
+                    checkedTrackColor = LyroAccent,
+                    uncheckedThumbColor = LyroTextSecondary,
+                    uncheckedTrackColor = LyroSurfaceHighlight
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // SECTION: Library
+        SettingsSectionHeader(title = "Library")
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(cardShape)
+                .background(LyroSurfaceElevated)
+                .border(1.dp, LyroDivider, cardShape)
+                .clickable {
+                    haptics.click()
+                    viewModel.loadSongs()
+                }
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -221,6 +298,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(40.dp))
     }
+}
 }
 
 @Composable

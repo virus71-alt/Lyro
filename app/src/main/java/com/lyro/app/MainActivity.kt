@@ -104,6 +104,12 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                val isHapticsEnabled by playerPreferences.isHapticsEnabled.collectAsState()
+                val localView = androidx.compose.ui.platform.LocalView.current
+                val hapticsController = remember(localView, isHapticsEnabled) {
+                    com.lyro.app.core.haptics.LyroHapticsController(localView) { isHapticsEnabled }
+                }
+
                 // Dynamic bottom padding calculation:
                 // Prevents list content from being hidden behind MiniPlayer and BottomNavigation
                 val bottomPadding = if (currentSong != null) 148.dp else 76.dp
@@ -114,17 +120,20 @@ class MainActivity : ComponentActivity() {
                 // 2. Secondary tabs (Explore, Library) return back to Home root
                 // 3. Home root exits activity
                 BackHandler(enabled = activeOverlay != OverlayScreen.NONE) {
+                    hapticsController.click()
                     activeOverlay = OverlayScreen.NONE
                 }
 
                 BackHandler(enabled = activeOverlay == OverlayScreen.NONE && currentDestination != MainDestination.HOME) {
+                    hapticsController.selection()
                     currentDestination = MainDestination.HOME
                 }
 
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = LyroBackground
-                ) {
+                CompositionLocalProvider(com.lyro.app.core.haptics.LocalLyroHaptics provides hapticsController) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = LyroBackground
+                    ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         // 1. Destination Content with Restrained Crossfade
                         Crossfade(
@@ -248,6 +257,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                }
                 }
             }
         }

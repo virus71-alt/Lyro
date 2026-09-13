@@ -44,6 +44,7 @@ fun HomeScreen(
     contentPadding: PaddingValues = PaddingValues(bottom = 140.dp),
     modifier: Modifier = Modifier
 ) {
+    val haptics = com.lyro.app.core.haptics.rememberLyroHaptics()
     val quickPicks by viewModel.quickPicks.collectAsState()
     val likedSongs by viewModel.likedSongs.collectAsState()
     val recentlyAdded by viewModel.recentlyAdded.collectAsState()
@@ -80,14 +81,20 @@ fun HomeScreen(
                     letterSpacing = 1.5.sp
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = onSearchClick) {
+                    IconButton(onClick = {
+                        haptics.click()
+                        onSearchClick()
+                    }) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
                             tint = LyroTextPrimary
                         )
                     }
-                    IconButton(onClick = onSettingsClick) {
+                    IconButton(onClick = {
+                        haptics.click()
+                        onSettingsClick()
+                    }) {
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Settings",
@@ -115,7 +122,10 @@ fun HomeScreen(
                             .clip(RoundedCornerShape(20.dp))
                             .background(chipBg)
                             .border(1.dp, chipBorder, RoundedCornerShape(20.dp))
-                            .clickable { viewModel.selectMood(mood) }
+                            .clickable {
+                                haptics.selection()
+                                viewModel.selectMood(mood)
+                            }
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {

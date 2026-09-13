@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -42,12 +43,16 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 
+import com.lyro.app.core.haptics.rememberLyroHaptics
+import kotlin.math.abs
+
 @Composable
 fun WheelPlayerScreen(
     viewModel: NowPlayingViewModel,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = rememberLyroHaptics()
     val currentSong by viewModel.currentSong.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val currentPosition by viewModel.currentPosition.collectAsState()
@@ -61,30 +66,40 @@ fun WheelPlayerScreen(
     var showQueueSheet by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
 
-    // Wheel Drag & Seek state
+    // Wheel touch tracking state
     var isDraggingWheel by remember { mutableStateOf(false) }
     var previewProgress by remember { mutableFloatStateOf(0f) }
     var lastAngle by remember { mutableFloatStateOf(0f) }
     var wheelCenter by remember { mutableStateOf(Offset.Zero) }
+    var accumulatedAngle by remember { mutableFloatStateOf(0f) }
 
-    val currentProgress = if (duration > 0) {
-        (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
-    } else 0f
-
+    val currentProgress = if (duration > 0) (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f) else 0f
     val displayProgress = if (isDraggingWheel) previewProgress else currentProgress
-    val displayPositionMs = if (isDraggingWheel) (previewProgress * duration).toLong() else currentPosition
+    val displayMs = (displayProgress * duration).toLong()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(LyroBackground)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+    val backgroundGradient = Brush.verticalGradient(
+        colors = listOf(
+            LyroSurfaceElevated,
+            LyroBackground,
+            LyroBackground
+        )
+    )
+
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = LyroBackground
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(backgroundGradient)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
         // Top Header
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -92,7 +107,10 @@ fun WheelPlayerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = onBackClick,
+                onClick = {
+                    haptics.click()
+                    onBackClick()
+                },
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
@@ -185,17 +203,17 @@ fun WheelPlayerScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Time Display Row with Seek Indicator
+        // Readout Bar: Current Time, Drag Status, Total Duration
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = NowPlayingUtils.formatTime(displayPositionMs),
-                fontWeight = if (isDraggingWheel) FontWeight.SemiBold else FontWeight.Normal,
+                text = NowPlayingUtils.formatTime(displayMs),
+                fontWeight = if (isDraggingWheel) FontWeight.Bold else FontWeight.Normal,
                 fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace,
                 color = if (isDraggingWheel) LyroAccent else LyroTextSecondary
@@ -246,12 +264,14 @@ fun WheelPlayerScreen(
                         onDragStart = { offset ->
                             isDraggingWheel = true
                             previewProgress = currentProgress
+                            accumulatedAngle = 0f
                             val dx = offset.x - wheelCenter.x
                             val dy = offset.y - wheelCenter.y
                             lastAngle = (atan2(dy, dx) * (180f / PI.toFloat()) + 360f) % 360f
                         },
                         onDragEnd = {
                             isDraggingWheel = false
+                            haptics.strongClick()
                             val targetMs = (previewProgress * duration).toLong()
                             viewModel.seekTo(targetMs)
                         },
@@ -269,6 +289,13 @@ fun WheelPlayerScreen(
                                 delta -= 360f
                             } else if (delta < -180f) {
                                 delta += 360f
+                            }
+
+                            // Tactile detent ticks every ~15 degrees of angular movement
+                            accumulatedAngle += delta
+                            if (abs(accumulatedAngle) >= 15f) {
+                                haptics.tick()
+                                accumulatedAngle %= 15f
                             }
 
                             val progressDelta = delta / 360f
@@ -357,7 +384,10 @@ fun WheelPlayerScreen(
         ) {
             // Shuffle
             IconButton(
-                onClick = { viewModel.toggleShuffle() },
+                onClick = {
+                    haptics.selection()
+                    viewModel.toggleShuffle()
+                },
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(
@@ -370,7 +400,10 @@ fun WheelPlayerScreen(
 
             // Previous
             IconButton(
-                onClick = { viewModel.skipPrevious() },
+                onClick = {
+                    haptics.click()
+                    viewModel.skipPrevious()
+                },
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
@@ -387,7 +420,10 @@ fun WheelPlayerScreen(
                     .size(64.dp)
                     .clip(CircleShape)
                     .background(LyroAccent)
-                    .clickable { viewModel.togglePlayPause() },
+                    .clickable {
+                        haptics.click()
+                        viewModel.togglePlayPause()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -400,7 +436,10 @@ fun WheelPlayerScreen(
 
             // Next
             IconButton(
-                onClick = { viewModel.skipNext() },
+                onClick = {
+                    haptics.click()
+                    viewModel.skipNext()
+                },
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
@@ -417,7 +456,10 @@ fun WheelPlayerScreen(
                 else -> LyroAccent
             }
             IconButton(
-                onClick = { viewModel.cycleRepeatMode() },
+                onClick = {
+                    haptics.selection()
+                    viewModel.cycleRepeatMode()
+                },
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(
@@ -442,6 +484,7 @@ fun WheelPlayerScreen(
             onQueueClick = { showQueueSheet = true }
         )
     }
+}
 
     // Queue Bottom Sheet
     if (showQueueSheet) {
