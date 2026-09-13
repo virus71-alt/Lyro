@@ -256,7 +256,10 @@ class SongsViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Liked Songs
+    // Liked Songs & Tracks (Unified across local & online)
+    val likedTracks: StateFlow<List<PlayableTrack>> = repository.favoriteTracks
+
+    // Liked Songs (local Song callers)
     val likedSongs: StateFlow<List<Song>> = repository.allSongs.map { all ->
         all.filter { it.isFavorite }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -781,21 +784,29 @@ class SongsViewModel(
     }
 
     fun toggleFavorite(song: Song) {
+        toggleFavorite(com.lyro.app.data.model.LocalTrack(song = song))
+    }
+
+    fun toggleFavorite(track: PlayableTrack) {
         viewModelScope.launch {
-            val wasFav = song.isFavorite
-            repository.toggleFavorite(song)
+            val wasFav = repository.isTrackFavorite(track)
+            repository.toggleFavoriteTrack(track)
             try {
                 val eventType = if (!wasFav) com.lyro.app.recommendation.model.EventType.LIKED else com.lyro.app.recommendation.model.EventType.UNLIKED
+                val vid = track.onlineVideoId ?: "local_${track.id}"
                 LyroApplication.instance.listeningEventRepository.recordEvent(
                     com.lyro.app.recommendation.model.ListeningEvent(
                         playbackSessionId = "favorite_toggle",
-                        videoId = "local_${song.id}",
-                        title = song.title,
-                        artist = song.artist,
-                        album = song.album,
+                        videoId = vid,
+                        title = track.title,
+                        artist = track.artist,
+                        album = track.album,
                         eventType = eventType
                     )
                 )
+                withContext(Dispatchers.Default) {
+                    LyroApplication.instance.tasteProfileRepository.recomputeProfile()
+                }
             } catch (e: Exception) {
                 // Non-blocking
             }

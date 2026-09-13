@@ -59,9 +59,11 @@ fun LibraryScreen(
     val haptics = com.lyro.app.core.haptics.rememberLyroHaptics()
     val songs by viewModel.songs.collectAsState()
     val likedSongs by viewModel.likedSongs.collectAsState()
+    val likedTracks by viewModel.likedTracks.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
     val currentSong by viewModel.currentSong.collectAsState()
+    val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
 
     var selectedFilter by rememberSaveable { mutableStateOf(LibraryFilter.ALL) }
@@ -159,7 +161,7 @@ fun LibraryScreen(
                 )
 
                 LyroChip(
-                    text = "Liked Songs (${likedSongs.size})",
+                    text = "Liked Songs (${likedTracks.size})",
                     selected = selectedFilter == LibraryFilter.LIKED,
                     onClick = {
                         if (selectedFilter != LibraryFilter.LIKED) {
@@ -239,7 +241,7 @@ fun LibraryScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "${likedSongs.size} tracks",
+                                text = "${likedTracks.size} tracks • Local & Online",
                                 fontSize = 13.sp,
                                 color = LyroTextSecondary
                             )
@@ -346,14 +348,52 @@ fun LibraryScreen(
         }
 
         // 5. Tracks List Section
-        if (selectedFilter == LibraryFilter.ALL || selectedFilter == LibraryFilter.LIKED) {
-            val listToShow = if (selectedFilter == LibraryFilter.LIKED) likedSongs else songs
-
+        if (selectedFilter == LibraryFilter.LIKED) {
             item(key = "tracks_section_header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 SectionHeader(
-                    title = if (selectedFilter == LibraryFilter.LIKED) "Liked Tracks" else "Device Tracks",
-                    subtitle = "${listToShow.size} songs"
+                    title = "Liked Tracks",
+                    subtitle = "${likedTracks.size} tracks • Local & Online"
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            if (likedTracks.isEmpty()) {
+                item(key = "empty_liked_tracks") {
+                    LyroEmptyState(
+                        icon = Icons.Default.FavoriteBorder,
+                        title = "No Liked Tracks",
+                        description = "Tap the heart on any local or online song to save it to your liked tracks.",
+                        primaryButtonText = "Explore Online Music",
+                        onPrimaryButtonClick = { selectedFilter = LibraryFilter.ALL }
+                    )
+                }
+            } else {
+                items(likedTracks, key = { "liked_${it.onlineVideoId ?: it.id}" }) { track ->
+                    val isCur = currentTrack?.id == track.id || currentSong?.title.equals(track.title, ignoreCase = true)
+                    SongRow(
+                        track = track,
+                        isCurrent = isCur,
+                        isPlaying = isPlaying && isCur,
+                        onClick = { viewModel.playTrack(track, likedTracks) },
+                        onMoreClick = {
+                            val localSong = (track as? com.lyro.app.data.model.LocalTrack)?.song
+                                ?: (track as? com.lyro.app.data.model.UnifiedTrack)?.localSong
+                            if (localSong != null) {
+                                selectedSongForMenu = localSong
+                            } else {
+                                viewModel.toggleFavorite(track)
+                            }
+                        }
+                    )
+                }
+            }
+        } else if (selectedFilter == LibraryFilter.ALL) {
+            item(key = "tracks_section_header") {
+                Spacer(modifier = Modifier.height(24.dp))
+                SectionHeader(
+                    title = "Device Tracks",
+                    subtitle = "${songs.size} songs"
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }
@@ -368,26 +408,24 @@ fun LibraryScreen(
                         onPrimaryButtonClick = onRequestPermission
                     )
                 }
-            } else if (listToShow.isEmpty()) {
+            } else if (songs.isEmpty()) {
                 item(key = "empty_library") {
                     LyroEmptyState(
                         icon = Icons.Default.MusicOff,
-                        title = if (selectedFilter == LibraryFilter.LIKED) "No Liked Songs" else "No Tracks Found",
-                        description = if (selectedFilter == LibraryFilter.LIKED)
-                            "Tap the heart on any song to save it to your liked tracks."
-                        else "No local music found on device storage. Try rescan in settings or explore online music.",
+                        title = "No Tracks Found",
+                        description = "No local music found on device storage. Try rescan in settings or explore online music.",
                         primaryButtonText = "Rescan Storage",
                         onPrimaryButtonClick = { viewModel.loadSongs() }
                     )
                 }
             } else {
-                items(listToShow, key = { "song_${it.id}" }) { song ->
+                items(songs, key = { "song_${it.id}" }) { song ->
                     val isCur = currentSong?.id == song.id
                     SongRow(
                         song = song,
                         isCurrent = isCur,
                         isPlaying = isPlaying && isCur,
-                        onClick = { viewModel.playSong(song, listToShow) },
+                        onClick = { viewModel.playSong(song, songs) },
                         onMoreClick = { selectedSongForMenu = song }
                     )
                 }

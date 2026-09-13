@@ -20,18 +20,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.data.download.DownloadStatus
+import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Song
+import com.lyro.app.data.model.toLocalTrack
 
 @Composable
 fun PlayerBottomActions(
-    currentSong: Song?,
+    currentTrack: PlayableTrack? = null,
+    isFavorite: Boolean = false,
+    onFavoriteClick: (PlayableTrack) -> Unit,
     sleepTimerMinutesLeft: Int?,
     downloadStatus: DownloadStatus = DownloadStatus.Idle,
-    onFavoriteClick: (Song) -> Unit,
     onDownloadClick: () -> Unit = {},
     onSleepTimerClick: () -> Unit,
     onQueueClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    currentSong: Song? = null
 ) {
     val context = LocalContext.current
     val haptics = com.lyro.app.core.haptics.rememberLyroHaptics()
@@ -42,10 +46,10 @@ fun PlayerBottomActions(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Favorite Button
-        val isFav = currentSong?.isFavorite == true
+        val activeTrack = currentTrack ?: currentSong?.toLocalTrack()
         IconButton(
             onClick = {
-                currentSong?.let {
+                activeTrack?.let {
                     haptics.selection()
                     onFavoriteClick(it)
                 }
@@ -53,9 +57,9 @@ fun PlayerBottomActions(
             modifier = Modifier.size(44.dp)
         ) {
             Icon(
-                imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                 contentDescription = "Favorite",
-                tint = if (isFav) LyroAccent else LyroTextSecondary,
+                tint = if (isFavorite) LyroAccent else LyroTextSecondary,
                 modifier = Modifier.size(24.dp)
             )
         }

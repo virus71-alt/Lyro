@@ -5,8 +5,12 @@ import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
 import com.lyro.app.data.local.LyroDatabaseHelper
+import com.lyro.app.data.model.LocalTrack
+import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Playlist
 import com.lyro.app.data.model.Song
+import com.lyro.app.data.model.UnifiedTrack
+import com.lyro.app.data.model.toUnifiedTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,7 +35,6 @@ class MusicRepository(
     private val localMediaIndex: LocalMediaIndex? = null
 ) {
 
-
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val _allSongs = MutableStateFlow<List<Song>>(emptyList())
@@ -39,6 +42,15 @@ class MusicRepository(
 
     private val _playlists = MutableStateFlow<List<Playlist>>(emptyList())
     val playlists: StateFlow<List<Playlist>> = _playlists.asStateFlow()
+
+    private val _favoriteTracks = MutableStateFlow<List<PlayableTrack>>(emptyList())
+    val favoriteTracks: StateFlow<List<PlayableTrack>> = _favoriteTracks.asStateFlow()
+
+    init {
+        repositoryScope.launch {
+            refreshFavorites()
+        }
+    }
 
     suspend fun loadSongs(): List<Song> = withContext(Dispatchers.IO) {
         val songList = mutableListOf<Song>()
@@ -164,6 +176,7 @@ class MusicRepository(
         _allSongs.value = songList
         localMediaIndex?.rebuild(songList, downloadedMetadataList)
         refreshPlaylists()
+        refreshFavorites()
         autoRecoverMissingThumbnails(songList)
         songList
     }
@@ -230,11 +243,59 @@ class MusicRepository(
         _playlists.value = dbHelper.getPlaylists()
     }
 
+    suspend fun refreshFavorites() = withContext(Dispatchers.IO) {
+        val unifiedFavs = dbHelper.getAllUnifiedFavorites()
+        val localFavs = _allSongs.value.filter { it.isFavorite }.map { it.toUnifiedTrack() }
+        val index = localMediaIndex
+
+        // Resolve any local copy for online favorites
+        val resolvedUnified = unifiedFavs.map { track ->
+            val localMatch = index?.findLocalMatch(track)
+            track.copy(
+                localSong = localMatch,
+                localUri = localMatch?.contentUri ?: track.localUri
+            )
+        }
+
+        val seenKeys = mutableSetOf<String>()
+        val merged = mutableListOf<PlayableTrack>()
+        for (t in resolvedUnified) {
+            val key = t.onlineVideoId?.let { "online_$it" } ?: t.id
+            if (seenKeys.add(key)) {
+                merged.add(t)
+            }
+        }
+        for (t in localFavs) {
+            val key = t.onlineVideoId?.let { "online_$it" } ?: t.id
+            if (seenKeys.add(key)) {
+                merged.add(t)
+            }
+        }
+        _favoriteTracks.value = merged
+    }
+
+    fun isTrackFavorite(track: PlayableTrack): Boolean {
+        return dbHelper.isTrackFavorite(track)
+    }
+
+    suspend fun toggleFavoriteTrack(track: PlayableTrack): Boolean = withContext(Dispatchers.IO) {
+        val newState = dbHelper.toggleTrackFavorite(track)
+        val localSongId = (track as? LocalTrack)?.song?.id ?: (track as? UnifiedTrack)?.localSong?.id
+        if (localSongId != null) {
+            _allSongs.value = _allSongs.value.map {
+                if (it.id == localSongId) it.copy(isFavorite = newState) else it
+            }
+        }
+        refreshFavorites()
+        newState
+    }
+
     suspend fun toggleFavorite(song: Song): Boolean = withContext(Dispatchers.IO) {
         val newState = dbHelper.toggleFavorite(song.id)
         _allSongs.value = _allSongs.value.map {
             if (it.id == song.id) it.copy(isFavorite = newState) else it
         }
+        refreshFavorites()
         newState
     }
 

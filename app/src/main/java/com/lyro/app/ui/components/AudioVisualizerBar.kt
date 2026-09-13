@@ -23,6 +23,25 @@ fun AudioVisualizerBar(
     maxHeight: Dp = 16.dp,
     barWidth: Dp = 3.dp
 ) {
+    if (!isPlaying) {
+        Row(
+            modifier = modifier.height(maxHeight),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            val staticHeights = listOf(0.25f, 0.4f, 0.3f, 0.25f)
+            for (i in 0 until barCount) {
+                Box(
+                    modifier = Modifier
+                        .width(barWidth)
+                        .height(maxHeight * staticHeights[i % staticHeights.size])
+                        .background(barColor.copy(alpha = 0.5f), RoundedCornerShape(1.5.dp))
+                )
+            }
+        }
+        return
+    }
+
     val infiniteTransition = rememberInfiniteTransition(label = "audioBars")
 
     val anim1 by infiniteTransition.animateFloat(

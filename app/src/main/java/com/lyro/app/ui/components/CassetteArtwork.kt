@@ -30,28 +30,35 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.lyro.app.core.designsystem.*
+import com.lyro.app.data.model.LocalTrack
+import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Song
+import com.lyro.app.data.model.UnifiedTrack
 
 @Composable
 fun CassetteArtwork(
-    song: Song?,
+    song: Song? = null,
+    track: PlayableTrack? = null,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
     cassetteColor: Color = LyroSurfaceElevated,
     labelColor: Color = LyroSurfaceHighlight
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "tapeSpin")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2400, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rotation"
-    )
-
-    val currentRotation = if (isPlaying) rotation else 0f
+    val currentRotation = if (isPlaying) {
+        val infiniteTransition = rememberInfiniteTransition(label = "tapeSpin")
+        val rotation by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 2400, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "rotation"
+        )
+        rotation
+    } else {
+        0f
+    }
     val cassetteShape = RoundedCornerShape(16.dp)
 
     // Main Cassette Body (Minimal Dark Deck)
@@ -109,7 +116,14 @@ fun CassetteArtwork(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (song != null) {
+                if (track != null) {
+                    SongArtworkThumbnail(
+                        track = track,
+                        size = 44.dp,
+                        highRes = true,
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
+                } else if (song != null) {
                     SongArtworkThumbnail(
                         song = song,
                         size = 44.dp,
@@ -119,10 +133,10 @@ fun CassetteArtwork(
                 }
                 Column(
                     modifier = Modifier.weight(1f),
-                    horizontalAlignment = if (song != null) Alignment.Start else Alignment.CenterHorizontally
+                    horizontalAlignment = if (track != null || song != null) Alignment.Start else Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = song?.title ?: "No Track Playing",
+                        text = track?.title ?: song?.title ?: "No Track Playing",
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp,
                         maxLines = 1,
@@ -131,7 +145,7 @@ fun CassetteArtwork(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = song?.artist ?: "Lyro Hi-Fi Audio",
+                        text = track?.artist ?: song?.artist ?: "Lyro Hi-Fi Audio",
                         fontWeight = FontWeight.Normal,
                         fontSize = 11.sp,
                         maxLines = 1,
@@ -323,9 +337,14 @@ fun SongArtworkThumbnail(
         contentAlignment = Alignment.Center
     ) {
         if (!artUrl.isNullOrBlank() && !isImageError) {
-            val imageRequest = remember(artUrl, fallbackUrl, context) {
+            val density = context.resources.displayMetrics.density
+            val targetPx = remember(size, density) {
+                (size.value * density).toInt().coerceAtLeast(64)
+            }
+            val imageRequest = remember(artUrl, fallbackUrl, context, targetPx) {
                 coil.request.ImageRequest.Builder(context)
                     .data(artUrl)
+                    .size(targetPx, targetPx)
                     .crossfade(true)
                     .apply {
                         if (fallbackUrl != null && fallbackUrl != artUrl) {
@@ -352,6 +371,58 @@ fun SongArtworkThumbnail(
             )
         } else {
             LyroFallbackArtwork(song = song, size = size)
+        }
+    }
+}
+
+@Composable
+fun SongArtworkThumbnail(
+    track: PlayableTrack,
+    modifier: Modifier = Modifier,
+    size: Dp = 48.dp,
+    highRes: Boolean = size > 64.dp
+) {
+    val localSong = (track as? LocalTrack)?.song ?: (track as? UnifiedTrack)?.localSong
+    if (localSong != null) {
+        SongArtworkThumbnail(song = localSong, modifier = modifier, size = size, highRes = highRes)
+    } else {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val artUrl = track.artworkUriString
+        val thumbShape = RoundedCornerShape(8.dp)
+
+        Box(
+            modifier = modifier
+                .size(size)
+                .clip(thumbShape)
+                .background(LyroSurfaceElevated),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!artUrl.isNullOrBlank()) {
+                val density = context.resources.displayMetrics.density
+                val targetPx = remember(size, density) {
+                    (size.value * density).toInt().coerceAtLeast(64)
+                }
+                val imageRequest = remember(artUrl, context, targetPx) {
+                    coil.request.ImageRequest.Builder(context)
+                        .data(artUrl)
+                        .size(targetPx, targetPx)
+                        .crossfade(true)
+                        .build()
+                }
+                AsyncImage(
+                    model = imageRequest,
+                    contentDescription = track.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = null,
+                    tint = LyroTextMuted,
+                    modifier = Modifier.size(size * 0.5f)
+                )
+            }
         }
     }
 }

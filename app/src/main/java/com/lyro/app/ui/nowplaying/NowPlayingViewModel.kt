@@ -30,6 +30,7 @@ class NowPlayingViewModel(
     val currentPosition: StateFlow<Long> = playbackManager.currentPosition
     val duration: StateFlow<Long> = playbackManager.duration
     val queue: StateFlow<List<Song>> = playbackManager.songQueue
+    val queueTracks: StateFlow<List<PlayableTrack>> = playbackManager.queue
     val currentIndex: StateFlow<Int> = playbackManager.currentIndex
     val isShuffle: StateFlow<Boolean> = playbackManager.isShuffle
     val repeatMode: StateFlow<Int> = playbackManager.repeatMode
@@ -71,6 +72,23 @@ class NowPlayingViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DownloadStatus.Idle)
 
+    // Unified Favorite State for currently playing track
+    val isCurrentTrackFavorite: StateFlow<Boolean> = combine(
+        playbackManager.currentTrack,
+        repository.favoriteTracks
+    ) { track, favs ->
+        if (track == null) false
+        else {
+            val canonicalId = track.onlineVideoId?.let { "online_$it" } ?: track.id
+            val videoId = track.onlineVideoId
+            favs.any { fav ->
+                fav.id == track.id ||
+                fav.id == canonicalId ||
+                (!videoId.isNullOrBlank() && fav.onlineVideoId == videoId)
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     fun downloadCurrentTrack() {
         val track = playbackManager.currentTrack.value
         if (track is OnlineTrack) {
@@ -110,12 +128,34 @@ class NowPlayingViewModel(
 
     fun setSleepTimer(minutes: Int?) = playbackManager.setSleepTimer(minutes)
 
-    fun toggleFavorite(song: Song) {
+    fun toggleFavorite(track: PlayableTrack) {
         viewModelScope.launch {
-            repository.toggleFavorite(song)
+            val wasFav = repository.isTrackFavorite(track)
+            repository.toggleFavoriteTrack(track)
+            try {
+                val eventType = if (!wasFav) com.lyro.app.recommendation.model.EventType.LIKED else com.lyro.app.recommendation.model.EventType.UNLIKED
+                val canonicalId = track.onlineVideoId?.let { "online_$it" } ?: track.id
+                LyroApplication.instance.listeningEventRepository.recordEvent(
+                    com.lyro.app.recommendation.model.ListeningEvent(
+                        playbackSessionId = "favorite_toggle",
+                        videoId = canonicalId,
+                        title = track.title,
+                        artist = track.artist,
+                        album = track.album,
+                        eventType = eventType
+                    )
+                )
+            } catch (e: Exception) {
+                // Non-blocking
+            }
         }
     }
 
+    fun toggleFavorite(song: Song) {
+        toggleFavorite(com.lyro.app.data.model.LocalTrack(song = song))
+    }
+
+    // Radio State
     val isRadioActive: StateFlow<Boolean> = LyroApplication.instance.radioManager.isRadioActive
     val currentRadioSession: StateFlow<com.lyro.app.recommendation.radio.RadioSession?> = LyroApplication.instance.radioManager.currentSession
 
@@ -123,8 +163,29 @@ class NowPlayingViewModel(
 
     fun startSongRadio(track: PlayableTrack) = LyroApplication.instance.radioManager.startSongRadio(track)
 
+    // Queue Continuation (Autoplay) State & Controls
+    val isLoadingMoreQueue: StateFlow<Boolean> = LyroApplication.instance.queueContinuationManager.isLoadingMore
+    val queueContinuationError: StateFlow<String?> = LyroApplication.instance.queueContinuationManager.loadError
+
+    fun ensureMoreQueueTracks() {
+        LyroApplication.instance.queueContinuationManager.ensureMoreTracks()
+    }
+
+    fun retryQueueExtension() {
+        LyroApplication.instance.queueContinuationManager.retry()
+    }
+
     fun playQueueItem(index: Int) {
         playbackManager.playTrackAtIndex(index)
+    }
+
+    fun playQueueTrack(track: PlayableTrack) {
+        val index = queueTracks.value.indexOfFirst { it.id == track.id }
+        if (index >= 0) {
+            playbackManager.playTrackAtIndex(index)
+        } else {
+            playbackManager.playTrack(track)
+        }
     }
 
     fun playQueueItem(song: Song) {

@@ -20,7 +20,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyro.app.core.designsystem.*
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import com.lyro.app.data.model.LocalTrack
+import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Song
+import com.lyro.app.data.model.UnifiedTrack
 import com.lyro.app.ui.components.AudioVisualizerBar
 import com.lyro.app.ui.components.SongArtworkThumbnail
 
@@ -29,17 +34,32 @@ import com.lyro.app.core.haptics.rememberLyroHaptics
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QueueBottomSheet(
-    queue: List<Song>,
-    currentSong: Song?,
+    queue: List<PlayableTrack>,
+    currentTrack: PlayableTrack? = null,
     isPlaying: Boolean,
-    onSongClick: (Song) -> Unit,
+    onTrackClick: ((PlayableTrack) -> Unit)? = null,
     onItemClick: ((Int) -> Unit)? = null,
+    isLoadingMore: Boolean = false,
+    loadMoreError: String? = null,
+    onRetryLoadMore: (() -> Unit)? = null,
+    onScrollNearBottom: (() -> Unit)? = null,
     isRadioActive: Boolean = false,
     radioSeedTitle: String? = null,
     onStopRadio: (() -> Unit)? = null,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    currentSong: Song? = null,
+    onSongClick: ((Song) -> Unit)? = null
 ) {
     val haptics = rememberLyroHaptics()
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(listState.firstVisibleItemIndex, listState.layoutInfo.visibleItemsInfo) {
+        val totalItems = listState.layoutInfo.totalItemsCount
+        val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+        if (totalItems > 0 && lastVisibleIndex >= totalItems - 5) {
+            onScrollNearBottom?.invoke()
+        }
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = LyroSurfaceElevated,
@@ -165,15 +185,17 @@ fun QueueBottomSheet(
             }
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
             ) {
                 itemsIndexed(
                     items = queue,
-                    key = { index, song -> "${song.id}_$index" },
+                    key = { index, track -> "${track.id}_$index" },
                     contentType = { _, _ -> "queue_item" }
-                ) { index, song ->
-                    val isCurrent = song.id == currentSong?.id
+                ) { index, track ->
+                    val isCurrent = track.id == currentTrack?.id ||
+                        (currentSong != null && (track.id == currentSong.id.toString() || track.id == "local_${currentSong.id}"))
                     val shape = RoundedCornerShape(10.dp)
                     val bg = if (isCurrent) LyroSurfaceHighlight else Color.Transparent
 
@@ -187,8 +209,11 @@ fun QueueBottomSheet(
                                 haptics.click()
                                 if (onItemClick != null) {
                                     onItemClick(index)
-                                } else {
-                                    onSongClick(song)
+                                } else if (onTrackClick != null) {
+                                    onTrackClick(track)
+                                } else if (onSongClick != null) {
+                                    val localSong = (track as? LocalTrack)?.song ?: (track as? UnifiedTrack)?.localSong
+                                    if (localSong != null) onSongClick(localSong)
                                 }
                             }
                             .padding(horizontal = 10.dp, vertical = 8.dp),
@@ -204,13 +229,13 @@ fun QueueBottomSheet(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        SongArtworkThumbnail(song = song, size = 42.dp)
+                        SongArtworkThumbnail(track = track, size = 42.dp)
 
                         Spacer(modifier = Modifier.width(12.dp))
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = song.title,
+                                text = track.title,
                                 fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Medium,
                                 fontSize = 14.sp,
                                 maxLines = 1,
@@ -219,7 +244,7 @@ fun QueueBottomSheet(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = song.artist,
+                                text = track.artist,
                                 fontSize = 12.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -235,6 +260,53 @@ fun QueueBottomSheet(
                                 maxHeight = 12.dp,
                                 barWidth = 2.dp
                             )
+                        }
+                    }
+                }
+
+                if (isLoadingMore) {
+                    item(key = "queue_loading_more") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = LyroAccent
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Finding more music…",
+                                fontSize = 13.sp,
+                                color = LyroTextSecondary
+                            )
+                        }
+                    }
+                } else if (!loadMoreError.isNullOrBlank()) {
+                    item(key = "queue_load_error") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = loadMoreError,
+                                fontSize = 13.sp,
+                                color = LyroTextMuted
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextButton(
+                                onClick = { onRetryLoadMore?.invoke() },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text("Retry", color = LyroAccent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
                 }

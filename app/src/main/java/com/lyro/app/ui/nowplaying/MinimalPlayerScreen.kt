@@ -42,12 +42,16 @@ fun MinimalPlayerScreen(
 ) {
     val haptics = rememberLyroHaptics()
     val currentSong by viewModel.currentSong.collectAsState()
+    val currentTrack by viewModel.currentTrack.collectAsState()
+    val isFavorite by viewModel.isCurrentTrackFavorite.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val currentPosition by viewModel.currentPosition.collectAsState()
     val duration by viewModel.duration.collectAsState()
     val isShuffle by viewModel.isShuffle.collectAsState()
     val repeatMode by viewModel.repeatMode.collectAsState()
-    val queue by viewModel.queue.collectAsState()
+    val queueTracks by viewModel.queueTracks.collectAsState()
+    val isLoadingMoreQueue by viewModel.isLoadingMoreQueue.collectAsState()
+    val queueContinuationError by viewModel.queueContinuationError.collectAsState()
     val sleepTimerMinutesLeft by viewModel.sleepTimerMinutesLeft.collectAsState()
     val downloadStatus by viewModel.currentDownloadStatus.collectAsState()
     val isRadioActive by viewModel.isRadioActive.collectAsState()
@@ -173,11 +177,19 @@ fun MinimalPlayerScreen(
                 .background(LyroSurfaceElevated),
             contentAlignment = Alignment.Center
         ) {
-            if (currentSong != null) {
+            if (currentTrack != null) {
+                SongArtworkThumbnail(
+                    track = currentTrack!!,
+                    modifier = Modifier.fillMaxSize(),
+                    size = 320.dp,
+                    highRes = true
+                )
+            } else if (currentSong != null) {
                 SongArtworkThumbnail(
                     song = currentSong!!,
                     modifier = Modifier.fillMaxSize(),
-                    size = 320.dp
+                    size = 320.dp,
+                    highRes = true
                 )
             } else {
                 Icon(
@@ -197,7 +209,7 @@ fun MinimalPlayerScreen(
             horizontalAlignment = Alignment.Start
         ) {
             Text(
-                text = currentSong?.title ?: "No Track Playing",
+                text = currentTrack?.title ?: currentSong?.title ?: "No Track Playing",
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
                 textAlign = TextAlign.Start,
@@ -209,7 +221,7 @@ fun MinimalPlayerScreen(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = currentSong?.artist ?: "Select a song from your library or explore",
+                text = currentTrack?.artist ?: currentSong?.artist ?: "Select a song from your library or explore",
                 fontWeight = FontWeight.Normal,
                 fontSize = 15.sp,
                 textAlign = TextAlign.Start,
@@ -379,10 +391,12 @@ fun MinimalPlayerScreen(
 
         // 6. Bottom Actions: Favorite, Download, Sleep Timer, Queue
         PlayerBottomActions(
+            currentTrack = currentTrack,
+            isFavorite = isFavorite,
+            onFavoriteClick = { viewModel.toggleFavorite(it) },
             currentSong = currentSong,
             sleepTimerMinutesLeft = sleepTimerMinutesLeft,
             downloadStatus = downloadStatus,
-            onFavoriteClick = { viewModel.toggleFavorite(it) },
             onDownloadClick = { viewModel.downloadCurrentTrack() },
             onSleepTimerClick = { showSleepTimerDialog = true },
             onQueueClick = { showQueueSheet = true }
@@ -393,17 +407,21 @@ fun MinimalPlayerScreen(
     // Queue Bottom Sheet
     if (showQueueSheet) {
         QueueBottomSheet(
-            queue = queue,
-            currentSong = currentSong,
+            queue = queueTracks,
+            currentTrack = currentTrack,
             isPlaying = isPlaying,
-            onSongClick = {
-                viewModel.playQueueItem(it)
+            onTrackClick = {
+                viewModel.playQueueTrack(it)
                 showQueueSheet = false
             },
             onItemClick = { index ->
                 viewModel.playQueueItem(index)
                 showQueueSheet = false
             },
+            isLoadingMore = isLoadingMoreQueue,
+            loadMoreError = queueContinuationError,
+            onRetryLoadMore = { viewModel.retryQueueExtension() },
+            onScrollNearBottom = { viewModel.ensureMoreQueueTracks() },
             isRadioActive = isRadioActive,
             radioSeedTitle = currentRadioSession?.seedTitle,
             onStopRadio = { viewModel.stopRadio() },

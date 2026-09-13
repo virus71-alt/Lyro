@@ -56,12 +56,16 @@ fun WheelPlayerScreen(
 ) {
     val haptics = rememberLyroHaptics()
     val currentSong by viewModel.currentSong.collectAsState()
+    val currentTrack by viewModel.currentTrack.collectAsState()
+    val isFavorite by viewModel.isCurrentTrackFavorite.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val currentPosition by viewModel.currentPosition.collectAsState()
     val duration by viewModel.duration.collectAsState()
     val isShuffle by viewModel.isShuffle.collectAsState()
     val repeatMode by viewModel.repeatMode.collectAsState()
-    val queue by viewModel.queue.collectAsState()
+    val queueTracks by viewModel.queueTracks.collectAsState()
+    val isLoadingMoreQueue by viewModel.isLoadingMoreQueue.collectAsState()
+    val queueContinuationError by viewModel.queueContinuationError.collectAsState()
     val sleepTimerMinutesLeft by viewModel.sleepTimerMinutesLeft.collectAsState()
     val downloadStatus by viewModel.currentDownloadStatus.collectAsState()
     val isRadioActive by viewModel.isRadioActive.collectAsState()
@@ -175,7 +179,13 @@ fun WheelPlayerScreen(
                 .background(LyroSurfaceElevated)
                 .border(1.dp, LyroDivider, artShape)
         ) {
-            if (currentSong != null) {
+            if (currentTrack != null) {
+                SongArtworkThumbnail(
+                    track = currentTrack!!,
+                    modifier = Modifier.fillMaxSize(),
+                    size = 175.dp
+                )
+            } else if (currentSong != null) {
                 SongArtworkThumbnail(
                     song = currentSong!!,
                     modifier = Modifier.fillMaxSize(),
@@ -204,7 +214,7 @@ fun WheelPlayerScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = currentSong?.title ?: "No Track Playing",
+                text = currentTrack?.title ?: currentSong?.title ?: "No Track Playing",
                 fontWeight = FontWeight.Bold,
                 fontSize = 19.sp,
                 textAlign = TextAlign.Center,
@@ -214,7 +224,7 @@ fun WheelPlayerScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = currentSong?.artist ?: "Select a song to start",
+                text = currentTrack?.artist ?: currentSong?.artist ?: "Select a song to start",
                 fontWeight = FontWeight.Normal,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
@@ -507,7 +517,8 @@ fun WheelPlayerScreen(
 
         // Bottom Actions: Favorite, Download, Sleep Timer, Queue
         PlayerBottomActions(
-            currentSong = currentSong,
+            currentTrack = currentTrack,
+            isFavorite = isFavorite,
             sleepTimerMinutesLeft = sleepTimerMinutesLeft,
             downloadStatus = downloadStatus,
             onFavoriteClick = { viewModel.toggleFavorite(it) },
@@ -521,16 +532,20 @@ fun WheelPlayerScreen(
     // Queue Bottom Sheet
     if (showQueueSheet) {
         QueueBottomSheet(
-            queue = queue,
-            currentSong = currentSong,
+            queue = queueTracks,
+            currentTrack = currentTrack,
             isPlaying = isPlaying,
-            onSongClick = {
-                viewModel.playQueueItem(it)
+            onTrackClick = { track ->
+                viewModel.playQueueTrack(track)
                 showQueueSheet = false
             },
-            onItemClick = { index ->
-                viewModel.playQueueItem(index)
-                showQueueSheet = false
+            onScrollNearBottom = {
+                viewModel.ensureMoreQueueTracks()
+            },
+            isLoadingMore = isLoadingMoreQueue,
+            loadMoreError = queueContinuationError,
+            onRetryLoadMore = {
+                viewModel.retryQueueExtension()
             },
             isRadioActive = isRadioActive,
             radioSeedTitle = currentRadioSession?.seedTitle,

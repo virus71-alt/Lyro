@@ -211,8 +211,20 @@ fun SongRow(
         artworkContent = {
             val artUrl = track.highResThumbnailUrl ?: track.thumbnailUrl
             if (!artUrl.isNullOrBlank()) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val targetPx = androidx.compose.runtime.remember(density) { with(density) { 56.dp.roundToPx() } }
+                val imageRequest = androidx.compose.runtime.remember(artUrl, targetPx) {
+                    coil.request.ImageRequest.Builder(context)
+                        .data(artUrl)
+                        .size(targetPx, targetPx)
+                        .crossfade(true)
+                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                        .build()
+                }
                 AsyncImage(
-                    model = artUrl,
+                    model = imageRequest,
                     contentDescription = track.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -253,8 +265,20 @@ fun SongRow(
         artworkContent = {
             val artUrl = track.artworkUriString
             if (!artUrl.isNullOrBlank()) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val targetPx = androidx.compose.runtime.remember(density) { with(density) { 56.dp.roundToPx() } }
+                val imageRequest = androidx.compose.runtime.remember(artUrl, targetPx) {
+                    coil.request.ImageRequest.Builder(context)
+                        .data(artUrl)
+                        .size(targetPx, targetPx)
+                        .crossfade(true)
+                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                        .build()
+                }
                 AsyncImage(
-                    model = artUrl,
+                    model = imageRequest,
                     contentDescription = track.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop

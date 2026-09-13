@@ -1,8 +1,13 @@
 package com.lyro.app.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -10,6 +15,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -37,6 +45,8 @@ import com.lyro.app.core.haptics.rememberLyroHaptics
 fun LyroBottomNavigation(
     currentDestination: MainDestination,
     onDestinationSelected: (MainDestination) -> Unit,
+    onCurrentDestinationReselected: ((MainDestination) -> Unit)? = null,
+    isHomeRefreshing: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val haptics = rememberLyroHaptics()
@@ -54,10 +64,13 @@ fun LyroBottomNavigation(
             LyroBottomNavItem(
                 destination = destination,
                 selected = destination == currentDestination,
+                isHomeRefreshing = destination == MainDestination.HOME && isHomeRefreshing,
                 onClick = {
                     if (destination != currentDestination) {
                         haptics.selection()
                         onDestinationSelected(destination)
+                    } else {
+                        onCurrentDestinationReselected?.invoke(destination)
                     }
                 },
                 modifier = Modifier.weight(1f)
@@ -70,6 +83,7 @@ fun LyroBottomNavigation(
 private fun LyroBottomNavItem(
     destination: MainDestination,
     selected: Boolean,
+    isHomeRefreshing: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -114,14 +128,35 @@ private fun LyroBottomNavItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = destination.icon,
-            contentDescription = null, // Semantics defined on the parent Column
-            tint = iconColor,
-            modifier = Modifier
-                .size(24.dp)
-                .scale(iconScale)
-        )
+        if (isHomeRefreshing) {
+            val infiniteTransition = rememberInfiniteTransition(label = "nav_home_refresh_spin")
+            val rotation by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 900, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart
+                ),
+                label = "nav_home_spin"
+            )
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = "Refreshing Home",
+                tint = iconColor,
+                modifier = Modifier
+                    .size(24.dp)
+                    .rotate(rotation)
+            )
+        } else {
+            Icon(
+                imageVector = destination.icon,
+                contentDescription = null, // Semantics defined on the parent Column
+                tint = iconColor,
+                modifier = Modifier
+                    .size(24.dp)
+                    .scale(iconScale)
+            )
+        }
 
         Spacer(modifier = Modifier.height(4.dp))
 

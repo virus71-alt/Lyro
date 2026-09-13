@@ -72,7 +72,7 @@ fun HomeScreen(
     val isHomeRefreshing by viewModel.isHomeRefreshing.collectAsState()
     val homeRefreshError by viewModel.homeRefreshError.collectAsState()
     val homeDiscover by viewModel.homeDiscover.collectAsState()
-    val likedSongs by viewModel.likedSongs.collectAsState()
+    val likedTracks by viewModel.likedTracks.collectAsState()
     val recentlyAdded by viewModel.recentlyAdded.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
     val selectedMood by viewModel.selectedMood.collectAsState()
@@ -305,7 +305,7 @@ fun HomeScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        items(columns) { columnTracks ->
+                        items(columns, key = { col -> col.firstOrNull()?.let { it.onlineVideoId ?: it.id } ?: col.hashCode().toString() }) { columnTracks ->
                             Column(
                                 modifier = Modifier.width(310.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -447,9 +447,9 @@ fun HomeScreen(
             }
         }
 
-        // 5. LIKED SONGS RAIL
-        if (likedSongs.isNotEmpty()) {
-            item(key = "liked_songs_rail") {
+        // 5. LIKED SONGS RAIL (Unified Local & Online)
+        if (likedTracks.isNotEmpty()) {
+            item(key = "liked_tracks_rail") {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -457,7 +457,7 @@ fun HomeScreen(
                 ) {
                     SectionHeader(
                         title = "Liked songs",
-                        subtitle = "${likedSongs.size} tracks saved",
+                        subtitle = "${likedTracks.size} tracks saved",
                         actionText = "See all",
                         onActionClick = onLikedSongsClick
                     )
@@ -468,12 +468,14 @@ fun HomeScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        items(likedSongs, key = { it.id }) { song ->
+                        items(likedTracks, key = { it.onlineVideoId ?: it.id }) { track ->
                             SquareArtworkCard(
-                                title = song.title,
-                                subtitle = song.artist,
-                                song = song,
-                                onClick = { viewModel.playSong(song, likedSongs) }
+                                title = track.title,
+                                subtitle = track.artist,
+                                track = track,
+                                isDownloaded = track.isDownloaded,
+                                onClick = { viewModel.playTrack(track, likedTracks) },
+                                onLongClick = { selectedTrackForOptions = track }
                             )
                         }
                     }
@@ -739,32 +741,34 @@ fun HomeScreen(
                     Text("Add to Queue", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 }
 
-                // Favorite Toggle
-                val localSong = (track as? LocalTrack)?.song ?: (track as? UnifiedTrack)?.localSong
-                if (localSong != null) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                viewModel.toggleFavorite(localSong)
-                                selectedTrackForOptions = null
-                            }
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (localSong.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = null,
-                            tint = if (localSong.isFavorite) LyroAccent else LyroTextPrimary
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = if (localSong.isFavorite) "Remove from Favorites" else "Save to Favorites",
-                            color = LyroTextPrimary,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                // Favorite Toggle (Unified PlayableTrack)
+                val isFav = likedTracks.any { 
+                    (it.onlineVideoId != null && it.onlineVideoId == track.onlineVideoId) ||
+                    it.id == track.id
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            viewModel.toggleFavorite(track)
+                            selectedTrackForOptions = null
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = null,
+                        tint = if (isFav) LyroAccent else LyroTextPrimary
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = if (isFav) "Remove from Favorites" else "Save to Favorites",
+                        color = LyroTextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
 
                 // Not Interested (Penalizes track in recommendation brain)
@@ -890,8 +894,20 @@ fun SquareArtworkCard(
             if (song != null) {
                 SongArtworkThumbnail(song = song, size = cardWidth)
             } else if (!art.isNullOrBlank()) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val targetPx = remember(cardWidth, density) { with(density) { cardWidth.roundToPx() } }
+                val imageRequest = remember(art, targetPx) {
+                    coil.request.ImageRequest.Builder(context)
+                        .data(art)
+                        .size(targetPx, targetPx)
+                        .crossfade(true)
+                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                        .build()
+                }
                 AsyncImage(
-                    model = art,
+                    model = imageRequest,
                     contentDescription = title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop

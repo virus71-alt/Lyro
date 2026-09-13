@@ -4,8 +4,12 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import android.net.Uri
+import com.lyro.app.data.model.LocalTrack
 import com.lyro.app.data.model.OnlineTrack
+import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Playlist
+import com.lyro.app.data.model.UnifiedTrack
 import com.lyro.app.recommendation.model.EventType
 import com.lyro.app.recommendation.model.ListeningEvent
 
@@ -13,10 +17,11 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
     companion object {
         private const val DATABASE_NAME = "lyro_music.db"
-        private const val DATABASE_VERSION = 5
+        private const val DATABASE_VERSION = 6
 
         // Tables
         const val TABLE_FAVORITES = "favorites"
+        const val TABLE_UNIFIED_FAVORITES = "unified_favorites"
         const val TABLE_PLAYLISTS = "playlists"
         const val TABLE_PLAYLIST_SONGS = "playlist_songs"
         const val TABLE_HISTORY = "history"
@@ -31,6 +36,7 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
         // Columns
         const val COL_SONG_ID = "song_id"
+        const val COL_CANONICAL_ID = "canonical_id"
         const val COL_ADDED_AT = "added_at"
 
         const val COL_PLAYLIST_ID = "id"
@@ -127,6 +133,27 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
         // Recommendation Engine Tables
         createRecommendationTables(db)
+
+        // Unified Favorites Table
+        createUnifiedFavoritesTable(db)
+    }
+
+    private fun createUnifiedFavoritesTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_UNIFIED_FAVORITES (
+                $COL_CANONICAL_ID TEXT PRIMARY KEY,
+                $COL_META_VIDEO_ID TEXT,
+                $COL_META_TITLE TEXT NOT NULL,
+                $COL_META_ARTIST TEXT NOT NULL,
+                $COL_META_ALBUM TEXT,
+                $COL_META_THUMBNAIL_URI TEXT,
+                $COL_META_DURATION INTEGER DEFAULT 0,
+                $COL_META_LOCAL_URI TEXT,
+                $COL_ADDED_AT INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
     }
 
     private fun createRecommendationTables(db: SQLiteDatabase) {
@@ -229,6 +256,9 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         if (oldVersion < 5) {
             createRecommendationTables(db)
         }
+        if (oldVersion < 6) {
+            createUnifiedFavoritesTable(db)
+        }
     }
 
     // --- Favorites ---
@@ -268,6 +298,112 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         }
         cursor.close()
         return ids
+    }
+
+    // --- Unified Favorites (PlayableTrack) ---
+    fun isUnifiedFavorite(canonicalId: String): Boolean {
+        val db = readableDatabase
+        val cleanVideoId = canonicalId.removePrefix("online_")
+        val cursor = db.rawQuery(
+            "SELECT 1 FROM $TABLE_UNIFIED_FAVORITES WHERE $COL_CANONICAL_ID = ? OR $COL_META_VIDEO_ID = ?",
+            arrayOf(canonicalId, cleanVideoId)
+        )
+        val exists = cursor.moveToFirst()
+        cursor.close()
+        return exists
+    }
+
+    fun isTrackFavorite(track: PlayableTrack): Boolean {
+        val videoId = track.onlineVideoId
+        if (!videoId.isNullOrBlank() && isUnifiedFavorite("online_$videoId")) {
+            return true
+        }
+        if (isUnifiedFavorite(track.id)) {
+            return true
+        }
+        val localSongId = (track as? LocalTrack)?.song?.id ?: (track as? UnifiedTrack)?.localSong?.id
+        if (localSongId != null && isFavorite(localSongId)) {
+            return true
+        }
+        return false
+    }
+
+    fun toggleTrackFavorite(track: PlayableTrack): Boolean {
+        val isCurrentlyFav = isTrackFavorite(track)
+        val db = writableDatabase
+        val canonicalId = track.onlineVideoId?.let { "online_$it" } ?: track.id
+        val videoId = track.onlineVideoId
+        val localSongId = (track as? LocalTrack)?.song?.id ?: (track as? UnifiedTrack)?.localSong?.id
+
+        return if (isCurrentlyFav) {
+            db.delete(
+                TABLE_UNIFIED_FAVORITES,
+                "$COL_CANONICAL_ID = ? OR $COL_META_VIDEO_ID = ?",
+                arrayOf(canonicalId, videoId ?: canonicalId)
+            )
+            if (localSongId != null) {
+                db.delete(TABLE_FAVORITES, "$COL_SONG_ID = ?", arrayOf(localSongId.toString()))
+            }
+            false
+        } else {
+            val values = ContentValues().apply {
+                put(COL_CANONICAL_ID, canonicalId)
+                put(COL_META_VIDEO_ID, videoId)
+                put(COL_META_TITLE, track.title)
+                put(COL_META_ARTIST, track.artist)
+                put(COL_META_ALBUM, track.album)
+                put(COL_META_THUMBNAIL_URI, track.artworkUriString)
+                put(COL_META_DURATION, track.durationMs)
+                put(COL_META_LOCAL_URI, track.localUri?.toString())
+                put(COL_ADDED_AT, System.currentTimeMillis())
+            }
+            db.insertWithOnConflict(TABLE_UNIFIED_FAVORITES, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+            if (localSongId != null) {
+                val localValues = ContentValues().apply {
+                    put(COL_SONG_ID, localSongId)
+                    put(COL_ADDED_AT, System.currentTimeMillis())
+                }
+                db.insertWithOnConflict(TABLE_FAVORITES, null, localValues, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            true
+        }
+    }
+
+    fun getAllUnifiedFavorites(): List<UnifiedTrack> {
+        val list = mutableListOf<UnifiedTrack>()
+        val db = readableDatabase
+        val cursor = db.rawQuery(
+            "SELECT $COL_CANONICAL_ID, $COL_META_VIDEO_ID, $COL_META_TITLE, $COL_META_ARTIST, $COL_META_ALBUM, $COL_META_THUMBNAIL_URI, $COL_META_DURATION, $COL_META_LOCAL_URI FROM $TABLE_UNIFIED_FAVORITES ORDER BY $COL_ADDED_AT DESC",
+            null
+        )
+        while (cursor.moveToNext()) {
+            val canonicalId = cursor.getString(0)
+            val videoId = cursor.getString(1)
+            val title = cursor.getString(2)
+            val artist = cursor.getString(3)
+            val album = cursor.getString(4)
+            val artworkUrl = cursor.getString(5)
+            val durationMs = cursor.getLong(6)
+            val localUriStr = cursor.getString(7)
+            val localUri = localUriStr?.let { Uri.parse(it) }
+
+            list.add(
+                UnifiedTrack(
+                    canonicalId = canonicalId,
+                    title = title,
+                    artist = artist,
+                    album = album,
+                    durationMs = durationMs,
+                    artworkUrl = artworkUrl,
+                    onlineVideoId = videoId,
+                    localUri = localUri,
+                    localSong = null,
+                    isFavorite = true
+                )
+            )
+        }
+        cursor.close()
+        return list
     }
 
     // --- Playlists ---

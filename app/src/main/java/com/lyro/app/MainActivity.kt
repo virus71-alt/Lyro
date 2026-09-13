@@ -64,9 +64,8 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val currentSong by playbackManager.currentSong.collectAsState()
-                val isPlaying by playbackManager.isPlaying.collectAsState()
-                val currentPosition by playbackManager.currentPosition.collectAsState()
-                val duration by playbackManager.duration.collectAsState()
+                val currentTrack by playbackManager.currentTrack.collectAsState()
+                val hasTrack = currentTrack != null || currentSong != null
 
                 // Primary Navigation & Overlay States
                 var currentDestination by rememberSaveable { mutableStateOf(MainDestination.HOME) }
@@ -131,7 +130,7 @@ class MainActivity : ComponentActivity() {
 
                 // Dynamic bottom padding calculation:
                 // Prevents list content from being hidden behind MiniPlayer and BottomNavigation
-                val bottomPadding = if (currentSong != null) 148.dp else 76.dp
+                val bottomPadding = if (hasTrack) 148.dp else 76.dp
                 val contentPadding = PaddingValues(bottom = bottomPadding)
 
                 // Predictable Android Back Navigation:
@@ -226,14 +225,9 @@ class MainActivity : ComponentActivity() {
                                     .fillMaxWidth()
                                     .navigationBarsPadding()
                             ) {
-                                if (currentSong != null) {
+                                if (hasTrack) {
                                     MiniPlayer(
-                                        song = currentSong,
-                                        isPlaying = isPlaying,
-                                        currentPosition = currentPosition,
-                                        duration = duration,
-                                        onPlayPauseClick = { playbackManager.togglePlayPause() },
-                                        onNextClick = { playbackManager.skipNext() },
+                                        playbackManager = playbackManager,
                                         onExpandClick = {
                                             coroutineScope.launch {
                                                 playerSheetState.expand()
@@ -242,17 +236,24 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
+                                val isHomeRefreshing by songsViewModel.isHomeRefreshing.collectAsState()
                                 LyroBottomNavigation(
                                     currentDestination = currentDestination,
+                                    isHomeRefreshing = isHomeRefreshing,
                                     onDestinationSelected = { selected ->
                                         currentDestination = selected
+                                    },
+                                    onCurrentDestinationReselected = { reselected ->
+                                        if (reselected == MainDestination.HOME) {
+                                            songsViewModel.refreshHome()
+                                        }
                                     }
                                 )
                             }
                         }
 
                         // 3. Gesture-Driven Expandable Now Playing Screen (Real-time swipe-down collapse)
-                        if (playerSheetState.isVisible && currentSong != null && activeOverlay != OverlayScreen.SETTINGS) {
+                        if (playerSheetState.isVisible && hasTrack && activeOverlay != OverlayScreen.SETTINGS) {
                             NowPlayingScreen(
                                 viewModel = nowPlayingViewModel,
                                 playerPreferences = playerPreferences,

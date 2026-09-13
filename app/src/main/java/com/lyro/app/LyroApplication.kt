@@ -49,6 +49,9 @@ class LyroApplication : Application(), ImageLoaderFactory {
     lateinit var radioManager: com.lyro.app.recommendation.radio.RadioManager
         private set
 
+    lateinit var queueContinuationManager: com.lyro.app.service.QueueContinuationManager
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -80,6 +83,16 @@ class LyroApplication : Application(), ImageLoaderFactory {
             ranker = recommendationRanker,
             tasteProfileRepository = tasteProfileRepository,
             eventRepository = listeningEventRepository,
+            musicRepository = musicRepository
+        )
+
+        // Initialize Queue Continuation Manager (Continuous Autoplay)
+        queueContinuationManager = com.lyro.app.service.QueueContinuationManager(
+            playbackManager = playbackManager,
+            candidateGenerator = candidateGenerator,
+            ranker = recommendationRanker,
+            tasteProfileRepository = tasteProfileRepository,
+            radioManager = radioManager,
             musicRepository = musicRepository
         )
     }

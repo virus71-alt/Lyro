@@ -36,12 +36,16 @@ fun CassettePlayerScreen(
 ) {
     val haptics = rememberLyroHaptics()
     val currentSong by viewModel.currentSong.collectAsState()
+    val currentTrack by viewModel.currentTrack.collectAsState()
+    val isFavorite by viewModel.isCurrentTrackFavorite.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val currentPosition by viewModel.currentPosition.collectAsState()
     val duration by viewModel.duration.collectAsState()
     val isShuffle by viewModel.isShuffle.collectAsState()
     val repeatMode by viewModel.repeatMode.collectAsState()
-    val queue by viewModel.queue.collectAsState()
+    val queueTracks by viewModel.queueTracks.collectAsState()
+    val isLoadingMoreQueue by viewModel.isLoadingMoreQueue.collectAsState()
+    val queueContinuationError by viewModel.queueContinuationError.collectAsState()
     val sleepTimerMinutesLeft by viewModel.sleepTimerMinutesLeft.collectAsState()
     val downloadStatus by viewModel.currentDownloadStatus.collectAsState()
     val isRadioActive by viewModel.isRadioActive.collectAsState()
@@ -153,6 +157,7 @@ fun CassettePlayerScreen(
         ) {
             CassetteArtwork(
                 song = currentSong,
+                track = currentTrack,
                 isPlaying = isPlaying,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -166,7 +171,7 @@ fun CassettePlayerScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = currentSong?.title ?: "No Track Playing",
+                text = currentTrack?.title ?: currentSong?.title ?: "No Track Playing",
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
                 textAlign = TextAlign.Center,
@@ -178,7 +183,7 @@ fun CassettePlayerScreen(
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = currentSong?.artist ?: "Select a song to start playback",
+                text = currentTrack?.artist ?: currentSong?.artist ?: "Select a song to start playback",
                 fontWeight = FontWeight.Normal,
                 fontSize = 15.sp,
                 textAlign = TextAlign.Center,
@@ -348,7 +353,8 @@ fun CassettePlayerScreen(
 
         // Bottom Actions: Favorite, Download, Sleep Timer, Queue
         PlayerBottomActions(
-            currentSong = currentSong,
+            currentTrack = currentTrack,
+            isFavorite = isFavorite,
             sleepTimerMinutesLeft = sleepTimerMinutesLeft,
             downloadStatus = downloadStatus,
             onFavoriteClick = { viewModel.toggleFavorite(it) },
@@ -362,16 +368,20 @@ fun CassettePlayerScreen(
     // Queue Bottom Sheet
     if (showQueueSheet) {
         QueueBottomSheet(
-            queue = queue,
-            currentSong = currentSong,
+            queue = queueTracks,
+            currentTrack = currentTrack,
             isPlaying = isPlaying,
-            onSongClick = {
-                viewModel.playQueueItem(it)
+            onTrackClick = { track ->
+                viewModel.playQueueTrack(track)
                 showQueueSheet = false
             },
-            onItemClick = { index ->
-                viewModel.playQueueItem(index)
-                showQueueSheet = false
+            onScrollNearBottom = {
+                viewModel.ensureMoreQueueTracks()
+            },
+            isLoadingMore = isLoadingMoreQueue,
+            loadMoreError = queueContinuationError,
+            onRetryLoadMore = {
+                viewModel.retryQueueExtension()
             },
             isRadioActive = isRadioActive,
             radioSeedTitle = currentRadioSession?.seedTitle,

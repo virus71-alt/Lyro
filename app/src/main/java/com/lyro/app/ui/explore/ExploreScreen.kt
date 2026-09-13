@@ -75,6 +75,7 @@ fun ExploreScreen(
 
     val currentSong by viewModel.currentSong.collectAsState()
     val currentTrack by viewModel.currentTrack.collectAsState()
+    val likedTracks by viewModel.likedTracks.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val isResolvingStream by viewModel.isResolvingStream.collectAsState()
 
@@ -613,6 +614,36 @@ fun ExploreScreen(
                     Icon(imageVector = Icons.Default.Download, contentDescription = null, tint = LyroTextPrimary)
                     Spacer(modifier = Modifier.width(16.dp))
                     Text("Download", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                // Favorite Toggle (Unified PlayableTrack)
+                val isFav = likedTracks.any { 
+                    (it.onlineVideoId != null && it.onlineVideoId == track.onlineVideoId) ||
+                    it.id == track.id
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            viewModel.toggleFavorite(track)
+                            selectedTrackForOptions = null
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (isFav) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = null,
+                        tint = if (isFav) LyroAccent else LyroTextPrimary
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = if (isFav) "Remove from Favorites" else "Save to Favorites",
+                        color = LyroTextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
 
                 // Not interested
