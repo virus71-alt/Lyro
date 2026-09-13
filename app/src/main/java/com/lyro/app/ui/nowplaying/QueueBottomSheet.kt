@@ -32,6 +32,7 @@ fun QueueBottomSheet(
     currentSong: Song?,
     isPlaying: Boolean,
     onSongClick: (Song) -> Unit,
+    onItemClick: ((Int) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val haptics = rememberLyroHaptics()
@@ -114,7 +115,11 @@ fun QueueBottomSheet(
                             .background(bg)
                             .clickable {
                                 haptics.click()
-                                onSongClick(song)
+                                if (onItemClick != null) {
+                                    onItemClick(index)
+                                } else {
+                                    onSongClick(song)
+                                }
                             }
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically

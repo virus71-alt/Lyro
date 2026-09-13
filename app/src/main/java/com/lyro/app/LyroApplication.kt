@@ -8,6 +8,9 @@ import com.lyro.app.data.local.LyroDatabaseHelper
 import com.lyro.app.data.repository.MusicRepository
 import com.lyro.app.service.PlaybackManager
 
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
+
 class LyroApplication : Application(), ImageLoaderFactory {
 
     lateinit var databaseHelper: LyroDatabaseHelper
@@ -44,7 +47,19 @@ class LyroApplication : Application(), ImageLoaderFactory {
             .components {
                 add(AudioArtworkFetcher.Factory(this@LyroApplication))
             }
+            .memoryCache {
+                MemoryCache.Builder(this)
+                    .maxSizePercent(0.25)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache"))
+                    .maxSizeBytes(100L * 1024 * 1024)
+                    .build()
+            }
             .crossfade(true)
+            .respectCacheHeaders(false)
             .build()
     }
 

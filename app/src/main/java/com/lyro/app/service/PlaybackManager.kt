@@ -11,6 +11,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import androidx.media3.datasource.HttpDataSource
+import com.lyro.app.core.artwork.ArtworkUtils
 import com.lyro.app.data.model.LocalTrack
 import com.lyro.app.data.model.OnlineTrack
 import com.lyro.app.data.model.PlayableTrack
@@ -52,19 +53,22 @@ class PlaybackManager(
     val currentSong: StateFlow<Song?> = _currentTrack.map { track ->
         when (track) {
             is LocalTrack -> track.song
-            is OnlineTrack -> Song(
-                id = track.videoId.hashCode().toLong(),
-                title = track.title,
-                artist = track.artist,
-                album = track.album ?: "YouTube Music",
-                albumId = 0L,
-                duration = track.durationMs,
-                contentUriString = track.thumbnailUrl ?: "",
-                albumArtUriString = track.thumbnailUrl,
-                size = 0L,
-                dateAdded = 0L,
-                isFavorite = track.isFavorite
-            )
+            is OnlineTrack -> {
+                val highResUrl = ArtworkUtils.getHighResArtworkUrl(track.thumbnailUrl) ?: track.thumbnailUrl
+                Song(
+                    id = track.videoId.hashCode().toLong(),
+                    title = track.title,
+                    artist = track.artist,
+                    album = track.album ?: "YouTube Music",
+                    albumId = 0L,
+                    duration = track.durationMs,
+                    contentUriString = highResUrl ?: "",
+                    albumArtUriString = highResUrl,
+                    size = 0L,
+                    dateAdded = 0L,
+                    isFavorite = track.isFavorite
+                )
+            }
             null -> null
         }
     }.stateIn(coroutineScope, SharingStarted.Eagerly, null)
@@ -112,9 +116,29 @@ class PlaybackManager(
     private val _queue = MutableStateFlow<List<PlayableTrack>>(emptyList())
     val queue: StateFlow<List<PlayableTrack>> = _queue.asStateFlow()
 
-    // Backward-compatible queue for Song
+    // Backward-compatible queue for Song (supports both LocalTrack and OnlineTrack)
     val songQueue: StateFlow<List<Song>> = _queue.map { list ->
-        list.mapNotNull { (it as? LocalTrack)?.song }
+        list.map { track ->
+            when (track) {
+                is LocalTrack -> track.song
+                is OnlineTrack -> {
+                    val highResUrl = ArtworkUtils.getHighResArtworkUrl(track.thumbnailUrl) ?: track.thumbnailUrl
+                    Song(
+                        id = track.videoId.hashCode().toLong(),
+                        title = track.title,
+                        artist = track.artist,
+                        album = track.album ?: "YouTube Music",
+                        albumId = 0L,
+                        duration = track.durationMs,
+                        contentUriString = highResUrl ?: "",
+                        albumArtUriString = highResUrl,
+                        size = 0L,
+                        dateAdded = 0L,
+                        isFavorite = track.isFavorite
+                    )
+                }
+            }
+        }
     }.stateIn(coroutineScope, SharingStarted.Eagerly, emptyList())
 
     private val _currentIndex = MutableStateFlow(0)
@@ -283,16 +307,23 @@ class PlaybackManager(
         _playbackError.value = "Playback error: $detail"
     }
     // Playback APIs
-    fun playTrack(track: PlayableTrack, newQueue: List<PlayableTrack>? = null) {
+    fun playTrack(track: PlayableTrack, newQueue: List<PlayableTrack>? = null, startIndex: Int? = null) {
         if (newQueue != null) {
             _queue.value = newQueue
-            _currentIndex.value = newQueue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+            _currentIndex.value = startIndex?.takeIf { it in newQueue.indices }
+                ?: newQueue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
         } else if (_queue.value.none { it.id == track.id }) {
             _queue.value = listOf(track)
             _currentIndex.value = 0
         } else {
-            _currentIndex.value = _queue.value.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+            _currentIndex.value = startIndex?.takeIf { it in _queue.value.indices }
+                ?: _queue.value.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
         }
+
+        Log.d(
+            TAG,
+            "LyroPlayback: Starting playback -> queueSize=${_queue.value.size}, currentIndex=${_currentIndex.value}, title=${track.title}"
+        )
 
         _currentTrack.value = track
         _playbackError.value = null
@@ -310,11 +341,48 @@ class PlaybackManager(
         }
     }
 
+    /**
+     * Plays a track from the existing queue without modifying, replacing, or recreating _queue.
+     */
+    private fun playTrackFromExistingQueue(track: PlayableTrack, index: Int) {
+        val q = _queue.value
+        val safeIndex = index.coerceIn(0, (q.size - 1).coerceAtLeast(0))
+        _currentIndex.value = safeIndex
+        _currentTrack.value = track
+        _playbackError.value = null
+        expiredUrlRetryCount = 0
+        failedProfilesForCurrentTrack.clear()
+
+        when (track) {
+            is LocalTrack -> {
+                _currentResolvedStream.value = null
+                playLocalTrack(track)
+            }
+            is OnlineTrack -> {
+                playOnlineTrack(track)
+            }
+        }
+    }
+
+    /**
+     * Plays the track at [index] within the existing queue preserving the current queue.
+     */
+    fun playTrackAtIndex(index: Int) {
+        val q = _queue.value
+        if (index !in q.indices) return
+        val track = q[index]
+        Log.d(
+            TAG,
+            "LyroPlayback: playTrackAtIndex -> queueSize=${q.size}, index=$index, title=${track.title}"
+        )
+        playTrackFromExistingQueue(track, index)
+    }
+
     // Backward-compatible for local songs
-    fun playSong(song: Song, newSongQueue: List<Song>? = null) {
+    fun playSong(song: Song, newSongQueue: List<Song>? = null, startIndex: Int? = null) {
         val localTrack = song.toLocalTrack()
         val trackQueue = newSongQueue?.map { it.toLocalTrack() }
-        playTrack(localTrack, trackQueue)
+        playTrack(localTrack, trackQueue, startIndex)
     }
 
     private fun playLocalTrack(track: LocalTrack) {
@@ -420,14 +488,37 @@ class PlaybackManager(
         val q = _queue.value
         if (q.isEmpty()) return
 
+        val curIdx = _currentIndex.value
+        val curTrack = q.getOrNull(curIdx)
+
         val nextIndex = if (_isShuffle.value) {
-            q.indices.random()
+            val candidates = q.indices.filter { it != curIdx }
+            if (candidates.isNotEmpty()) candidates.random() else curIdx
         } else {
-            (_currentIndex.value + 1) % q.size
+            when (_repeatMode.value) {
+                Player.REPEAT_MODE_ONE -> curIdx
+                Player.REPEAT_MODE_ALL -> (curIdx + 1) % q.size
+                else -> { // Player.REPEAT_MODE_OFF
+                    if (curIdx < q.size - 1) curIdx + 1 else -1
+                }
+            }
         }
 
-        _currentIndex.value = nextIndex
-        playTrack(q[nextIndex])
+        if (nextIndex == -1) {
+            Log.d(
+                TAG,
+                "LyroPlayback: End of queue reached (repeat OFF). queueSize=${q.size}, currentIndex=$curIdx, current=${curTrack?.title}"
+            )
+            return
+        }
+
+        val nextTrack = q[nextIndex]
+        Log.d(
+            TAG,
+            "LyroPlayback: Next triggered -> queueSize=${q.size}, currentIndex=$curIdx, current=${curTrack?.title}, nextIndex=$nextIndex, next=${nextTrack.title}"
+        )
+
+        playTrackFromExistingQueue(nextTrack, nextIndex)
     }
 
     fun skipPrevious() {
@@ -440,14 +531,29 @@ class PlaybackManager(
             return
         }
 
+        val curIdx = _currentIndex.value
+        val curTrack = q.getOrNull(curIdx)
+
         val prevIndex = if (_isShuffle.value) {
-            q.indices.random()
+            val candidates = q.indices.filter { it != curIdx }
+            if (candidates.isNotEmpty()) candidates.random() else curIdx
         } else {
-            if (_currentIndex.value - 1 < 0) q.size - 1 else _currentIndex.value - 1
+            when (_repeatMode.value) {
+                Player.REPEAT_MODE_ONE -> curIdx
+                Player.REPEAT_MODE_ALL -> if (curIdx - 1 < 0) q.size - 1 else curIdx - 1
+                else -> { // Player.REPEAT_MODE_OFF
+                    if (curIdx > 0) curIdx - 1 else 0
+                }
+            }
         }
 
-        _currentIndex.value = prevIndex
-        playTrack(q[prevIndex])
+        val prevTrack = q[prevIndex]
+        Log.d(
+            TAG,
+            "LyroPlayback: Previous triggered -> queueSize=${q.size}, currentIndex=$curIdx, current=${curTrack?.title}, prevIndex=$prevIndex, prev=${prevTrack.title}"
+        )
+
+        playTrackFromExistingQueue(prevTrack, prevIndex)
     }
 
     fun toggleShuffle() {

@@ -103,29 +103,42 @@ fun CassetteArtwork(
                 .clip(labelShape)
                 .background(labelColor)
                 .border(1.dp, LyroDivider, labelShape)
-                .padding(10.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            Column(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = song?.title ?: "No Track Playing",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = LyroTextPrimary
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = song?.artist ?: "Lyro Hi-Fi Audio",
-                    fontWeight = FontWeight.Normal,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = LyroTextSecondary
-                )
+                if (song != null) {
+                    SongArtworkThumbnail(
+                        song = song,
+                        size = 44.dp,
+                        highRes = true,
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = if (song != null) Alignment.Start else Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = song?.title ?: "No Track Playing",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = LyroTextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = song?.artist ?: "Lyro Hi-Fi Audio",
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = LyroTextSecondary
+                    )
+                }
             }
         }
 
@@ -251,25 +264,47 @@ fun CassetteSpool(rotation: Float) {
 }
 
 /**
- * High-performance thumbnail with LruCache and zero-jank background decoding
+ * High-performance thumbnail with LruCache and zero-jank background decoding.
+ * Selects highest resolution artwork for player screens (highRes = true or size > 64.dp)
+ * and lightweight thumbnails for song lists.
  */
 @Composable
 fun SongArtworkThumbnail(
     song: Song,
     modifier: Modifier = Modifier,
-    size: Dp = 48.dp
+    size: Dp = 48.dp,
+    highRes: Boolean = size > 64.dp
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    var bitmap by remember(song.id) { mutableStateOf(com.lyro.app.core.artwork.ArtworkCache.get(song.id)) }
+    var bitmap by remember(song.id, highRes) {
+        mutableStateOf(com.lyro.app.core.artwork.ArtworkCache.get(song.id, highRes = highRes))
+    }
 
-    val artUrl = song.albumArtUriString?.takeIf { it.isNotBlank() }
+    val rawArtUrl = song.albumArtUriString?.takeIf { it.isNotBlank() }
         ?: song.contentUriString.takeIf { it.startsWith("http") }
+
+    val artUrl = remember(rawArtUrl, highRes) {
+        if (highRes && !rawArtUrl.isNullOrBlank()) {
+            com.lyro.app.core.artwork.ArtworkUtils.getHighResArtworkUrl(rawArtUrl) ?: rawArtUrl
+        } else {
+            rawArtUrl
+        }
+    }
+
+    val fallbackUrl = remember(rawArtUrl, highRes) {
+        if (highRes && !rawArtUrl.isNullOrBlank()) {
+            com.lyro.app.core.artwork.ArtworkUtils.getFallbackArtworkUrl(rawArtUrl)
+        } else {
+            null
+        }
+    }
+
     var isImageError by remember(song.id, artUrl) { mutableStateOf(false) }
 
-    LaunchedEffect(song.id, artUrl, isImageError) {
-        if ((artUrl.isNullOrBlank() || isImageError) && bitmap == null && !com.lyro.app.core.artwork.ArtworkCache.hasAttempted(song.id)) {
+    LaunchedEffect(song.id, artUrl, isImageError, highRes) {
+        if ((artUrl.isNullOrBlank() || isImageError) && bitmap == null && !com.lyro.app.core.artwork.ArtworkCache.hasAttempted(song.id, highRes = highRes)) {
             val loaded = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                com.lyro.app.core.artwork.ArtworkCache.loadThumbnail(context, song.id, song.contentUri)
+                com.lyro.app.core.artwork.ArtworkCache.loadArtwork(context, song.id, song.contentUri, highRes = highRes)
             }
             if (loaded != null) {
                 bitmap = loaded
@@ -288,8 +323,19 @@ fun SongArtworkThumbnail(
         contentAlignment = Alignment.Center
     ) {
         if (!artUrl.isNullOrBlank() && !isImageError) {
+            val imageRequest = remember(artUrl, fallbackUrl, context) {
+                coil.request.ImageRequest.Builder(context)
+                    .data(artUrl)
+                    .crossfade(true)
+                    .apply {
+                        if (fallbackUrl != null && fallbackUrl != artUrl) {
+                            error(fallbackUrl)
+                        }
+                    }
+                    .build()
+            }
             AsyncImage(
-                model = artUrl,
+                model = imageRequest,
                 contentDescription = song.title,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,

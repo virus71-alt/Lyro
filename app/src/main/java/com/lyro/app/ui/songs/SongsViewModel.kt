@@ -58,6 +58,13 @@ class SongsViewModel(
     private val _isOnlineMode = MutableStateFlow(false)
     val isOnlineMode: StateFlow<Boolean> = _isOnlineMode.asStateFlow()
 
+    private val _openNowPlayingEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val openNowPlayingEvent = _openNowPlayingEvent.asSharedFlow()
+
+    fun openNowPlaying() {
+        _openNowPlayingEvent.tryEmit(Unit)
+    }
+
     fun setOnlineMode(enabled: Boolean) {
         _isOnlineMode.value = enabled
     }
@@ -246,8 +253,9 @@ class SongsViewModel(
         }
     }
 
-    fun playSong(song: Song) {
-        playbackManager.playSong(song, songs.value)
+    fun playSong(song: Song, queue: List<Song> = songs.value) {
+        playbackManager.playSong(song, queue)
+        _openNowPlayingEvent.tryEmit(Unit)
     }
 
     fun playQuickPicks(startSong: Song? = null) {
@@ -255,12 +263,28 @@ class SongsViewModel(
         if (list.isNotEmpty()) {
             val target = startSong ?: list.first()
             playbackManager.playSong(target, list)
+            _openNowPlayingEvent.tryEmit(Unit)
         }
     }
 
     fun playOnlineTrack(track: OnlineTrack, customList: List<OnlineTrack>? = null) {
         val contextList = customList ?: _onlineSearchResults.value.ifEmpty { _exploreTrending.value }
         playbackManager.playTrack(track, contextList)
+        _openNowPlayingEvent.tryEmit(Unit)
+    }
+
+    suspend fun getSongsForPlaylist(playlistId: Long): List<Song> {
+        return repository.getSongsForPlaylist(playlistId)
+    }
+
+    fun playPlaylist(playlist: Playlist) {
+        viewModelScope.launch {
+            val playlistSongs = repository.getSongsForPlaylist(playlist.id)
+            if (playlistSongs.isNotEmpty()) {
+                playbackManager.playSong(playlistSongs.first(), playlistSongs)
+                _openNowPlayingEvent.tryEmit(Unit)
+            }
+        }
     }
 
     fun addSongToPlaylist(playlistId: Long, songId: Long) {

@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import androidx.media3.common.Player
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.ui.components.SongArtworkThumbnail
@@ -62,6 +64,10 @@ fun WheelPlayerScreen(
     val queue by viewModel.queue.collectAsState()
     val sleepTimerMinutesLeft by viewModel.sleepTimerMinutesLeft.collectAsState()
     val downloadStatus by viewModel.currentDownloadStatus.collectAsState()
+
+    val motionProgress = LocalPlayerMotionProgress.current
+    val headerAlpha = (1f - motionProgress * 0.7f).coerceIn(0f, 1f)
+    val artScale = lerp(1f, 0.82f, motionProgress)
 
     var showQueueSheet by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
@@ -102,7 +108,9 @@ fun WheelPlayerScreen(
         ) {
         // Top Header
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer { alpha = headerAlpha },
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -139,6 +147,10 @@ fun WheelPlayerScreen(
         Box(
             modifier = Modifier
                 .size(175.dp)
+                .graphicsLayer {
+                    scaleX = artScale
+                    scaleY = artScale
+                }
                 .clip(artShape)
                 .background(LyroSurfaceElevated)
                 .border(1.dp, LyroDivider, artShape)
@@ -494,6 +506,10 @@ fun WheelPlayerScreen(
             isPlaying = isPlaying,
             onSongClick = {
                 viewModel.playQueueItem(it)
+                showQueueSheet = false
+            },
+            onItemClick = { index ->
+                viewModel.playQueueItem(index)
                 showQueueSheet = false
             },
             onDismiss = { showQueueSheet = false }

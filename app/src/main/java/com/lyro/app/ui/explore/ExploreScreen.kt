@@ -166,7 +166,7 @@ fun ExploreScreen(
                         song = song,
                         isCurrent = currentSong?.id == song.id,
                         isPlaying = isPlaying && currentSong?.id == song.id,
-                        onClick = { viewModel.playSong(song) },
+                        onClick = { viewModel.playSong(song, localSongs) },
                         onMoreClick = { viewModel.toggleFavorite(song) }
                     )
                 }
@@ -224,7 +224,7 @@ fun ExploreScreen(
                         isResolving = isResolvingStream && currentTrack?.id == track.videoId,
                         downloadStatus = status,
                         onDownloadClick = { viewModel.downloadTrack(track) },
-                        onClick = { viewModel.playOnlineTrack(track) }
+                        onClick = { viewModel.playOnlineTrack(track, onlineResults) }
                     )
                 }
             }

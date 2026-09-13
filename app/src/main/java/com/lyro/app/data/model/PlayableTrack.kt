@@ -43,8 +43,11 @@ data class OnlineTrack(
     override val isFavorite: Boolean = false
 ) : PlayableTrack {
     override val id: String get() = videoId
-    override val artworkUriString: String? get() = thumbnailUrl
+    override val artworkUriString: String? get() = highResThumbnailUrl ?: thumbnailUrl
     override val isLocal: Boolean get() = false
+
+    val highResThumbnailUrl: String?
+        get() = com.lyro.app.core.artwork.ArtworkUtils.getHighResArtworkUrl(thumbnailUrl)
 }
 
 // Extension to easily wrap Song

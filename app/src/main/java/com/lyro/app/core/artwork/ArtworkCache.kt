@@ -13,36 +13,53 @@ import java.util.concurrent.ConcurrentHashMap
 
 object ArtworkCache {
 
-    // In-memory cache holding up to 250 decoded thumbnails (~10-12 MB total RAM)
-    private val memoryCache = object : LruCache<Long, Bitmap>(250) {
+    // Fast in-memory thumbnail cache for list rows (~128x128)
+    private val thumbnailCache = object : LruCache<Long, Bitmap>(250) {
+        override fun sizeOf(key: Long, value: Bitmap): Int = 1
+    }
+
+    // Dedicated high-resolution cache for active Now Playing screens (~1024x1024)
+    private val highResCache = object : LruCache<Long, Bitmap>(15) {
         override fun sizeOf(key: Long, value: Bitmap): Int = 1
     }
 
     // Negative cache: tracks IDs of songs known to have no embedded artwork
-    // Prevents repeated disk I/O when scrolling past tracks without cover art!
     private val noArtworkSet = Collections.newSetFromMap(ConcurrentHashMap<Long, Boolean>())
 
-    fun get(songId: Long): Bitmap? {
-        return memoryCache.get(songId)
+    fun get(songId: Long, highRes: Boolean = false): Bitmap? {
+        return if (highRes) {
+            highResCache.get(songId) ?: thumbnailCache.get(songId)
+        } else {
+            thumbnailCache.get(songId)
+        }
     }
 
-    fun hasAttempted(songId: Long): Boolean {
-        return memoryCache.get(songId) != null || noArtworkSet.contains(songId)
+    fun hasAttempted(songId: Long, highRes: Boolean = false): Boolean {
+        return if (highRes) {
+            highResCache.get(songId) != null || noArtworkSet.contains(songId)
+        } else {
+            thumbnailCache.get(songId) != null || noArtworkSet.contains(songId)
+        }
     }
 
     fun loadThumbnail(context: Context, songId: Long, uri: Uri): Bitmap? {
-        // Fast-path memory check
-        memoryCache.get(songId)?.let { return it }
+        return loadArtwork(context, songId, uri, highRes = false)
+    }
+
+    fun loadArtwork(context: Context, songId: Long, uri: Uri, highRes: Boolean = false): Bitmap? {
+        val targetCache = if (highRes) highResCache else thumbnailCache
+        targetCache.get(songId)?.let { return it }
         if (noArtworkSet.contains(songId)) return null
 
         var result: Bitmap? = null
+        val targetDimension = if (highRes) 1024 else 128
 
         // 1. Android Q+ (API 29+) loadThumbnail for direct audio file
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
-                result = context.contentResolver.loadThumbnail(uri, Size(128, 128), null)
+                result = context.contentResolver.loadThumbnail(uri, Size(targetDimension, targetDimension), null)
             } catch (ignored: Throwable) {
-                // No thumbnail via contentResolver, fallback below
+                // Fallback to MediaMetadataRetriever below
             }
         }
 
@@ -59,7 +76,7 @@ object ArtworkCache {
                         inJustDecodeBounds = true
                     }
                     BitmapFactory.decodeByteArray(pic, 0, pic.size, options)
-                    options.inSampleSize = calculateInSampleSize(options, 128, 128)
+                    options.inSampleSize = calculateInSampleSize(options, targetDimension, targetDimension)
                     options.inJustDecodeBounds = false
                     result = BitmapFactory.decodeByteArray(pic, 0, pic.size, options)
                 }
@@ -69,7 +86,7 @@ object ArtworkCache {
         }
 
         if (result != null) {
-            memoryCache.put(songId, result)
+            targetCache.put(songId, result)
         } else {
             noArtworkSet.add(songId)
         }
@@ -91,7 +108,8 @@ object ArtworkCache {
     }
 
     fun clear() {
-        memoryCache.evictAll()
+        thumbnailCache.evictAll()
+        highResCache.evictAll()
         noArtworkSet.clear()
     }
 }

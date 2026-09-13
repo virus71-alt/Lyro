@@ -290,7 +290,7 @@ fun SongsScreen(
                             isResolving = isResolvingStream && currentTrack?.id == track.videoId,
                             downloadStatus = status,
                             onDownloadClick = { viewModel.downloadTrack(track) },
-                            onClick = { viewModel.playOnlineTrack(track) }
+                            onClick = { viewModel.playOnlineTrack(track, onlineResults) }
                         )
                     }
                 }
@@ -405,7 +405,7 @@ fun SongsScreen(
                                 song = song,
                                 isCurrentSong = currentSong?.id == song.id,
                                 isPlaying = isPlaying && currentSong?.id == song.id,
-                                onClick = { viewModel.playSong(song) },
+                                onClick = { viewModel.playSong(song, songs) },
                                 onFavoriteToggle = { viewModel.toggleFavorite(song) },
                                 onMoreClick = { selectedSongForMenu = song }
                             )

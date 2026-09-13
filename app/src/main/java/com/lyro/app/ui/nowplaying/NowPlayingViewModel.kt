@@ -84,7 +84,16 @@ class NowPlayingViewModel(
         }
     }
 
+    fun playQueueItem(index: Int) {
+        playbackManager.playTrackAtIndex(index)
+    }
+
     fun playQueueItem(song: Song) {
-        playbackManager.playSong(song)
+        val index = queue.value.indexOfFirst { it.id == song.id }
+        if (index >= 0) {
+            playbackManager.playTrackAtIndex(index)
+        } else {
+            playbackManager.playSong(song)
+        }
     }
 }

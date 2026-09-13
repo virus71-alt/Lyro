@@ -203,7 +203,7 @@ object InnertubeClient {
                 }
             }
 
-            // Extract Thumbnail
+            // Extract Thumbnail: select the largest resolution available
             var thumbnailUrl: String? = null
             val thumbnails = item.optJSONObject("thumbnail")
                 ?.optJSONObject("musicThumbnailRenderer")
@@ -211,7 +211,18 @@ object InnertubeClient {
                 ?.optJSONArray("thumbnails")
 
             if (thumbnails != null && thumbnails.length() > 0) {
-                thumbnailUrl = thumbnails.optJSONObject(thumbnails.length() - 1)?.optString("url")
+                var maxDimension = 0
+                for (t in 0 until thumbnails.length()) {
+                    val thumbObj = thumbnails.optJSONObject(t) ?: continue
+                    val w = thumbObj.optInt("width", 0)
+                    val h = thumbObj.optInt("height", 0)
+                    val dim = maxOf(w, h)
+                    val url = thumbObj.optString("url")
+                    if (dim > maxDimension || thumbnailUrl == null) {
+                        maxDimension = dim
+                        thumbnailUrl = url
+                    }
+                }
             }
 
             return OnlineTrack(

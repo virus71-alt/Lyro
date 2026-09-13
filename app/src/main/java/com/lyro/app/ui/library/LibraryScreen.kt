@@ -66,6 +66,17 @@ fun LibraryScreen(
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
     var selectedSongForMenu by remember { mutableStateOf<Song?>(null) }
+    var viewingPlaylist by remember { mutableStateOf<Playlist?>(null) }
+    var viewingPlaylistSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+
+    LaunchedEffect(viewingPlaylist) {
+        val pl = viewingPlaylist
+        if (pl != null) {
+            viewingPlaylistSongs = viewModel.getSongsForPlaylist(pl.id)
+        } else {
+            viewingPlaylistSongs = emptyList()
+        }
+    }
 
     // If a filter is active, back press resets filter to ALL before leaving Library
     BackHandler(enabled = selectedFilter != LibraryFilter.ALL) {
@@ -238,7 +249,7 @@ fun LibraryScreen(
                             .size(36.dp)
                             .background(LyroAccent, CircleShape)
                             .clickable {
-                                if (likedSongs.isNotEmpty()) viewModel.playSong(likedSongs.first())
+                                if (likedSongs.isNotEmpty()) viewModel.playSong(likedSongs.first(), likedSongs)
                             },
                         contentAlignment = Alignment.Center
                     ) {
@@ -287,7 +298,10 @@ fun LibraryScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp, vertical = 2.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .clickable { onPlaylistClick(playlist) }
+                            .clickable {
+                                onPlaylistClick(playlist)
+                                viewingPlaylist = playlist
+                            }
                             .padding(horizontal = 8.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -371,7 +385,7 @@ fun LibraryScreen(
                         song = song,
                         isCurrent = isCur,
                         isPlaying = isPlaying && isCur,
-                        onClick = { viewModel.playSong(song) },
+                        onClick = { viewModel.playSong(song, listToShow) },
                         onMoreClick = { selectedSongForMenu = song }
                     )
                 }
@@ -526,5 +540,103 @@ fun LibraryScreen(
             containerColor = LyroSurfaceElevated,
             shape = RoundedCornerShape(16.dp)
         )
+    }
+
+    // Playlist Track Detail Modal Sheet
+    viewingPlaylist?.let { playlist ->
+        ModalBottomSheet(
+            onDismissRequest = { viewingPlaylist = null },
+            containerColor = LyroSurfaceElevated,
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 10.dp)
+                        .width(36.dp)
+                        .height(4.dp)
+                        .background(LyroTextMuted.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
+                )
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = playlist.name,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = LyroTextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${viewingPlaylistSongs.size} tracks",
+                            fontSize = 13.sp,
+                            color = LyroTextSecondary
+                        )
+                    }
+
+                    if (viewingPlaylistSongs.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(LyroAccent, CircleShape)
+                                .clickable {
+                                    viewModel.playPlaylist(playlist)
+                                    viewingPlaylist = null
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Play All",
+                                tint = Color.Black,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (viewingPlaylistSongs.isEmpty()) {
+                    Text(
+                        text = "No tracks in this mixtape yet. Use the ⋮ menu on any song to add tracks here.",
+                        fontSize = 13.sp,
+                        color = LyroTextMuted,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(viewingPlaylistSongs, key = { "pl_song_${it.id}" }) { song ->
+                            val isCur = currentSong?.id == song.id
+                            SongRow(
+                                song = song,
+                                isCurrent = isCur,
+                                isPlaying = isPlaying && isCur,
+                                onClick = {
+                                    viewModel.playSong(song, viewingPlaylistSongs)
+                                    viewingPlaylist = null
+                                },
+                                onMoreClick = { selectedSongForMenu = song }
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }

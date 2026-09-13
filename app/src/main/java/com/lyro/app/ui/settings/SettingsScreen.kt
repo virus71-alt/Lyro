@@ -1,5 +1,6 @@
 package com.lyro.app.ui.settings
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,9 +20,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lyro.app.R
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.data.preferences.PlayerPreferences
 import com.lyro.app.data.preferences.PlayerStyle
@@ -264,6 +267,33 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.app_logo),
+                    contentDescription = "Lyro",
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                )
+                Column {
+                    Text(
+                        text = "Lyro",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = LyroTextPrimary
+                    )
+                    Text(
+                        text = "Minimal music player",
+                        fontSize = 12.sp,
+                        color = LyroTextSecondary
+                    )
+                }
+            }
+            HorizontalDivider(color = LyroDivider, thickness = 0.8.dp)
+
             SettingsInfoRow(label = "App Version", value = "1.0.0")
             HorizontalDivider(color = LyroDivider, thickness = 0.8.dp)
 

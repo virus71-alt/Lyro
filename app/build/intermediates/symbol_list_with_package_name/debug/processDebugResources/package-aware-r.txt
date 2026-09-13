@@ -80,6 +80,7 @@ dimen notification_subtext_size
 dimen notification_top_pad
 dimen notification_top_pad_large_text
 drawable abc_vector_test
+drawable app_logo
 drawable ic_call_answer
 drawable ic_call_answer_low
 drawable ic_call_answer_video
@@ -88,6 +89,7 @@ drawable ic_call_decline
 drawable ic_call_decline_low
 drawable ic_launcher_background
 drawable ic_launcher_foreground
+drawable ic_lyro_logo
 drawable media3_icon_circular_play
 drawable media3_notification_pause
 drawable media3_notification_play

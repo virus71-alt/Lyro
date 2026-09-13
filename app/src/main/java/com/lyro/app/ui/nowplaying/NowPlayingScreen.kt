@@ -12,14 +12,16 @@ import com.lyro.app.data.preferences.PlayerStyle
 fun NowPlayingScreen(
     viewModel: NowPlayingViewModel,
     playerPreferences: PlayerPreferences,
+    playerSheetState: PlayerSheetState,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val playerStyle by playerPreferences.playerStyle.collectAsState()
 
-    Surface(
-        modifier = modifier.fillMaxSize(),
-        color = LyroBackground
+    ExpandablePlayerContainer(
+        sheetState = playerSheetState,
+        onCollapse = onBackClick,
+        modifier = modifier
     ) {
         when (playerStyle) {
             PlayerStyle.MINIMAL -> {

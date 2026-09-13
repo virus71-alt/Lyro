@@ -142,7 +142,13 @@ fun PlaylistsScreen(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .background(LyroAccent, CircleShape),
+                    .background(LyroAccent, CircleShape)
+                    .clickable {
+                        val favs = songs.filter { it.isFavorite }
+                        if (favs.isNotEmpty()) {
+                            viewModel.playSong(favs.first(), favs)
+                        }
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

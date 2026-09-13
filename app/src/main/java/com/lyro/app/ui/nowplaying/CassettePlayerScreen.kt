@@ -15,12 +15,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import androidx.media3.common.Player
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.ui.components.CassetteArtwork
@@ -42,6 +44,10 @@ fun CassettePlayerScreen(
     val queue by viewModel.queue.collectAsState()
     val sleepTimerMinutesLeft by viewModel.sleepTimerMinutesLeft.collectAsState()
     val downloadStatus by viewModel.currentDownloadStatus.collectAsState()
+
+    val motionProgress = LocalPlayerMotionProgress.current
+    val headerAlpha = (1f - motionProgress * 0.7f).coerceIn(0f, 1f)
+    val cassetteScale = lerp(1f, 0.85f, motionProgress)
 
     var showQueueSheet by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
@@ -80,7 +86,9 @@ fun CassettePlayerScreen(
         ) {
         // Top Header
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer { alpha = headerAlpha },
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -116,6 +124,10 @@ fun CassettePlayerScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .graphicsLayer {
+                    scaleX = cassetteScale
+                    scaleY = cassetteScale
+                }
                 .padding(horizontal = 4.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -335,6 +347,10 @@ fun CassettePlayerScreen(
             isPlaying = isPlaying,
             onSongClick = {
                 viewModel.playQueueItem(it)
+                showQueueSheet = false
+            },
+            onItemClick = { index ->
+                viewModel.playQueueItem(index)
                 showQueueSheet = false
             },
             onDismiss = { showQueueSheet = false }

@@ -25,7 +25,7 @@ class AudioArtworkFetcher(
         // 1. Android Q+ (API 29+) loadThumbnail for specific audio URI
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
-                val bitmap = context.contentResolver.loadThumbnail(uri, Size(512, 512), null)
+                val bitmap = context.contentResolver.loadThumbnail(uri, Size(1024, 1024), null)
                 return@withContext DrawableResult(
                     drawable = BitmapDrawable(context.resources, bitmap),
                     isSampled = false,

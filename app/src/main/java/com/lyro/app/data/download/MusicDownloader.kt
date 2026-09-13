@@ -108,9 +108,10 @@ class MusicDownloader(
 
             // Download and cache high-res artwork thumbnail locally
             var localThumbnailUri: String? = null
-            if (!track.thumbnailUrl.isNullOrBlank()) {
+            val targetThumbUrl = track.highResThumbnailUrl ?: track.thumbnailUrl
+            if (!targetThumbUrl.isNullOrBlank()) {
                 try {
-                    val thumbReq = Request.Builder().url(track.thumbnailUrl).build()
+                    val thumbReq = Request.Builder().url(targetThumbUrl).build()
                     val thumbResp = okHttpClient.newCall(thumbReq).execute()
                     if (thumbResp.isSuccessful) {
                         val artworkDir = File(context.filesDir, "artwork")

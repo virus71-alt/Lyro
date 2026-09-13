@@ -8,8 +8,10 @@ color neo_cyan
 color neo_cyber_yellow
 color neo_electric_pink
 color neo_white
+drawable app_logo
 drawable ic_launcher_background
 drawable ic_launcher_foreground
+drawable ic_lyro_logo
 mipmap ic_launcher
 mipmap ic_launcher_round
 string app_name

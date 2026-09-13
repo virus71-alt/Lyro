@@ -32,8 +32,12 @@ import com.lyro.app.ui.navigation.MainDestination
 import com.lyro.app.ui.navigation.OverlayScreen
 import com.lyro.app.ui.nowplaying.NowPlayingScreen
 import com.lyro.app.ui.nowplaying.NowPlayingViewModel
+import com.lyro.app.ui.nowplaying.PlayerSheetState
+import com.lyro.app.ui.nowplaying.PlayerSheetValue
+import com.lyro.app.ui.nowplaying.rememberPlayerSheetState
 import com.lyro.app.ui.settings.SettingsScreen
 import com.lyro.app.ui.songs.SongsViewModel
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -73,6 +77,11 @@ class MainActivity : ComponentActivity() {
                 val exploreListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
                 val libraryListState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
 
+                val playerSheetState = rememberPlayerSheetState(
+                    initialValue = PlayerSheetValue.COLLAPSED
+                )
+                val coroutineScope = rememberCoroutineScope()
+
                 // Permission state
                 val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     Manifest.permission.READ_MEDIA_AUDIO
@@ -104,6 +113,16 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Automatically navigate to full Now Playing whenever a song/track is tapped
+                LaunchedEffect(Unit) {
+                    songsViewModel.openNowPlayingEvent.collect {
+                        if (activeOverlay != OverlayScreen.NONE) {
+                            activeOverlay = OverlayScreen.NONE
+                        }
+                        playerSheetState.expand()
+                    }
+                }
+
                 val isHapticsEnabled by playerPreferences.isHapticsEnabled.collectAsState()
                 val localView = androidx.compose.ui.platform.LocalView.current
                 val hapticsController = remember(localView, isHapticsEnabled) {
@@ -116,15 +135,24 @@ class MainActivity : ComponentActivity() {
                 val contentPadding = PaddingValues(bottom = bottomPadding)
 
                 // Predictable Android Back Navigation:
-                // 1. Overlay screens (Now Playing, Settings) dismiss back to the exact active tab
-                // 2. Secondary tabs (Explore, Library) return back to Home root
-                // 3. Home root exits activity
+                // 1. Gesture-driven Now Playing dismisses with smooth animated collapse
+                BackHandler(enabled = playerSheetState.isVisible && activeOverlay == OverlayScreen.NONE) {
+                    hapticsController.click()
+                    coroutineScope.launch {
+                        playerSheetState.collapse {
+                            activeOverlay = OverlayScreen.NONE
+                        }
+                    }
+                }
+
+                // 2. Overlay screens (Settings) dismiss back to the exact active tab
                 BackHandler(enabled = activeOverlay != OverlayScreen.NONE) {
                     hapticsController.click()
                     activeOverlay = OverlayScreen.NONE
                 }
 
-                BackHandler(enabled = activeOverlay == OverlayScreen.NONE && currentDestination != MainDestination.HOME) {
+                // 3. Secondary tabs (Explore, Library) return back to Home root
+                BackHandler(enabled = activeOverlay == OverlayScreen.NONE && !playerSheetState.isVisible && currentDestination != MainDestination.HOME) {
                     hapticsController.selection()
                     currentDestination = MainDestination.HOME
                 }
@@ -156,8 +184,8 @@ class MainActivity : ComponentActivity() {
                                         onLikedSongsClick = {
                                             currentDestination = MainDestination.LIBRARY
                                         },
-                                        onPlaylistClick = { _ ->
-                                            currentDestination = MainDestination.LIBRARY
+                                        onPlaylistClick = { playlist ->
+                                            songsViewModel.playPlaylist(playlist)
                                         }
                                     )
                                 }
@@ -186,9 +214,9 @@ class MainActivity : ComponentActivity() {
                         }
 
                         // 2. Persistent Floating Bottom Container: MiniPlayer + LyroBottomNavigation
-                        // Visible across all 3 destinations; hidden when an overlay screen is active
+                        // Visible across all destinations underneath Now Playing; hidden when Settings overlay is active
                         AnimatedVisibility(
-                            visible = activeOverlay == OverlayScreen.NONE,
+                            visible = activeOverlay != OverlayScreen.SETTINGS,
                             enter = fadeIn(animationSpec = tween(150)),
                             exit = fadeOut(animationSpec = tween(150)),
                             modifier = Modifier.align(Alignment.BottomCenter)
@@ -206,7 +234,11 @@ class MainActivity : ComponentActivity() {
                                         duration = duration,
                                         onPlayPauseClick = { playbackManager.togglePlayPause() },
                                         onNextClick = { playbackManager.skipNext() },
-                                        onExpandClick = { activeOverlay = OverlayScreen.NOW_PLAYING }
+                                        onExpandClick = {
+                                            coroutineScope.launch {
+                                                playerSheetState.expand()
+                                            }
+                                        }
                                     )
                                 }
 
@@ -219,22 +251,19 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // 3. Fullscreen Overlay: Now Playing Screen (Vertical Slide + Fade)
-                        AnimatedVisibility(
-                            visible = activeOverlay == OverlayScreen.NOW_PLAYING,
-                            enter = slideInVertically(
-                                initialOffsetY = { it },
-                                animationSpec = tween(280)
-                            ) + fadeIn(tween(280)),
-                            exit = slideOutVertically(
-                                targetOffsetY = { it },
-                                animationSpec = tween(240)
-                            ) + fadeOut(tween(240))
-                        ) {
+                        // 3. Gesture-Driven Expandable Now Playing Screen (Real-time swipe-down collapse)
+                        if (playerSheetState.isVisible && currentSong != null && activeOverlay != OverlayScreen.SETTINGS) {
                             NowPlayingScreen(
                                 viewModel = nowPlayingViewModel,
                                 playerPreferences = playerPreferences,
-                                onBackClick = { activeOverlay = OverlayScreen.NONE }
+                                playerSheetState = playerSheetState,
+                                onBackClick = {
+                                    coroutineScope.launch {
+                                        playerSheetState.collapse {
+                                            activeOverlay = OverlayScreen.NONE
+                                        }
+                                    }
+                                }
                             )
                         }
 
