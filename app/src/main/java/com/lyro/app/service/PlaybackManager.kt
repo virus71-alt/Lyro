@@ -386,6 +386,11 @@ class PlaybackManager(
     }
 
     private fun dispatchPlayback(track: PlayableTrack) {
+        try {
+            com.lyro.app.LyroApplication.instance.recommendationEngine.startPlaybackSession(track, isManual = true)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to start recommendation playback session: ${e.message}")
+        }
         val source = sourceResolver.resolve(track)
         when (source) {
             is PlaybackSource.Local -> {
@@ -519,7 +524,16 @@ class PlaybackManager(
         }
     }
 
-    fun skipNext() {
+    fun skipNext(isManual: Boolean = true) {
+        if (isManual) {
+            try {
+                com.lyro.app.LyroApplication.instance.recommendationEngine.activeSession?.let { session ->
+                    com.lyro.app.LyroApplication.instance.recommendationEngine.onManualSkip(session)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to report manual skip: ${e.message}")
+            }
+        }
         val q = _queue.value
         if (q.isEmpty()) return
 
@@ -611,18 +625,25 @@ class PlaybackManager(
     }
 
     private fun onTrackEnded() {
+        try {
+            com.lyro.app.LyroApplication.instance.recommendationEngine.activeSession?.let { session ->
+                com.lyro.app.LyroApplication.instance.recommendationEngine.onTrackCompleted(session)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to report track completion: ${e.message}")
+        }
         when (_repeatMode.value) {
             Player.REPEAT_MODE_ONE -> {
                 seekTo(0)
                 withController { it.play() }
             }
             Player.REPEAT_MODE_ALL -> {
-                skipNext()
+                skipNext(isManual = false)
             }
             else -> {
                 val q = _queue.value
                 if (_currentIndex.value < q.size - 1) {
-                    skipNext()
+                    skipNext(isManual = false)
                 } else {
                     _isPlaying.value = false
                     stopPositionUpdates()
@@ -636,7 +657,18 @@ class PlaybackManager(
         positionUpdateJob = coroutineScope.launch {
             while (isActive) {
                 mediaController?.let { controller ->
-                    _currentPosition.value = controller.currentPosition
+                    val pos = controller.currentPosition
+                    _currentPosition.value = pos
+                    val dur = _duration.value
+                    if (dur > 0L) {
+                        try {
+                            com.lyro.app.LyroApplication.instance.recommendationEngine.activeSession?.let { session ->
+                                com.lyro.app.LyroApplication.instance.recommendationEngine.onPlaybackProgress(session, pos, dur)
+                            }
+                        } catch (e: Exception) {
+                            // Non-blocking
+                        }
+                    }
                 }
                 delay(250)
             }

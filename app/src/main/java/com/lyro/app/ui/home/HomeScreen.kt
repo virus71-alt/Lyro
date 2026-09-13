@@ -4,6 +4,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -12,12 +14,22 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,9 +37,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.lyro.app.core.designsystem.*
+import com.lyro.app.data.model.LocalTrack
 import com.lyro.app.data.model.OnlineTrack
+import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Playlist
 import com.lyro.app.data.model.Song
+import com.lyro.app.data.model.UnifiedTrack
 import com.lyro.app.ui.components.SongArtworkThumbnail
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -36,6 +51,7 @@ import com.lyro.app.R
 import com.lyro.app.ui.components.SongRow
 import com.lyro.app.ui.songs.SongsViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: SongsViewModel,
@@ -48,7 +64,13 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val haptics = com.lyro.app.core.haptics.rememberLyroHaptics()
-    val quickPicks by viewModel.quickPicks.collectAsState()
+    val homeQuickPicks by viewModel.homeQuickPicks.collectAsState()
+    val homeTrending by viewModel.homeTrending.collectAsState()
+    val homeRecommended by viewModel.homeRecommended.collectAsState()
+    val isHomeLoading by viewModel.isHomeLoading.collectAsState()
+    val isHomeRefreshing by viewModel.isHomeRefreshing.collectAsState()
+    val homeRefreshError by viewModel.homeRefreshError.collectAsState()
+    val homeDiscover by viewModel.homeDiscover.collectAsState()
     val likedSongs by viewModel.likedSongs.collectAsState()
     val recentlyAdded by viewModel.recentlyAdded.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
@@ -57,15 +79,69 @@ fun HomeScreen(
     val isMoodLoading by viewModel.isMoodLoading.collectAsState()
 
     val currentSong by viewModel.currentSong.collectAsState()
+    val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
 
-    LazyColumn(
-        state = listState,
+    var selectedTrackForOptions by remember { mutableStateOf<PlayableTrack?>(null) }
+
+    // Pull-to-refresh state: only enabled when Home list is scrolled to the very top
+    val pullRefreshState = rememberPullToRefreshState(
+        enabled = { !listState.canScrollBackward || (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0) }
+    )
+
+    // Haptics: Subtle selection tick when crossing pull threshold
+    var hasCrossedThreshold by remember { mutableStateOf(false) }
+    LaunchedEffect(pullRefreshState.progress) {
+        if (pullRefreshState.progress >= 1.0f && !hasCrossedThreshold && !pullRefreshState.isRefreshing) {
+            hasCrossedThreshold = true
+            haptics.selection()
+        } else if (pullRefreshState.progress < 1.0f) {
+            hasCrossedThreshold = false
+        }
+    }
+
+    // Trigger refresh when user releases past threshold
+    LaunchedEffect(pullRefreshState.isRefreshing) {
+        if (pullRefreshState.isRefreshing && !isHomeRefreshing) {
+            viewModel.refreshHome()
+        }
+    }
+
+    // Haptics: Light click when refresh completes
+    var wasRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(isHomeRefreshing) {
+        if (isHomeRefreshing) {
+            wasRefreshing = true
+            pullRefreshState.startRefresh()
+        } else {
+            pullRefreshState.endRefresh()
+            if (wasRefreshing) {
+                wasRefreshing = false
+                haptics.click()
+            }
+        }
+    }
+
+    // Auto-clear transient refresh error
+    LaunchedEffect(homeRefreshError) {
+        if (homeRefreshError != null) {
+            kotlinx.coroutines.delay(4000)
+            viewModel.clearHomeRefreshError()
+        }
+    }
+
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(LyroBackground),
-        contentPadding = contentPadding
+            .background(LyroBackground)
+            .clipToBounds()
+            .nestedScroll(pullRefreshState.nestedScrollConnection)
     ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding
+        ) {
         // 1. Top App Bar: Clean Branding + Search & Settings Actions
         item(key = "home_top_bar") {
             Row(
@@ -203,8 +279,8 @@ fun HomeScreen(
             }
         }
 
-        // 4. QUICK PICKS (Multi-row horizontally scrollable columns)
-        if (quickPicks.isNotEmpty()) {
+        // 4. QUICK PICKS (Multi-row horizontally scrollable columns combining online & local)
+        if (homeQuickPicks.isNotEmpty()) {
             item(key = "quick_picks_section") {
                 Column(
                     modifier = Modifier
@@ -220,30 +296,150 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Chunk quick picks into columns of 4 stacked songs
-                    val columns = remember(quickPicks) { quickPicks.chunked(4) }
+                    // Chunk quick picks into columns of 4 stacked tracks
+                    val columns = remember(homeQuickPicks) { homeQuickPicks.chunked(4) }
 
                     LazyRow(
                         modifier = Modifier.fillMaxWidth(),
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        items(columns) { columnSongs ->
+                        items(columns) { columnTracks ->
                             Column(
                                 modifier = Modifier.width(310.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                columnSongs.forEach { song ->
-                                    val isCur = currentSong?.id == song.id
+                                columnTracks.forEach { track ->
+                                    val isCur = currentTrack?.id == track.id || currentSong?.title.equals(track.title, ignoreCase = true)
                                     SongRow(
-                                        song = song,
+                                        track = track,
                                         isCurrent = isCur,
                                         isPlaying = isPlaying && isCur,
-                                        onClick = { viewModel.playSong(song, quickPicks) },
-                                        onMoreClick = { viewModel.toggleFavorite(song) }
+                                        onClick = { viewModel.playTrack(track, homeQuickPicks) },
+                                        onMoreClick = { selectedTrackForOptions = track }
                                     )
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        } else if (isHomeLoading) {
+            item(key = "home_loading_placeholder") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = LyroAccent,
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+        }
+
+        // 5. TRENDING NOW RAIL (Online hits worldwide)
+        if (homeTrending.isNotEmpty()) {
+            item(key = "home_trending_rail") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 28.dp)
+                ) {
+                    SectionHeader(
+                        title = "Trending Now",
+                        subtitle = "Popular worldwide",
+                        actionText = null
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        items(homeTrending, key = { "trend_${it.id}" }) { track ->
+                            SquareArtworkCard(
+                                title = track.title,
+                                subtitle = track.artist,
+                                track = track,
+                                isDownloaded = track.isDownloaded,
+                                onClick = { viewModel.playTrack(track, homeTrending) },
+                                onLongClick = { selectedTrackForOptions = track }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 6. RECOMMENDED RAIL (Personalized for you)
+        if (homeRecommended.isNotEmpty()) {
+            item(key = "home_recommended_rail") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 28.dp)
+                ) {
+                    SectionHeader(
+                        title = "Recommended for you",
+                        subtitle = "Personalized for your taste",
+                        actionText = null
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        items(homeRecommended, key = { "rec_${it.id}" }) { track ->
+                            SquareArtworkCard(
+                                title = track.title,
+                                subtitle = track.artist,
+                                track = track,
+                                isDownloaded = track.isDownloaded,
+                                onClick = { viewModel.playTrack(track, homeRecommended) },
+                                onLongClick = { selectedTrackForOptions = track }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 7. DISCOVER SOMETHING NEW RAIL (Adjacent discovery & fresh exploratory tracks)
+        if (homeDiscover.isNotEmpty()) {
+            item(key = "home_discover_rail") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 28.dp)
+                ) {
+                    SectionHeader(
+                        title = "Discover something new",
+                        subtitle = "Adjacent artists & fresh sounds",
+                        actionText = null
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        items(homeDiscover, key = { "disc_${it.id}" }) { track ->
+                            SquareArtworkCard(
+                                title = track.title,
+                                subtitle = track.artist,
+                                track = track,
+                                isDownloaded = track.isDownloaded,
+                                onClick = { viewModel.playTrack(track, homeDiscover) },
+                                onLongClick = { selectedTrackForOptions = track }
+                            )
                         }
                     }
                 }
@@ -348,6 +544,197 @@ fun HomeScreen(
             }
         }
     }
+
+    // Material3 Pull-to-Refresh Indicator
+    PullToRefreshContainer(
+        state = pullRefreshState,
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .graphicsLayer {
+                alpha = if (pullRefreshState.verticalOffset > 0f || pullRefreshState.isRefreshing) 1f else 0f
+            },
+        containerColor = LyroSurfaceElevated,
+        contentColor = LyroAccent
+    )
+
+    // Subtle transient notification on failure / offline
+    AnimatedVisibility(
+        visible = homeRefreshError != null,
+        enter = fadeIn() + slideInVertically(initialOffsetY = { -it }),
+        exit = fadeOut() + slideOutVertically(targetOffsetY = { -it }),
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .statusBarsPadding()
+            .padding(top = 16.dp, start = 20.dp, end = 20.dp)
+    ) {
+        Surface(
+            color = LyroSurfaceElevated,
+            shape = RoundedCornerShape(20.dp),
+            shadowElevation = 6.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, LyroSurfaceHighlight)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = LyroAccent,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = homeRefreshError ?: "",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = LyroTextPrimary
+                )
+            }
+        }
+    }
+
+    // ModalBottomSheet for track options (including Not Interested)
+    selectedTrackForOptions?.let { track ->
+        ModalBottomSheet(
+            onDismissRequest = { selectedTrackForOptions = null },
+            containerColor = LyroSurfaceElevated,
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 12.dp)
+                        .width(36.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(LyroDivider)
+                )
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+            ) {
+                // Track header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(LyroSurface)
+                    ) {
+                        if (!track.artworkUriString.isNullOrBlank()) {
+                            AsyncImage(
+                                model = track.artworkUriString,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.MusicNote,
+                                contentDescription = null,
+                                tint = LyroTextSecondary,
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = track.title,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = LyroTextPrimary
+                        )
+                        Text(
+                            text = track.artist,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = LyroTextSecondary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = LyroDivider, thickness = 1.dp)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Play
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            selectedTrackForOptions = null
+                            viewModel.playTrack(track)
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, tint = LyroTextPrimary)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Play", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                // Favorite Toggle
+                val localSong = (track as? LocalTrack)?.song ?: (track as? UnifiedTrack)?.localSong
+                if (localSong != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                viewModel.toggleFavorite(localSong)
+                                selectedTrackForOptions = null
+                            }
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (localSong.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = null,
+                            tint = if (localSong.isFavorite) LyroAccent else LyroTextPrimary
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = if (localSong.isFavorite) "Remove from Favorites" else "Save to Favorites",
+                            color = LyroTextPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                // Not Interested (Penalizes track in recommendation brain)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            viewModel.markNotInterested(track)
+                            selectedTrackForOptions = null
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.Block, contentDescription = null, tint = Color(0xFFEF5350))
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("Not interested", color = Color(0xFFEF5350), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                        Text("Tune recommendations away from this track", color = LyroTextSecondary, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 @Composable
@@ -404,6 +791,7 @@ fun SectionHeader(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun SquareArtworkCard(
     title: String,
@@ -413,15 +801,28 @@ fun SquareArtworkCard(
     track: com.lyro.app.data.model.PlayableTrack? = null,
     thumbnailUrl: String? = null,
     isDownloaded: Boolean = false,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null
 ) {
+    val haptics = com.lyro.app.core.haptics.rememberLyroHaptics()
     val cardWidth = 140.dp
     val artShape = RoundedCornerShape(10.dp)
 
     Column(
         modifier = modifier
             .width(cardWidth)
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = {
+                    haptics.click()
+                    onClick()
+                },
+                onLongClick = if (onLongClick != null) {
+                    {
+                        haptics.longPress()
+                        onLongClick.invoke()
+                    }
+                } else null
+            )
     ) {
         Box(
             modifier = Modifier

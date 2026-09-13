@@ -4,13 +4,16 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import com.lyro.app.data.model.OnlineTrack
 import com.lyro.app.data.model.Playlist
+import com.lyro.app.recommendation.model.EventType
+import com.lyro.app.recommendation.model.ListeningEvent
 
 class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
         private const val DATABASE_NAME = "lyro_music.db"
-        private const val DATABASE_VERSION = 3
+        private const val DATABASE_VERSION = 5
 
         // Tables
         const val TABLE_FAVORITES = "favorites"
@@ -18,6 +21,13 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         const val TABLE_PLAYLIST_SONGS = "playlist_songs"
         const val TABLE_HISTORY = "history"
         const val TABLE_DOWNLOADED_METADATA = "downloaded_metadata"
+        const val TABLE_HOME_FEED_CACHE = "home_feed_cache"
+
+        // Recommendation Engine Tables
+        const val TABLE_LISTENING_EVENTS = "recommendation_events"
+        const val TABLE_TASTE_PROFILE_SNAPSHOT = "taste_profile_snapshot"
+        const val TABLE_RECOMMENDATION_HISTORY = "recommendation_history"
+        const val TABLE_NOT_INTERESTED = "not_interested"
 
         // Columns
         const val COL_SONG_ID = "song_id"
@@ -98,6 +108,84 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
             )
             """.trimIndent()
         )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_HOME_FEED_CACHE (
+                section TEXT NOT NULL,
+                position INTEGER NOT NULL,
+                video_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                artist TEXT NOT NULL,
+                album TEXT,
+                thumbnail_url TEXT,
+                duration_ms INTEGER DEFAULT 0,
+                PRIMARY KEY(section, video_id)
+            )
+            """.trimIndent()
+        )
+
+        // Recommendation Engine Tables
+        createRecommendationTables(db)
+    }
+
+    private fun createRecommendationTables(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_LISTENING_EVENTS (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                video_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                artist TEXT NOT NULL,
+                album TEXT,
+                event_type TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                duration_ms INTEGER NOT NULL,
+                position_ms INTEGER NOT NULL,
+                percentage_listened REAL NOT NULL,
+                is_manual INTEGER NOT NULL,
+                language TEXT,
+                genre TEXT,
+                mood TEXT
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_TASTE_PROFILE_SNAPSHOT (
+                dimension TEXT NOT NULL,
+                entity_key TEXT NOT NULL,
+                affinity_score REAL NOT NULL,
+                updated_at INTEGER NOT NULL,
+                play_count INTEGER NOT NULL,
+                skip_count INTEGER NOT NULL,
+                PRIMARY KEY (dimension, entity_key)
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_RECOMMENDATION_HISTORY (
+                video_id TEXT PRIMARY KEY,
+                recommended_at INTEGER NOT NULL,
+                section TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_NOT_INTERESTED (
+                video_id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                artist TEXT NOT NULL,
+                marked_at INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -120,6 +208,26 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
             try {
                 db.execSQL("ALTER TABLE $TABLE_DOWNLOADED_METADATA ADD COLUMN $COL_META_LOCAL_URI TEXT")
             } catch (ignored: Exception) {}
+        }
+        if (oldVersion < 4) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS $TABLE_HOME_FEED_CACHE (
+                    section TEXT NOT NULL,
+                    position INTEGER NOT NULL,
+                    video_id TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    artist TEXT NOT NULL,
+                    album TEXT,
+                    thumbnail_url TEXT,
+                    duration_ms INTEGER DEFAULT 0,
+                    PRIMARY KEY(section, video_id)
+                )
+                """.trimIndent()
+            )
+        }
+        if (oldVersion < 5) {
+            createRecommendationTables(db)
         }
     }
 
@@ -338,6 +446,277 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
             // In case table does not exist
         }
         return list
+    }
+
+    // --- Home Feed Cache ---
+    fun saveHomeFeedCache(section: String, tracks: List<OnlineTrack>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.delete(TABLE_HOME_FEED_CACHE, "section = ?", arrayOf(section))
+            tracks.forEachIndexed { index, track ->
+                val cv = ContentValues().apply {
+                    put("section", section)
+                    put("position", index)
+                    put("video_id", track.videoId)
+                    put("title", track.title)
+                    put("artist", track.artist)
+                    put("album", track.album)
+                    put("thumbnail_url", track.thumbnailUrl)
+                    put("duration_ms", track.durationMs)
+                }
+                db.insertWithOnConflict(TABLE_HOME_FEED_CACHE, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            db.setTransactionSuccessful()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    fun getHomeFeedCache(section: String): List<OnlineTrack> {
+        val list = mutableListOf<OnlineTrack>()
+        val db = readableDatabase
+        try {
+            val cursor = db.rawQuery(
+                "SELECT video_id, title, artist, album, thumbnail_url, duration_ms FROM $TABLE_HOME_FEED_CACHE WHERE section = ? ORDER BY position ASC",
+                arrayOf(section)
+            )
+            while (cursor.moveToNext()) {
+                list.add(
+                    OnlineTrack(
+                        videoId = cursor.getString(0) ?: "",
+                        title = cursor.getString(1) ?: "",
+                        artist = cursor.getString(2) ?: "",
+                        album = cursor.getString(3),
+                        thumbnailUrl = cursor.getString(4),
+                        durationMs = cursor.getLong(5)
+                    )
+                )
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return list
+    }
+
+    // --- Recommendation Engine Helpers ---
+
+    fun insertListeningEvent(event: ListeningEvent): Long {
+        val db = writableDatabase
+        val cv = ContentValues().apply {
+            put("session_id", event.playbackSessionId)
+            put("video_id", event.videoId)
+            put("title", event.title)
+            put("artist", event.artist)
+            put("album", event.album)
+            put("event_type", event.eventType.name)
+            put("timestamp", event.timestamp)
+            put("duration_ms", event.durationMs)
+            put("position_ms", event.positionMs)
+            put("percentage_listened", event.percentageListened)
+            put("is_manual", if (event.isManual) 1 else 0)
+            put("language", event.language)
+            put("genre", event.genre)
+            put("mood", event.mood)
+        }
+        return db.insert(TABLE_LISTENING_EVENTS, null, cv)
+    }
+
+    fun getRecentListeningEvents(limit: Int = 1000): List<ListeningEvent> {
+        val events = mutableListOf<ListeningEvent>()
+        val db = readableDatabase
+        try {
+            val cursor = db.rawQuery(
+                """
+                SELECT id, session_id, video_id, title, artist, album, event_type, 
+                       timestamp, duration_ms, position_ms, percentage_listened, is_manual,
+                       language, genre, mood
+                FROM $TABLE_LISTENING_EVENTS
+                ORDER BY timestamp DESC
+                LIMIT ?
+                """.trimIndent(),
+                arrayOf(limit.toString())
+            )
+            while (cursor.moveToNext()) {
+                val eventTypeStr = cursor.getString(6)
+                val eventType = try {
+                    EventType.valueOf(eventTypeStr)
+                } catch (e: Exception) {
+                    EventType.PLAY_STARTED
+                }
+                events.add(
+                    ListeningEvent(
+                        id = cursor.getLong(0),
+                        playbackSessionId = cursor.getString(1),
+                        videoId = cursor.getString(2),
+                        title = cursor.getString(3),
+                        artist = cursor.getString(4),
+                        album = cursor.getString(5),
+                        eventType = eventType,
+                        timestamp = cursor.getLong(7),
+                        durationMs = cursor.getLong(8),
+                        positionMs = cursor.getLong(9),
+                        percentageListened = cursor.getFloat(10),
+                        isManual = cursor.getInt(11) == 1,
+                        language = cursor.getString(12),
+                        genre = cursor.getString(13),
+                        mood = cursor.getString(14)
+                    )
+                )
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return events
+    }
+
+    fun pruneOldListeningEvents(maxAgeMs: Long, maxCount: Int) {
+        val db = writableDatabase
+        try {
+            val cutoff = System.currentTimeMillis() - maxAgeMs
+            db.delete(TABLE_LISTENING_EVENTS, "timestamp < ?", arrayOf(cutoff.toString()))
+
+            // Keep at most maxCount latest events
+            db.execSQL(
+                """
+                DELETE FROM $TABLE_LISTENING_EVENTS 
+                WHERE id NOT IN (
+                    SELECT id FROM $TABLE_LISTENING_EVENTS 
+                    ORDER BY timestamp DESC 
+                    LIMIT ?
+                )
+                """.trimIndent(),
+                arrayOf(maxCount)
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun saveTasteSnapshots(dimension: String, scores: Map<String, Float>) {
+        val db = writableDatabase
+        val now = System.currentTimeMillis()
+        db.beginTransaction()
+        try {
+            db.delete(TABLE_TASTE_PROFILE_SNAPSHOT, "dimension = ?", arrayOf(dimension))
+            for ((key, score) in scores) {
+                val cv = ContentValues().apply {
+                    put("dimension", dimension)
+                    put("entity_key", key)
+                    put("affinity_score", score)
+                    put("updated_at", now)
+                    put("play_count", 0)
+                    put("skip_count", 0)
+                }
+                db.insertWithOnConflict(TABLE_TASTE_PROFILE_SNAPSHOT, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            db.setTransactionSuccessful()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    fun loadTasteSnapshots(dimension: String): Map<String, Float> {
+        val result = mutableMapOf<String, Float>()
+        val db = readableDatabase
+        try {
+            val cursor = db.rawQuery(
+                "SELECT entity_key, affinity_score FROM $TABLE_TASTE_PROFILE_SNAPSHOT WHERE dimension = ?",
+                arrayOf(dimension)
+            )
+            while (cursor.moveToNext()) {
+                val key = cursor.getString(0)
+                val score = cursor.getFloat(1)
+                result[key] = score
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return result
+    }
+
+    fun recordRecommendationHistory(videoIds: Collection<String>, section: String) {
+        if (videoIds.isEmpty()) return
+        val db = writableDatabase
+        val now = System.currentTimeMillis()
+        db.beginTransaction()
+        try {
+            for (videoId in videoIds) {
+                val cv = ContentValues().apply {
+                    put("video_id", videoId)
+                    put("recommended_at", now)
+                    put("section", section)
+                }
+                db.insertWithOnConflict(TABLE_RECOMMENDATION_HISTORY, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+            // Trim recommendation history to last 200 entries
+            db.execSQL(
+                """
+                DELETE FROM $TABLE_RECOMMENDATION_HISTORY 
+                WHERE video_id NOT IN (
+                    SELECT video_id FROM $TABLE_RECOMMENDATION_HISTORY 
+                    ORDER BY recommended_at DESC 
+                    LIMIT 200
+                )
+                """.trimIndent()
+            )
+            db.setTransactionSuccessful()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    fun getRecentRecommendationHistory(limit: Int = 100): Set<String> {
+        val set = mutableSetOf<String>()
+        val db = readableDatabase
+        try {
+            val cursor = db.rawQuery(
+                "SELECT video_id FROM $TABLE_RECOMMENDATION_HISTORY ORDER BY recommended_at DESC LIMIT ?",
+                arrayOf(limit.toString())
+            )
+            while (cursor.moveToNext()) {
+                set.add(cursor.getString(0))
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return set
+    }
+
+    fun markNotInterested(videoId: String, title: String, artist: String) {
+        val db = writableDatabase
+        val cv = ContentValues().apply {
+            put("video_id", videoId)
+            put("title", title)
+            put("artist", artist)
+            put("marked_at", System.currentTimeMillis())
+        }
+        db.insertWithOnConflict(TABLE_NOT_INTERESTED, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun getAllNotInterestedVideoIds(): Set<String> {
+        val set = mutableSetOf<String>()
+        val db = readableDatabase
+        try {
+            val cursor = db.rawQuery("SELECT video_id FROM $TABLE_NOT_INTERESTED", null)
+            while (cursor.moveToNext()) {
+                set.add(cursor.getString(0))
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return set
     }
 }
 

@@ -37,6 +37,15 @@ class LyroApplication : Application(), ImageLoaderFactory {
     lateinit var musicDownloader: com.lyro.app.data.download.MusicDownloader
         private set
 
+    lateinit var listeningEventRepository: com.lyro.app.recommendation.data.ListeningEventRepository
+        private set
+
+    lateinit var tasteProfileRepository: com.lyro.app.recommendation.data.TasteProfileRepository
+        private set
+
+    lateinit var recommendationEngine: com.lyro.app.recommendation.engine.RecommendationEngine
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -48,6 +57,18 @@ class LyroApplication : Application(), ImageLoaderFactory {
         onlineMusicRepository = com.lyro.app.data.repository.OnlineMusicRepository()
         playbackManager = PlaybackManager(this, musicRepository, localMediaIndex = localMediaIndex, playbackSourceResolver = playbackSourceResolver)
         musicDownloader = com.lyro.app.data.download.MusicDownloader(this, musicRepository, localMediaIndex = localMediaIndex)
+
+        // Initialize local-first personalized recommendation brain
+        listeningEventRepository = com.lyro.app.recommendation.data.ListeningEventRepository(databaseHelper)
+        tasteProfileRepository = com.lyro.app.recommendation.data.TasteProfileRepository(databaseHelper, listeningEventRepository)
+        val candidateGenerator = com.lyro.app.recommendation.engine.CandidateGenerator(onlineMusicRepository, listeningEventRepository)
+        val recommendationRanker = com.lyro.app.recommendation.engine.RecommendationRanker()
+        recommendationEngine = com.lyro.app.recommendation.engine.RecommendationEngine(
+            eventRepository = listeningEventRepository,
+            tasteProfileRepository = tasteProfileRepository,
+            candidateGenerator = candidateGenerator,
+            ranker = recommendationRanker
+        )
     }
 
     override fun newImageLoader(): ImageLoader {

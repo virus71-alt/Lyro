@@ -14,14 +14,24 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,6 +49,7 @@ import com.lyro.app.ui.home.SectionHeader
 import com.lyro.app.ui.home.SquareArtworkCard
 import com.lyro.app.ui.songs.SongsViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExploreScreen(
     viewModel: SongsViewModel,
@@ -46,6 +57,7 @@ fun ExploreScreen(
     contentPadding: PaddingValues = PaddingValues(bottom = 140.dp),
     modifier: Modifier = Modifier
 ) {
+    val haptics = com.lyro.app.core.haptics.rememberLyroHaptics()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val localSongs by viewModel.songs.collectAsState()
     val onlineResults by viewModel.onlineSearchResults.collectAsState()
@@ -53,6 +65,8 @@ fun ExploreScreen(
     val onlineSearchError by viewModel.onlineSearchError.collectAsState()
     val exploreTrending by viewModel.exploreTrending.collectAsState()
     val isExploreLoading by viewModel.isExploreLoading.collectAsState()
+    val isExploreRefreshing by viewModel.isExploreRefreshing.collectAsState()
+    val exploreRefreshError by viewModel.exploreRefreshError.collectAsState()
     val downloadStatuses by viewModel.downloadStatuses.collectAsState()
 
     val currentSong by viewModel.currentSong.collectAsState()
@@ -60,18 +74,74 @@ fun ExploreScreen(
     val isPlaying by viewModel.isPlaying.collectAsState()
     val isResolvingStream by viewModel.isResolvingStream.collectAsState()
 
+    // Pull-to-refresh state: only enabled when Explore list is at the very top
+    val pullRefreshState = rememberPullToRefreshState(
+        enabled = { !listState.canScrollBackward || (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0) }
+    )
+
+    // Haptics: Subtle selection tick when crossing pull threshold
+    var hasCrossedThreshold by remember { mutableStateOf(false) }
+    LaunchedEffect(pullRefreshState.progress) {
+        if (pullRefreshState.progress >= 1.0f && !hasCrossedThreshold && !pullRefreshState.isRefreshing) {
+            hasCrossedThreshold = true
+            haptics.selection()
+        } else if (pullRefreshState.progress < 1.0f) {
+            hasCrossedThreshold = false
+        }
+    }
+
+    // Trigger refresh when released past threshold
+    LaunchedEffect(pullRefreshState.isRefreshing) {
+        if (pullRefreshState.isRefreshing && !isExploreRefreshing) {
+            if (searchQuery.isNotBlank()) {
+                viewModel.searchOnline(searchQuery)
+            } else {
+                viewModel.refreshExplore()
+            }
+        }
+    }
+
+    // Haptics: Light click when refresh finishes
+    var wasRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(isExploreRefreshing, isSearchingOnline) {
+        val refreshing = isExploreRefreshing || (searchQuery.isNotBlank() && isSearchingOnline)
+        if (refreshing) {
+            wasRefreshing = true
+            pullRefreshState.startRefresh()
+        } else {
+            pullRefreshState.endRefresh()
+            if (wasRefreshing) {
+                wasRefreshing = false
+                haptics.click()
+            }
+        }
+    }
+
+    // Auto-clear transient refresh error
+    LaunchedEffect(exploreRefreshError) {
+        if (exploreRefreshError != null) {
+            kotlinx.coroutines.delay(4000)
+            viewModel.clearExploreRefreshError()
+        }
+    }
+
     // Back button clears active search query first before delegating to parent
     BackHandler(enabled = searchQuery.isNotBlank()) {
         viewModel.onSearchQueryChanged("")
     }
 
-    LazyColumn(
-        state = listState,
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(LyroBackground),
-        contentPadding = contentPadding
+            .background(LyroBackground)
+            .clipToBounds()
+            .nestedScroll(pullRefreshState.nestedScrollConnection)
     ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding
+        ) {
         // 1. Top Title & Unified Search Bar
         item(key = "explore_header") {
             Column(
@@ -325,6 +395,56 @@ fun ExploreScreen(
             }
         }
     }
+
+    // Material3 Pull-to-Refresh Indicator
+    PullToRefreshContainer(
+        state = pullRefreshState,
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .graphicsLayer {
+                alpha = if (pullRefreshState.verticalOffset > 0f || pullRefreshState.isRefreshing) 1f else 0f
+            },
+        containerColor = LyroSurfaceElevated,
+        contentColor = LyroAccent
+    )
+
+    // Subtle transient notification on failure / offline
+    AnimatedVisibility(
+        visible = exploreRefreshError != null,
+        enter = fadeIn() + slideInVertically(initialOffsetY = { -it }),
+        exit = fadeOut() + slideOutVertically(targetOffsetY = { -it }),
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .statusBarsPadding()
+            .padding(top = 16.dp, start = 20.dp, end = 20.dp)
+    ) {
+        Surface(
+            color = LyroSurfaceElevated,
+            shape = RoundedCornerShape(20.dp),
+            shadowElevation = 6.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, LyroSurfaceHighlight)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = LyroAccent,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = exploreRefreshError ?: "",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = LyroTextPrimary
+                )
+            }
+        }
+    }
+}
 }
 
 @Composable
