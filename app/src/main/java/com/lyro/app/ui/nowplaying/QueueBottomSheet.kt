@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -33,6 +34,9 @@ fun QueueBottomSheet(
     isPlaying: Boolean,
     onSongClick: (Song) -> Unit,
     onItemClick: ((Int) -> Unit)? = null,
+    isRadioActive: Boolean = false,
+    radioSeedTitle: String? = null,
+    onStopRadio: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val haptics = rememberLyroHaptics()
@@ -92,7 +96,73 @@ fun QueueBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            if (isRadioActive) {
+                Surface(
+                    color = LyroAccent.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, LyroAccent.copy(alpha = 0.3f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Radio,
+                                contentDescription = null,
+                                tint = LyroAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Lyro Radio",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = LyroAccent
+                                )
+                                val subtitle = if (!radioSeedTitle.isNullOrBlank()) "Based on: $radioSeedTitle" else "Endless personalized queue"
+                                Text(
+                                    text = subtitle,
+                                    fontSize = 11.sp,
+                                    color = LyroTextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        if (onStopRadio != null) {
+                            TextButton(
+                                onClick = {
+                                    haptics.click()
+                                    onStopRadio()
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "Stop Radio",
+                                    color = LyroTextSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             LazyColumn(
                 modifier = Modifier.fillMaxWidth(),

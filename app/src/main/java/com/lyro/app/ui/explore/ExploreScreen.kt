@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.animation.AnimatedVisibility
@@ -23,6 +24,7 @@ import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
+import coil.compose.AsyncImage
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +36,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyro.app.core.designsystem.*
@@ -42,6 +45,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.lyro.app.data.download.DownloadStatus
+import com.lyro.app.data.model.OnlineTrack
 import com.lyro.app.ui.components.OnlineSongListItem
 import com.lyro.app.ui.components.SongListItem
 import com.lyro.app.ui.components.SongRow
@@ -73,6 +77,8 @@ fun ExploreScreen(
     val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val isResolvingStream by viewModel.isResolvingStream.collectAsState()
+
+    var selectedTrackForOptions by remember { mutableStateOf<OnlineTrack?>(null) }
 
     // Pull-to-refresh state: only enabled when Explore list is at the very top
     val pullRefreshState = rememberPullToRefreshState(
@@ -294,6 +300,7 @@ fun ExploreScreen(
                         isResolving = isResolvingStream && currentTrack?.id == track.videoId,
                         downloadStatus = status,
                         onDownloadClick = { viewModel.downloadTrack(track) },
+                        onMoreClick = { selectedTrackForOptions = track },
                         onClick = { viewModel.playOnlineTrack(track, onlineResults) }
                     )
                 }
@@ -360,7 +367,8 @@ fun ExploreScreen(
                                 title = track.title,
                                 subtitle = track.artist,
                                 thumbnailUrl = track.thumbnailUrl,
-                                onClick = { viewModel.playOnlineTrack(track, exploreTrending) }
+                                onClick = { viewModel.playOnlineTrack(track, exploreTrending) },
+                                onLongClick = { selectedTrackForOptions = track }
                             )
                         }
                     }
@@ -388,6 +396,7 @@ fun ExploreScreen(
                             isResolving = isResolvingStream && currentTrack?.id == track.videoId,
                             downloadStatus = status,
                             onDownloadClick = { viewModel.downloadTrack(track) },
+                            onMoreClick = { selectedTrackForOptions = track },
                             onClick = { viewModel.playOnlineTrack(track, exploreTrending) }
                         )
                     }
@@ -441,6 +450,190 @@ fun ExploreScreen(
                     fontWeight = FontWeight.Medium,
                     color = LyroTextPrimary
                 )
+            }
+        }
+    }
+
+    // ModalBottomSheet for track options (including Start Radio and Not Interested)
+    selectedTrackForOptions?.let { track ->
+        ModalBottomSheet(
+            onDismissRequest = { selectedTrackForOptions = null },
+            containerColor = LyroSurfaceElevated,
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 12.dp)
+                        .width(36.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(LyroDivider)
+                )
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+            ) {
+                // Track header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(LyroSurface)
+                    ) {
+                        if (!track.thumbnailUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = track.thumbnailUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.MusicNote,
+                                contentDescription = null,
+                                tint = LyroTextSecondary,
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = track.title,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = LyroTextPrimary
+                        )
+                        Text(
+                            text = track.artist,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = LyroTextSecondary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = LyroDivider, thickness = 1.dp)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Play
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            selectedTrackForOptions = null
+                            viewModel.playOnlineTrack(track)
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, tint = LyroTextPrimary)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Play", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                // Start Radio
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            selectedTrackForOptions = null
+                            viewModel.startSongRadio(track)
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.Radio, contentDescription = null, tint = LyroAccent)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("Start Radio", color = LyroAccent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Endless personalized queue from this song", color = LyroTextSecondary, fontSize = 12.sp)
+                    }
+                }
+
+                // Play Next
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            selectedTrackForOptions = null
+                            viewModel.playNext(track)
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.SkipNext, contentDescription = null, tint = LyroTextPrimary)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Play Next", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                // Add to Queue
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            selectedTrackForOptions = null
+                            viewModel.addToQueue(track)
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null, tint = LyroTextPrimary)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Add to Queue", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                // Download
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            selectedTrackForOptions = null
+                            viewModel.downloadTrack(track)
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.Download, contentDescription = null, tint = LyroTextPrimary)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Download", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                // Not interested
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            viewModel.markNotInterested(track)
+                            selectedTrackForOptions = null
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.Block, contentDescription = null, tint = Color(0xFFEF5350))
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("Not interested", color = Color(0xFFEF5350), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                        Text("Don't recommend this track again", color = LyroTextSecondary, fontSize = 12.sp)
+                    }
+                }
             }
         }
     }

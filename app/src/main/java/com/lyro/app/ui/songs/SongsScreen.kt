@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,11 +22,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.data.download.DownloadStatus
 import com.lyro.app.data.model.Song
+import com.lyro.app.data.model.toLocalTrack
 import com.lyro.app.data.repository.SortOrder
 import com.lyro.app.ui.components.LyroEmptyState
 import com.lyro.app.ui.components.LyroLoadingState
@@ -40,6 +43,7 @@ fun SongsScreen(
     onRequestPermission: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = com.lyro.app.core.haptics.rememberLyroHaptics()
     val songs by viewModel.songs.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val sortOrder by viewModel.sortOrder.collectAsState()
@@ -439,21 +443,89 @@ fun SongsScreen(
                     .padding(bottom = 24.dp)
             ) {
                 Text(
-                    text = "Add to Mixtape",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = LyroTextPrimary
+                    text = song.title,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = LyroTextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "${song.title} • ${song.artist}",
+                    text = "${song.artist} • ${song.formattedDuration()}",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Normal,
                     color = LyroTextSecondary,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Start Radio
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            selectedSongForMenu = null
+                            viewModel.startSongRadio(song.toLocalTrack())
+                        }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.Radio, contentDescription = null, tint = LyroAccent)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("Start Radio", color = LyroAccent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Endless personalized queue from this song", color = LyroTextSecondary, fontSize = 12.sp)
+                    }
+                }
+
+                // Play Next
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            selectedSongForMenu = null
+                            viewModel.playNext(song.toLocalTrack())
+                        }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.SkipNext, contentDescription = null, tint = LyroTextPrimary)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Play Next", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                // Add to Queue
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            selectedSongForMenu = null
+                            viewModel.addToQueue(song.toLocalTrack())
+                        }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null, tint = LyroTextPrimary)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Add to Queue", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                HorizontalDivider(color = LyroDivider, thickness = 1.dp)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Add to Mixtape",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = LyroTextPrimary
+                )
+                Spacer(modifier = Modifier.height(10.dp))
 
                 LyroButton(
                     onClick = { showCreatePlaylistDialog = true },

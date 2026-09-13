@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -682,6 +683,60 @@ fun HomeScreen(
                     Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, tint = LyroTextPrimary)
                     Spacer(modifier = Modifier.width(16.dp))
                     Text("Play", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                // Start Radio
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            selectedTrackForOptions = null
+                            viewModel.startSongRadio(track)
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.Radio, contentDescription = null, tint = LyroAccent)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("Start Radio", color = LyroAccent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Endless personalized queue from this song", color = LyroTextSecondary, fontSize = 12.sp)
+                    }
+                }
+
+                // Play Next
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            selectedTrackForOptions = null
+                            viewModel.playNext(track)
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.SkipNext, contentDescription = null, tint = LyroTextPrimary)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Play Next", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                // Add to Queue
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            selectedTrackForOptions = null
+                            viewModel.addToQueue(track)
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null, tint = LyroTextPrimary)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Add to Queue", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 }
 
                 // Favorite Toggle

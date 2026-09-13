@@ -2,6 +2,7 @@ package com.lyro.app.recommendation.engine
 
 import android.util.Log
 import com.lyro.app.data.model.OnlineTrack
+import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.repository.OnlineMusicRepository
 import com.lyro.app.recommendation.RecommendationConfig
 import com.lyro.app.recommendation.data.ListeningEventRepository
@@ -154,6 +155,98 @@ class CandidateGenerator(
         Log.d(
             TAG,
             "Generated candidate pool: count=${candidateList.size}, distinctVideoIds=${seenVideoIds.size}"
+        )
+
+        candidateList.take(targetPoolSize)
+    }
+
+    /**
+     * Generates a candidate pool specifically tailored for Lyro Radio.
+     * Incorporates:
+     * - Seed artist songs & hits
+     * - Adjacent / similar songs
+     * - User's top affinity artists from TasteProfile
+     * - User's recent-session artists
+     * - Progressive exploration seeds (increasing with extensionBatchIndex for seed decay)
+     */
+    suspend fun generateRadioCandidatePool(
+        seedTrack: PlayableTrack,
+        tasteProfile: TasteProfile,
+        extensionBatchIndex: Int = 0,
+        targetPoolSize: Int = RecommendationConfig.CANDIDATE_POOL_SIZE
+    ): List<CandidateTrack> = withContext(Dispatchers.IO) {
+        val notInterested = eventRepository.getNotInterestedVideoIds()
+        val candidateList = mutableListOf<CandidateTrack>()
+        val seenVideoIds = mutableSetOf<String>()
+
+        suspend fun searchAndCollect(query: String, reason: RecommendationReason) {
+            try {
+                val result = onlineRepository.searchSongs(query)
+                result.getOrNull()?.forEach { track ->
+                    if (!notInterested.contains(track.videoId) && seenVideoIds.add(track.videoId)) {
+                        candidateList.add(CandidateTrack(track = track, reason = reason))
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Radio search query '$query' failed: ${e.message}")
+            }
+        }
+
+        val deferredQueries = mutableListOf<suspend () -> Unit>()
+
+        // 1. Seed Artist & Adjacent Queries
+        val seedArtist = seedTrack.artist.trim()
+        if (seedArtist.isNotBlank()) {
+            deferredQueries.add {
+                searchAndCollect("$seedArtist songs", RecommendationReason.SIMILAR_ARTIST)
+            }
+            deferredQueries.add {
+                searchAndCollect("$seedArtist similar songs", RecommendationReason.SIMILAR_ARTIST)
+            }
+        }
+
+        // 2. User's Top Affinity Artists (excluding seed artist to ensure diversity)
+        val normSeedArtist = com.lyro.app.core.matcher.TrackMetadataNormalizer.normalizeArtist(seedArtist)
+        val otherTopArtists = tasteProfile.topArtists
+            .filter { com.lyro.app.core.matcher.TrackMetadataNormalizer.normalizeArtist(it.first) != normSeedArtist }
+            .take(2)
+        for ((artist, _) in otherTopArtists) {
+            if (artist.isNotBlank()) {
+                deferredQueries.add {
+                    searchAndCollect("$artist songs", RecommendationReason.TOP_ARTIST)
+                }
+            }
+        }
+
+        // 3. Recent Session Artists
+        val sessionArtists = tasteProfile.recentSessionArtists
+            .filter { com.lyro.app.core.matcher.TrackMetadataNormalizer.normalizeArtist(it) != normSeedArtist }
+            .takeLast(2)
+        for (artist in sessionArtists) {
+            if (artist.isNotBlank()) {
+                deferredQueries.add {
+                    searchAndCollect("$artist music", RecommendationReason.RECENT_SESSION)
+                }
+            }
+        }
+
+        // 4. Exploration Queries (seed influence decay: more exploration seeds as batches advance)
+        val explorationSeedCount = if (extensionBatchIndex > 0) 2 else 1
+        repeat(explorationSeedCount) {
+            val seed = getNextExplorationSeed()
+            deferredQueries.add {
+                searchAndCollect(seed, RecommendationReason.EXPLORATION)
+            }
+        }
+
+        val jobs = deferredQueries.map { block ->
+            async { block() }
+        }
+        jobs.awaitAll()
+
+        Log.d(
+            TAG,
+            "Generated radio candidate pool: count=${candidateList.size}, distinctVideoIds=${seenVideoIds.size}, batch=$extensionBatchIndex"
         )
 
         candidateList.take(targetPoolSize)

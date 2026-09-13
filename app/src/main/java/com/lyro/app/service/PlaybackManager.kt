@@ -323,7 +323,20 @@ class PlaybackManager(
         _playbackError.value = "Playback error: $detail"
     }
     // Playback APIs
-    fun playTrack(track: PlayableTrack, newQueue: List<PlayableTrack>? = null, startIndex: Int? = null) {
+    fun playTrack(
+        track: PlayableTrack,
+        newQueue: List<PlayableTrack>? = null,
+        startIndex: Int? = null,
+        isRadio: Boolean = false
+    ) {
+        if (!isRadio) {
+            try {
+                com.lyro.app.LyroApplication.instance.radioManager.onManualTrackPlay(track)
+            } catch (e: Exception) {
+                // RadioManager may not be initialized yet in early app setup
+            }
+        }
+
         if (newQueue != null) {
             _queue.value = newQueue
             _currentIndex.value = startIndex?.takeIf { it in newQueue.indices }
@@ -338,7 +351,7 @@ class PlaybackManager(
 
         Log.d(
             TAG,
-            "LyroPlayback: Starting playback -> queueSize=${_queue.value.size}, currentIndex=${_currentIndex.value}, title=${track.title}"
+            "LyroPlayback: Starting playback -> queueSize=${_queue.value.size}, currentIndex=${_currentIndex.value}, title=${track.title}, isRadio=$isRadio"
         )
 
         _currentTrack.value = track
@@ -346,7 +359,42 @@ class PlaybackManager(
         expiredUrlRetryCount = 0
         failedProfilesForCurrentTrack.clear()
 
-        dispatchPlayback(track)
+        dispatchPlayback(track, isRadio = isRadio)
+    }
+
+    /**
+     * Appends a batch of tracks to the end of the queue without interrupting current playback.
+     */
+    fun appendToQueue(tracks: List<PlayableTrack>) {
+        if (tracks.isEmpty()) return
+        val current = _queue.value
+        val existingIds = current.map { it.id }.toSet()
+        val toAdd = tracks.filter { !existingIds.contains(it.id) }
+        if (toAdd.isNotEmpty()) {
+            _queue.value = current + toAdd
+            Log.d(TAG, "LyroPlayback: Appended ${toAdd.size} tracks to queue (new total: ${_queue.value.size})")
+        }
+    }
+
+    /**
+     * Appends a single track to the end of the queue.
+     */
+    fun addTrackToQueue(track: PlayableTrack) {
+        val current = _queue.value
+        _queue.value = current + track
+        Log.d(TAG, "LyroPlayback: Added track '${track.title}' to queue (new total: ${_queue.value.size})")
+    }
+
+    /**
+     * Inserts a track immediately after the currently playing track so it plays next.
+     */
+    fun playNextTrack(track: PlayableTrack) {
+        val current = _queue.value.toMutableList()
+        val curIdx = _currentIndex.value
+        val insertIdx = (curIdx + 1).coerceIn(0, current.size)
+        current.add(insertIdx, track)
+        _queue.value = current
+        Log.d(TAG, "LyroPlayback: Inserted '${track.title}' as next track at index $insertIdx")
     }
 
     /**
@@ -385,9 +433,14 @@ class PlaybackManager(
         playTrack(localTrack, trackQueue, startIndex)
     }
 
-    private fun dispatchPlayback(track: PlayableTrack) {
+    private fun dispatchPlayback(track: PlayableTrack, isRadio: Boolean = false) {
         try {
-            com.lyro.app.LyroApplication.instance.recommendationEngine.startPlaybackSession(track, isManual = true)
+            val playSource = if (isRadio) "radio" else "home"
+            com.lyro.app.LyroApplication.instance.recommendationEngine.startPlaybackSession(
+                track = track,
+                isManual = !isRadio,
+                playSource = playSource
+            )
         } catch (e: Exception) {
             Log.w(TAG, "Failed to start recommendation playback session: ${e.message}")
         }
@@ -532,6 +585,13 @@ class PlaybackManager(
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to report manual skip: ${e.message}")
+            }
+            try {
+                _currentTrack.value?.let { track ->
+                    com.lyro.app.LyroApplication.instance.radioManager.onTrackSkipped(track)
+                }
+            } catch (e: Exception) {
+                // RadioManager may not be initialized yet
             }
         }
         val q = _queue.value

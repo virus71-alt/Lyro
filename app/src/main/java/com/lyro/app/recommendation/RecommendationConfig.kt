@@ -74,4 +74,19 @@ object RecommendationConfig {
     const val MAX_PERSISTED_EVENTS = 2000
     const val MAX_EVENT_AGE_DAYS = 60
     const val MAX_RECENT_SHOWN_HISTORY = 100
+
+    // --- Lyro Radio Configurations ---
+    const val RADIO_SEED_SIMILARITY_WEIGHT = 0.30f
+    const val RADIO_RECENT_SESSION_WEIGHT = 0.25f
+    const val RADIO_LONG_TERM_TASTE_WEIGHT = 0.20f
+    const val RADIO_ARTIST_AFFINITY_WEIGHT = 0.10f
+    const val RADIO_METADATA_WEIGHT = 0.10f
+    const val RADIO_EXPLORATION_WEIGHT = 0.05f
+
+    const val RADIO_INITIAL_QUEUE_SIZE = 20
+    const val RADIO_EXTENSION_BATCH_SIZE = 15
+    const val RADIO_EXTENSION_THRESHOLD = 5
+    const val RADIO_MAX_TRACKS_PER_ARTIST = 2
+    const val RADIO_MAX_TRACKS_PER_ALBUM = 2
+    const val RADIO_SEED_DECAY_RATE = 0.75f // Multiplied each batch
 }

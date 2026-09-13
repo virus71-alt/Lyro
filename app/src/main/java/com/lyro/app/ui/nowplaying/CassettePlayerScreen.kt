@@ -44,6 +44,8 @@ fun CassettePlayerScreen(
     val queue by viewModel.queue.collectAsState()
     val sleepTimerMinutesLeft by viewModel.sleepTimerMinutesLeft.collectAsState()
     val downloadStatus by viewModel.currentDownloadStatus.collectAsState()
+    val isRadioActive by viewModel.isRadioActive.collectAsState()
+    val currentRadioSession by viewModel.currentRadioSession.collectAsState()
 
     val motionProgress = LocalPlayerMotionProgress.current
     val headerAlpha = (1f - motionProgress * 0.7f).coerceIn(0f, 1f)
@@ -107,12 +109,30 @@ fun CassettePlayerScreen(
                 )
             }
 
-            Text(
-                text = "Now Playing",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = LyroTextSecondary
-            )
+            if (isRadioActive) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Radio,
+                        contentDescription = null,
+                        tint = LyroAccent,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Lyro Radio",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LyroAccent
+                    )
+                }
+            } else {
+                Text(
+                    text = "Now Playing",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = LyroTextSecondary
+                )
+            }
 
             // Balancer spacer matching collapse button
             Spacer(modifier = Modifier.size(40.dp))
@@ -353,6 +373,9 @@ fun CassettePlayerScreen(
                 viewModel.playQueueItem(index)
                 showQueueSheet = false
             },
+            isRadioActive = isRadioActive,
+            radioSeedTitle = currentRadioSession?.seedTitle,
+            onStopRadio = { viewModel.stopRadio() },
             onDismiss = { showQueueSheet = false }
         )
     }

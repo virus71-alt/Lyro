@@ -219,9 +219,27 @@ class RecommendationEngine(
         }
         val queueIds = queueContext.map { it.onlineVideoId ?: it.id }.toSet()
 
-        // Generate candidates based on context and recent taste
-        val candidates = candidateGenerator.generateCandidatePool(contextProfile)
+        // Generate candidates based on context and radio generator
+        val candidates = if (currentTrack != null) {
+            candidateGenerator.generateRadioCandidatePool(
+                seedTrack = currentTrack,
+                tasteProfile = contextProfile,
+                extensionBatchIndex = 0
+            )
+        } else {
+            candidateGenerator.generateCandidatePool(contextProfile)
+        }
         val filtered = candidates.filter { !queueIds.contains(it.videoId) }
+
+        val rankingContext = if (currentTrack != null) {
+            com.lyro.app.recommendation.model.RecommendationContext.Radio(
+                seedTrack = currentTrack,
+                recentSessionTaste = contextProfile.recentSessionArtists,
+                sessionTrackIds = queueIds
+            )
+        } else {
+            com.lyro.app.recommendation.model.RecommendationContext.Home
+        }
 
         val ranked = ranker.rankCandidates(
             candidates = filtered,
@@ -230,7 +248,8 @@ class RecommendationEngine(
             targetCount = 1,
             familiarRatio = 0.70f,
             adjacentRatio = 0.30f,
-            explorationRatio = 0.00f
+            explorationRatio = 0.00f,
+            context = rankingContext
         )
 
         ranked.firstOrNull()?.track

@@ -17,6 +17,7 @@ import android.util.Log
 import com.lyro.app.core.matcher.TrackMetadataNormalizer
 import com.lyro.app.data.model.UnifiedTrack
 import com.lyro.app.data.model.toUnifiedTrack
+import com.lyro.app.recommendation.radio.RadioSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -808,6 +809,27 @@ class SongsViewModel(
         _homeRecommended.value = _homeRecommended.value.filter { it.id != track.id && it.onlineVideoId != vid }
         _homeTrending.value = _homeTrending.value.filter { it.id != track.id && it.onlineVideoId != vid }
         _homeDiscover.value = _homeDiscover.value.filter { it.id != track.id && it.onlineVideoId != vid }
+    }
+
+    // Lyro Radio StateFlows
+    val isRadioActive: StateFlow<Boolean> = LyroApplication.instance.radioManager.isRadioActive
+    val currentRadioSession: StateFlow<RadioSession?> = LyroApplication.instance.radioManager.currentSession
+
+    fun startSongRadio(track: PlayableTrack) {
+        LyroApplication.instance.radioManager.startSongRadio(track)
+        _openNowPlayingEvent.tryEmit(Unit)
+    }
+
+    fun stopRadio() {
+        LyroApplication.instance.radioManager.stopRadio()
+    }
+
+    fun playNext(track: PlayableTrack) {
+        playbackManager.playNextTrack(track)
+    }
+
+    fun addToQueue(track: PlayableTrack) {
+        playbackManager.addTrackToQueue(track)
     }
 
     fun playTrack(track: PlayableTrack, queue: List<PlayableTrack>? = null) {

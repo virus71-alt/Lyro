@@ -46,6 +46,9 @@ class LyroApplication : Application(), ImageLoaderFactory {
     lateinit var recommendationEngine: com.lyro.app.recommendation.engine.RecommendationEngine
         private set
 
+    lateinit var radioManager: com.lyro.app.recommendation.radio.RadioManager
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -68,6 +71,16 @@ class LyroApplication : Application(), ImageLoaderFactory {
             tasteProfileRepository = tasteProfileRepository,
             candidateGenerator = candidateGenerator,
             ranker = recommendationRanker
+        )
+
+        // Initialize Lyro Radio Manager
+        radioManager = com.lyro.app.recommendation.radio.RadioManager(
+            playbackManager = playbackManager,
+            candidateGenerator = candidateGenerator,
+            ranker = recommendationRanker,
+            tasteProfileRepository = tasteProfileRepository,
+            eventRepository = listeningEventRepository,
+            musicRepository = musicRepository
         )
     }
 

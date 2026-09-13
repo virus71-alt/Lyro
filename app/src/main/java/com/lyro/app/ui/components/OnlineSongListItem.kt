@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,6 +38,7 @@ fun OnlineSongListItem(
     downloadStatus: DownloadStatus,
     onDownloadClick: () -> Unit,
     onClick: () -> Unit,
+    onMoreClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val rowShape = RoundedCornerShape(10.dp)
@@ -176,6 +178,20 @@ fun OnlineSongListItem(
                         modifier = Modifier.size(20.dp)
                     )
                 }
+            }
+        }
+
+        if (onMoreClick != null) {
+            IconButton(
+                onClick = onMoreClick,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "Track options",
+                    tint = LyroTextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

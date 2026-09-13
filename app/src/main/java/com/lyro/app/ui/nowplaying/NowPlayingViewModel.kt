@@ -116,6 +116,13 @@ class NowPlayingViewModel(
         }
     }
 
+    val isRadioActive: StateFlow<Boolean> = LyroApplication.instance.radioManager.isRadioActive
+    val currentRadioSession: StateFlow<com.lyro.app.recommendation.radio.RadioSession?> = LyroApplication.instance.radioManager.currentSession
+
+    fun stopRadio() = LyroApplication.instance.radioManager.stopRadio()
+
+    fun startSongRadio(track: PlayableTrack) = LyroApplication.instance.radioManager.startSongRadio(track)
+
     fun playQueueItem(index: Int) {
         playbackManager.playTrackAtIndex(index)
     }
