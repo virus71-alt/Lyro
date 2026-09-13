@@ -5,9 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Equalizer
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -24,7 +21,6 @@ import com.lyro.app.core.designsystem.*
 @Composable
 fun NeoBrutalAppBar(
     title: String = "LYRO",
-    onEqualizerClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {}
 ) {
     Row(
@@ -57,31 +53,17 @@ fun NeoBrutalAppBar(
             }
 
             NeoBadge(
-                text = "OFFLINE",
+                text = "MUSIC",
                 backgroundColor = NeoCyberYellow,
                 textColor = NeoBlack
             )
         }
 
-        // Actions
+        // Actions: Settings
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            NeoIconButton(
-                onClick = onEqualizerClick,
-                backgroundColor = NeoLavender,
-                size = 38.dp,
-                shadowOffset = 2.dp
-            ) {
-                Icon(
-                    imageVector = Icons.Default.GraphicEq,
-                    contentDescription = "Equalizer",
-                    tint = NeoBlack,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
             NeoIconButton(
                 onClick = onSettingsClick,
                 backgroundColor = NeoCyan,

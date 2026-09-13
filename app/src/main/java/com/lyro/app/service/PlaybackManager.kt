@@ -3,8 +3,6 @@ package com.lyro.app.service
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.media.audiofx.BassBoost
-import android.media.audiofx.Equalizer
 import android.net.Uri
 import android.util.Log
 import androidx.core.content.ContextCompat
@@ -40,10 +38,6 @@ class PlaybackManager(
     // Authoritative MediaController connected to LyroMediaService's single ExoPlayer
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
-
-    // Equalizer and BassBoost audio effects
-    private var equalizer: Equalizer? = null
-    private var bassBoost: BassBoost? = null
 
     // Reactive states
     private val _currentTrack = MutableStateFlow<PlayableTrack?>(null)
@@ -145,7 +139,6 @@ class PlaybackManager(
                     val controller = get()
                     mediaController = controller
                     setupPlayerListener(controller)
-                    initAudioEffects()
 
                     // Execute any pending actions
                     synchronized(pendingActions) {
@@ -268,20 +261,6 @@ class PlaybackManager(
         }
         _playbackError.value = "Playback error: $detail"
     }
-
-    private fun initAudioEffects() {
-        try {
-            val sessionId = LyroMediaService.activeAudioSessionId
-            if (sessionId != C.AUDIO_SESSION_ID_UNSET) {
-                equalizer = Equalizer(0, sessionId).apply { enabled = true }
-                bassBoost = BassBoost(0, sessionId).apply { enabled = true }
-                Log.d(TAG, "Audio effects attached to audioSessionId=$sessionId")
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Audio effects setup: ${e.message}")
-        }
-    }
-
     // Playback APIs
     fun playTrack(track: PlayableTrack, newQueue: List<PlayableTrack>? = null) {
         if (newQueue != null) {
@@ -526,40 +505,10 @@ class PlaybackManager(
         }
     }
 
-    // Equalizer & Audio FX Controls
-    fun getEqualizer(): Equalizer? = equalizer
-    fun getBassBoost(): BassBoost? = bassBoost
-
-    fun setBassBoostStrength(strength: Short) {
-        try {
-            bassBoost?.setStrength(strength)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    fun setBandLevel(band: Short, level: Short) {
-        try {
-            equalizer?.setBandLevel(band, level)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    fun usePreset(presetIndex: Short) {
-        try {
-            equalizer?.usePreset(presetIndex)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
     fun release() {
         stopPositionUpdates()
         sleepTimerJob?.cancel()
         coroutineScope.cancel()
-        equalizer?.release()
-        bassBoost?.release()
         controllerFuture?.let { MediaController.releaseFuture(it) }
         mediaController = null
     }

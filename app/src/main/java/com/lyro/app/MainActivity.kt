@@ -26,11 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lyro.app.core.designsystem.*
 import com.lyro.app.ui.components.MiniPlayer
 import com.lyro.app.ui.components.NeoBrutalAppBar
-import com.lyro.app.ui.equalizer.EqualizerScreen
 import com.lyro.app.ui.nowplaying.NowPlayingScreen
 import com.lyro.app.ui.nowplaying.NowPlayingViewModel
 import com.lyro.app.ui.playlists.PlaylistsScreen
@@ -46,7 +44,6 @@ enum class CurrentTab {
 enum class ActiveScreen {
     MAIN,
     NOW_PLAYING,
-    EQUALIZER,
     SETTINGS
 }
 
@@ -58,6 +55,7 @@ class MainActivity : ComponentActivity() {
         val app = application as LyroApplication
         val repository = app.musicRepository
         val playbackManager = app.playbackManager
+        val playerPreferences = app.playerPreferences
 
         setContent {
             LyroTheme {
@@ -111,14 +109,7 @@ class MainActivity : ComponentActivity() {
                         ActiveScreen.NOW_PLAYING -> {
                             NowPlayingScreen(
                                 viewModel = nowPlayingViewModel,
-                                onBackClick = { activeScreen = ActiveScreen.MAIN },
-                                onEqualizerClick = { activeScreen = ActiveScreen.EQUALIZER }
-                            )
-                        }
-
-                        ActiveScreen.EQUALIZER -> {
-                            EqualizerScreen(
-                                playbackManager = playbackManager,
+                                playerPreferences = playerPreferences,
                                 onBackClick = { activeScreen = ActiveScreen.MAIN }
                             )
                         }
@@ -126,6 +117,7 @@ class MainActivity : ComponentActivity() {
                         ActiveScreen.SETTINGS -> {
                             SettingsScreen(
                                 viewModel = songsViewModel,
+                                playerPreferences = playerPreferences,
                                 onBackClick = { activeScreen = ActiveScreen.MAIN }
                             )
                         }
@@ -136,7 +128,6 @@ class MainActivity : ComponentActivity() {
                                     // Top App Bar
                                     NeoBrutalAppBar(
                                         title = "LYRO",
-                                        onEqualizerClick = { activeScreen = ActiveScreen.EQUALIZER },
                                         onSettingsClick = { activeScreen = ActiveScreen.SETTINGS }
                                     )
 
@@ -156,8 +147,7 @@ class MainActivity : ComponentActivity() {
                                             CurrentTab.MIXTAPES -> {
                                                 PlaylistsScreen(
                                                     viewModel = songsViewModel,
-                                                    onPlaylistClick = { pl ->
-                                                        // Play songs in playlist or switch to tracks
+                                                    onPlaylistClick = { _ ->
                                                         currentTab = CurrentTab.TRACKS
                                                     },
                                                     onLikedSongsClick = {
@@ -246,7 +236,6 @@ fun NeoNavButton(
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(10.dp)
-    val shadowOffset = if (selected) 2.dp else 0.dp
 
     Box(modifier = Modifier.padding(end = 2.dp, bottom = 2.dp)) {
         if (selected) {

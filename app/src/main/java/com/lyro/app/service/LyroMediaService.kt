@@ -45,8 +45,6 @@ class LyroMediaService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
 
-        activeAudioSessionId = player?.audioSessionId ?: C.AUDIO_SESSION_ID_UNSET
-
         val sessionActivityPendingIntent = PendingIntent.getActivity(
             this,
             0,
@@ -64,7 +62,6 @@ class LyroMediaService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        activeAudioSessionId = C.AUDIO_SESSION_ID_UNSET
         mediaSession?.run {
             player.release()
             release()
@@ -76,9 +73,6 @@ class LyroMediaService : MediaSessionService() {
 
     companion object {
         private const val TAG = "LyroMediaService"
-
-        var activeAudioSessionId: Int = C.AUDIO_SESSION_ID_UNSET
-            private set
 
         @Volatile
         private var simpleCache: SimpleCache? = null
