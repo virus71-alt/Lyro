@@ -294,7 +294,7 @@ fun HomeScreen(
                 ) {
                     SectionHeader(
                         title = "Recently Added",
-                        subtitle = "From your local library",
+                        subtitle = "Fresh in your collection",
                         actionText = null
                     )
 
@@ -410,7 +410,9 @@ fun SquareArtworkCard(
     subtitle: String,
     modifier: Modifier = Modifier,
     song: Song? = null,
+    track: com.lyro.app.data.model.PlayableTrack? = null,
     thumbnailUrl: String? = null,
+    isDownloaded: Boolean = false,
     onClick: () -> Unit
 ) {
     val cardWidth = 140.dp
@@ -428,11 +430,12 @@ fun SquareArtworkCard(
                 .background(LyroSurfaceElevated),
             contentAlignment = Alignment.Center
         ) {
+            val art = track?.artworkUriString ?: thumbnailUrl
             if (song != null) {
                 SongArtworkThumbnail(song = song, size = cardWidth)
-            } else if (!thumbnailUrl.isNullOrBlank()) {
+            } else if (!art.isNullOrBlank()) {
                 AsyncImage(
-                    model = thumbnailUrl,
+                    model = art,
                     contentDescription = title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop
@@ -460,14 +463,27 @@ fun SquareArtworkCard(
 
         Spacer(modifier = Modifier.height(2.dp))
 
-        Text(
-            text = subtitle,
-            fontWeight = FontWeight.Normal,
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            color = LyroTextSecondary
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            if (isDownloaded || track?.isDownloaded == true || song != null) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Downloaded",
+                    tint = LyroAccent.copy(alpha = 0.85f),
+                    modifier = Modifier.size(11.dp)
+                )
+            }
+            Text(
+                text = subtitle,
+                fontWeight = FontWeight.Normal,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = LyroTextSecondary
+            )
+        }
     }
 }
 

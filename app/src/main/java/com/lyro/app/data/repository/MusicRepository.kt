@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import com.lyro.app.core.matcher.LocalMediaIndex
+
 enum class SortOrder {
     TITLE,
     ARTIST,
@@ -25,8 +27,10 @@ enum class SortOrder {
 
 class MusicRepository(
     private val context: Context,
-    private val dbHelper: LyroDatabaseHelper
+    private val dbHelper: LyroDatabaseHelper,
+    private val localMediaIndex: LocalMediaIndex? = null
 ) {
+
 
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -158,6 +162,7 @@ class MusicRepository(
         }
 
         _allSongs.value = songList
+        localMediaIndex?.rebuild(songList, downloadedMetadataList)
         refreshPlaylists()
         autoRecoverMissingThumbnails(songList)
         songList

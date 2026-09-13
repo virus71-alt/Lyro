@@ -32,6 +32,10 @@ class SongsViewModel(
         musicDownloader.clearLastCompletedTrack()
     }
 
+    fun isTrackDownloaded(track: PlayableTrack): Boolean {
+        return musicDownloader.isTrackDownloaded(track)
+    }
+
     fun isTrackDownloaded(track: OnlineTrack): Boolean {
         return musicDownloader.isTrackDownloaded(track)
     }
@@ -39,6 +43,21 @@ class SongsViewModel(
     fun downloadTrack(track: OnlineTrack) {
         viewModelScope.launch {
             musicDownloader.downloadTrack(track)
+        }
+    }
+
+    fun deleteDownload(videoId: String) {
+        viewModelScope.launch {
+            musicDownloader.deleteDownload(videoId)
+        }
+    }
+
+    fun deleteDownload(track: PlayableTrack) {
+        val videoId = track.onlineVideoId ?: (track as? OnlineTrack)?.videoId
+        if (videoId != null) {
+            viewModelScope.launch {
+                musicDownloader.deleteDownload(videoId)
+            }
         }
     }
 
@@ -251,6 +270,11 @@ class SongsViewModel(
         viewModelScope.launch {
             repository.toggleFavorite(song)
         }
+    }
+
+    fun playTrack(track: PlayableTrack, queue: List<PlayableTrack>? = null) {
+        playbackManager.playTrack(track, queue)
+        _openNowPlayingEvent.tryEmit(Unit)
     }
 
     fun playSong(song: Song, queue: List<Song> = songs.value) {

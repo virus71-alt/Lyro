@@ -22,19 +22,31 @@ import com.lyro.app.streaming.ResolvedStream
 import com.lyro.app.streaming.StreamResolver
 import com.lyro.app.streaming.youtube.YouTubeClientProfile
 import com.lyro.app.streaming.youtube.YouTubeStreamResolver
+import com.lyro.app.core.matcher.LocalMediaIndex
+import com.lyro.app.data.model.UnifiedTrack
+import com.lyro.app.data.model.toSong
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
 class PlaybackManager(
     private val context: Context,
     private val musicRepository: MusicRepository,
-    private val streamResolver: StreamResolver = YouTubeStreamResolver()
+    private val streamResolver: StreamResolver = YouTubeStreamResolver(),
+    private val localMediaIndex: LocalMediaIndex? = null,
+    private val playbackSourceResolver: PlaybackSourceResolver? = null
 ) {
     companion object {
         private const val TAG = "LyroPlayback"
     }
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+    private val sourceResolver: PlaybackSourceResolver by lazy {
+        playbackSourceResolver ?: PlaybackSourceResolver(
+            context,
+            localMediaIndex ?: LocalMediaIndex()
+        )
+    }
 
     // Authoritative MediaController connected to LyroMediaService's single ExoPlayer
     private var controllerFuture: ListenableFuture<MediaController>? = null
@@ -53,6 +65,7 @@ class PlaybackManager(
     val currentSong: StateFlow<Song?> = _currentTrack.map { track ->
         when (track) {
             is LocalTrack -> track.song
+            is UnifiedTrack -> track.toSong()
             is OnlineTrack -> {
                 val highResUrl = ArtworkUtils.getHighResArtworkUrl(track.thumbnailUrl) ?: track.thumbnailUrl
                 Song(
@@ -116,11 +129,12 @@ class PlaybackManager(
     private val _queue = MutableStateFlow<List<PlayableTrack>>(emptyList())
     val queue: StateFlow<List<PlayableTrack>> = _queue.asStateFlow()
 
-    // Backward-compatible queue for Song (supports both LocalTrack and OnlineTrack)
+    // Backward-compatible queue for Song (supports LocalTrack, UnifiedTrack, and OnlineTrack)
     val songQueue: StateFlow<List<Song>> = _queue.map { list ->
         list.map { track ->
             when (track) {
                 is LocalTrack -> track.song
+                is UnifiedTrack -> track.toSong()
                 is OnlineTrack -> {
                     val highResUrl = ArtworkUtils.getHighResArtworkUrl(track.thumbnailUrl) ?: track.thumbnailUrl
                     Song(
@@ -277,7 +291,8 @@ class PlaybackManager(
         val stream = _currentResolvedStream.value
 
         // If an online stream failed and we have alternative profiles to try:
-        if (track is OnlineTrack) {
+        val videoId = track?.onlineVideoId ?: (track as? OnlineTrack)?.videoId
+        if (videoId != null && track != null) {
             val failedClient = stream?.clientProfileName
             if (failedClient != null) {
                 failedProfilesForCurrentTrack.add(failedClient)
@@ -287,10 +302,11 @@ class PlaybackManager(
                 val lastPos = _currentPosition.value
                 Log.i(
                     TAG,
-                    "Retrying stream resolution for videoId=${track.videoId} at position ${lastPos}ms (excluding failed profiles: $failedProfilesForCurrentTrack)"
+                    "Retrying stream resolution for videoId=$videoId at position ${lastPos}ms (excluding failed profiles: $failedProfilesForCurrentTrack)"
                 )
-                playOnlineTrack(
+                playOnlineSource(
                     track = track,
+                    videoId = videoId,
                     excludeProfiles = failedProfilesForCurrentTrack,
                     resumePosition = lastPos
                 )
@@ -330,15 +346,7 @@ class PlaybackManager(
         expiredUrlRetryCount = 0
         failedProfilesForCurrentTrack.clear()
 
-        when (track) {
-            is LocalTrack -> {
-                _currentResolvedStream.value = null
-                playLocalTrack(track)
-            }
-            is OnlineTrack -> {
-                playOnlineTrack(track)
-            }
-        }
+        dispatchPlayback(track)
     }
 
     /**
@@ -353,15 +361,7 @@ class PlaybackManager(
         expiredUrlRetryCount = 0
         failedProfilesForCurrentTrack.clear()
 
-        when (track) {
-            is LocalTrack -> {
-                _currentResolvedStream.value = null
-                playLocalTrack(track)
-            }
-            is OnlineTrack -> {
-                playOnlineTrack(track)
-            }
-        }
+        dispatchPlayback(track)
     }
 
     /**
@@ -385,11 +385,30 @@ class PlaybackManager(
         playTrack(localTrack, trackQueue, startIndex)
     }
 
-    private fun playLocalTrack(track: LocalTrack) {
+    private fun dispatchPlayback(track: PlayableTrack) {
+        val source = sourceResolver.resolve(track)
+        when (source) {
+            is PlaybackSource.Local -> {
+                _currentResolvedStream.value = null
+                playLocalSource(track, source.uri, source.localSong)
+            }
+            is PlaybackSource.Online -> {
+                playOnlineSource(track, source.videoId)
+            }
+            is PlaybackSource.Unavailable -> {
+                Log.e(TAG, "Cannot play track: ${source.reason}")
+                _playbackError.value = source.reason
+                _isPlaying.value = false
+            }
+        }
+    }
+
+    private fun playLocalSource(track: PlayableTrack, uri: Uri, matchedSong: Song?) {
         withController { controller ->
             val metadata = buildMediaMetadata(track)
             val mediaItem = MediaItem.Builder()
-                .setUri(track.song.contentUri)
+                .setUri(uri)
+                .setMediaId(track.id)
                 .setMediaMetadata(metadata)
                 .build()
 
@@ -398,21 +417,37 @@ class PlaybackManager(
             controller.play()
 
             coroutineScope.launch {
-                musicRepository.recordPlayed(track.song.id)
+                val songId = matchedSong?.id ?: (track as? LocalTrack)?.song?.id ?: (track as? UnifiedTrack)?.localSong?.id
+                if (songId != null) {
+                    musicRepository.recordPlayed(songId)
+                }
             }
         }
     }
 
-    private fun playOnlineTrack(
+    fun playLocalTrack(track: LocalTrack) {
+        dispatchPlayback(track)
+    }
+
+    fun playOnlineTrack(
         track: OnlineTrack,
+        excludeProfiles: Set<String> = emptySet(),
+        resumePosition: Long = 0L
+    ) {
+        playOnlineSource(track, track.videoId, excludeProfiles, resumePosition)
+    }
+
+    private fun playOnlineSource(
+        track: PlayableTrack,
+        videoId: String,
         excludeProfiles: Set<String> = emptySet(),
         resumePosition: Long = 0L
     ) {
         _playbackError.value = null
         _isResolvingStream.value = true
         coroutineScope.launch {
-            Log.d(TAG, "Resolving stream for OnlineTrack: videoId=${track.videoId}, title=${track.title}, excludedProfiles=$excludeProfiles")
-            val result = streamResolver.resolve(track.videoId, excludeProfiles = excludeProfiles)
+            Log.d(TAG, "Resolving stream for track: videoId=$videoId, title=${track.title}, excludedProfiles=$excludeProfiles")
+            val result = streamResolver.resolve(videoId, excludeProfiles = excludeProfiles)
             _isResolvingStream.value = false
 
             result.onSuccess { stream ->
@@ -425,7 +460,7 @@ class PlaybackManager(
 
                     val mediaItemBuilder = MediaItem.Builder()
                         .setUri(stream.url)
-                        .setMediaId(track.videoId)
+                        .setMediaId(videoId)
                         .setMediaMetadata(metadata)
 
                     if (!containerMime.isNullOrBlank()) {
@@ -442,7 +477,7 @@ class PlaybackManager(
                     controller.play()
                     Log.d(
                         TAG,
-                        "Started playback of online stream: videoId=${track.videoId}, client=${stream.clientProfileName}, itag=${stream.itag}, mime=$containerMime, resumePos=${resumePosition}ms"
+                        "Started playback of online stream: videoId=$videoId, client=${stream.clientProfileName}, itag=${stream.itag}, mime=$containerMime, resumePos=${resumePosition}ms"
                     )
                 }
             }.onFailure { error ->

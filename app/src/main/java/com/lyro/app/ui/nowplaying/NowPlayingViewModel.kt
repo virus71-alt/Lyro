@@ -9,6 +9,7 @@ import com.lyro.app.data.model.LocalTrack
 import com.lyro.app.data.model.OnlineTrack
 import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Song
+import com.lyro.app.data.model.UnifiedTrack
 import com.lyro.app.data.repository.MusicRepository
 import com.lyro.app.service.PlaybackManager
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,6 +43,21 @@ class NowPlayingViewModel(
         when (track) {
             null -> DownloadStatus.Idle
             is LocalTrack -> DownloadStatus.Completed
+            is UnifiedTrack -> {
+                if (track.isDownloaded) {
+                    DownloadStatus.Completed
+                } else {
+                    val videoId = track.onlineVideoId
+                    val status = if (videoId != null) statuses[videoId] else null
+                    if (status != null) {
+                        status
+                    } else if (musicDownloader.isTrackDownloaded(track)) {
+                        DownloadStatus.Completed
+                    } else {
+                        DownloadStatus.Idle
+                    }
+                }
+            }
             is OnlineTrack -> {
                 val status = statuses[track.videoId]
                 if (status != null) {
@@ -60,6 +76,22 @@ class NowPlayingViewModel(
         if (track is OnlineTrack) {
             viewModelScope.launch {
                 musicDownloader.downloadTrack(track)
+            }
+        } else if (track is UnifiedTrack) {
+            val vId = track.onlineVideoId
+            if (vId != null) {
+                val online = OnlineTrack(
+                    videoId = vId,
+                    title = track.title,
+                    artist = track.artist,
+                    album = track.album,
+                    durationMs = track.durationMs,
+                    thumbnailUrl = track.artworkUrl,
+                    isFavorite = track.isFavorite
+                )
+                viewModelScope.launch {
+                    musicDownloader.downloadTrack(online)
+                }
             }
         }
     }

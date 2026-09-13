@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Icon
@@ -45,6 +46,7 @@ fun SongRow(
     isPlaying: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    isDownloaded: Boolean = false,
     onMoreClick: (() -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null
 ) {
@@ -118,15 +120,28 @@ fun SongRow(
 
             Spacer(modifier = Modifier.height(3.dp))
 
-            val meta = if (!durationText.isNullOrBlank()) "$artist • $durationText" else artist
-            Text(
-                text = meta,
-                fontWeight = FontWeight.Normal,
-                fontSize = 13.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = LyroTextSecondary
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (isDownloaded) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Downloaded",
+                        tint = LyroAccent.copy(alpha = 0.85f),
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+                val meta = if (!durationText.isNullOrBlank()) "$artist • $durationText" else artist
+                Text(
+                    text = meta,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = LyroTextSecondary
+                )
+            }
         }
 
         if (trailingContent != null) {
@@ -173,6 +188,7 @@ fun SongRow(
         isPlaying = isPlaying,
         onClick = onClick,
         modifier = modifier,
+        isDownloaded = true,
         onMoreClick = onMoreClick,
         trailingContent = trailingContent
     )
@@ -193,9 +209,10 @@ fun SongRow(
         artist = track.artist,
         durationText = if (track.durationMs > 0) track.formattedDuration() else null,
         artworkContent = {
-            if (!track.thumbnailUrl.isNullOrBlank()) {
+            val artUrl = track.highResThumbnailUrl ?: track.thumbnailUrl
+            if (!artUrl.isNullOrBlank()) {
                 AsyncImage(
-                    model = track.thumbnailUrl,
+                    model = artUrl,
                     contentDescription = track.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -213,6 +230,49 @@ fun SongRow(
         isPlaying = isPlaying,
         onClick = onClick,
         modifier = modifier,
+        isDownloaded = track.isDownloaded,
+        onMoreClick = onMoreClick,
+        trailingContent = trailingContent
+    )
+}
+
+@Composable
+fun SongRow(
+    track: PlayableTrack,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onMoreClick: (() -> Unit)? = null,
+    trailingContent: (@Composable () -> Unit)? = null
+) {
+    SongRow(
+        title = track.title,
+        artist = track.artist,
+        durationText = if (track.durationMs > 0) track.formattedDuration() else null,
+        artworkContent = {
+            val artUrl = track.artworkUriString
+            if (!artUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = artUrl,
+                    contentDescription = track.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = null,
+                    tint = LyroTextMuted,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        },
+        isCurrent = isCurrent,
+        isPlaying = isPlaying,
+        onClick = onClick,
+        modifier = modifier,
+        isDownloaded = track.isDownloaded,
         onMoreClick = onMoreClick,
         trailingContent = trailingContent
     )

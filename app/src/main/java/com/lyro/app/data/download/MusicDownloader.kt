@@ -26,6 +26,9 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.TimeUnit
 
+import com.lyro.app.core.matcher.LocalMediaIndex
+import com.lyro.app.data.model.PlayableTrack
+
 sealed interface DownloadStatus {
     object Idle : DownloadStatus
     data class Downloading(val progress: Float) : DownloadStatus
@@ -36,7 +39,8 @@ sealed interface DownloadStatus {
 class MusicDownloader(
     private val context: Context,
     private val musicRepository: MusicRepository,
-    private val streamResolver: StreamResolver = YouTubeStreamResolver()
+    private val streamResolver: StreamResolver = YouTubeStreamResolver(),
+    private val localMediaIndex: LocalMediaIndex? = null
 ) {
     companion object {
         private const val TAG = "LyroDownloader"
@@ -58,7 +62,14 @@ class MusicDownloader(
         _lastCompletedTrack.value = null
     }
 
+    fun isTrackDownloaded(track: PlayableTrack): Boolean {
+        if (localMediaIndex?.hasLocalCopy(track) == true) return true
+        if (track is OnlineTrack) return isTrackDownloaded(track)
+        return false
+    }
+
     fun isTrackDownloaded(track: OnlineTrack): Boolean {
+        if (localMediaIndex?.hasLocalCopy(track) == true) return true
         val currentLocalSongs = musicRepository.allSongs.value
         val trackTitle = track.title.trim().lowercase()
         val trackArtist = track.artist.trim().lowercase()
@@ -131,7 +142,7 @@ class MusicDownloader(
                 }
             }
 
-            // Record authoritative metadata in SQLite database
+            // Record authoritative metadata in SQLite database (localUri populated after file write below)
             val dbHelper = com.lyro.app.data.local.LyroDatabaseHelper(context)
             dbHelper.saveDownloadedMetadata(
                 com.lyro.app.data.local.DownloadedMetadata(
@@ -237,10 +248,26 @@ class MusicDownloader(
             }
 
             Log.d(TAG, "Download completed for $fileName ($bytesWritten bytes)")
+            if (writtenUri != null) {
+                // Update authoritative metadata with final localUri and register in index
+                dbHelper.saveDownloadedMetadata(
+                    com.lyro.app.data.local.DownloadedMetadata(
+                        videoId = track.videoId,
+                        displayName = fileName,
+                        title = track.title,
+                        artist = track.artist,
+                        album = track.album ?: "YouTube Music",
+                        thumbnailUri = localThumbnailUri ?: track.thumbnailUrl,
+                        durationMs = track.durationMs,
+                        localUri = writtenUri.toString()
+                    )
+                )
+                localMediaIndex?.registerDownload(videoId, writtenUri, null)
+            }
             updateStatus(videoId, DownloadStatus.Completed)
             _lastCompletedTrack.value = track
 
-            // Refresh local songs so the track immediately shows in Lyro's OFFLINE library
+            // Refresh local songs so the track immediately shows in Lyro's library
             musicRepository.loadSongs()
 
             Result.success(Unit)
@@ -248,6 +275,78 @@ class MusicDownloader(
             Log.e(TAG, "Download error for ${track.title}: ${e.message}", e)
             updateStatus(videoId, DownloadStatus.Failed(e.localizedMessage ?: "Download failed"))
             Result.failure(e)
+        }
+    }
+
+    suspend fun deleteDownload(videoId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val dbHelper = com.lyro.app.data.local.LyroDatabaseHelper(context)
+            val meta = dbHelper.getDownloadedMetadata(videoId)
+            val uriStr = meta?.localUri ?: localMediaIndex?.getLocalUriForVideoId(videoId)
+
+            var deleted = false
+            if (!uriStr.isNullOrBlank()) {
+                val uri = Uri.parse(uriStr)
+                try {
+                    when (uri.scheme) {
+                        "content" -> {
+                            val rows = context.contentResolver.delete(uri, null, null)
+                            deleted = rows > 0
+                        }
+                        "file" -> {
+                            val file = File(uri.path ?: "")
+                            if (file.exists()) deleted = file.delete()
+                        }
+                        else -> {
+                            val file = File(uriStr)
+                            if (file.exists()) deleted = file.delete()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not delete download storage file ($uriStr): ${e.message}")
+                }
+            }
+
+            // Also check allSongs for any matched downloaded track
+            val localSongs = musicRepository.allSongs.value
+            val matchedLocalSong = if (meta != null) {
+                localSongs.find {
+                    it.contentUriString == uriStr ||
+                            (it.title.equals(meta.title, ignoreCase = true) && it.artist.equals(meta.artist, ignoreCase = true))
+                }
+            } else null
+
+            if (!deleted && matchedLocalSong != null) {
+                try {
+                    val rows = context.contentResolver.delete(matchedLocalSong.contentUri, null, null)
+                    deleted = rows > 0
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not delete MediaStore entry: ${e.message}")
+                }
+            }
+
+            // Delete cached artwork file if exists
+            try {
+                val thumbFile = File(File(context.filesDir, "artwork"), "$videoId.jpg")
+                if (thumbFile.exists()) thumbFile.delete()
+            } catch (ignored: Exception) {}
+
+            dbHelper.deleteDownloadedMetadata(videoId)
+            localMediaIndex?.unregisterDownload(videoId)
+
+            // Clear download status
+            val map = _downloadStatuses.value.toMutableMap()
+            map.remove(videoId)
+            _downloadStatuses.value = map
+
+            // Reload local songs to reflect changes
+            musicRepository.loadSongs()
+
+            Log.d(TAG, "Successfully deleted downloaded track for videoId=$videoId (fileDeleted=$deleted)")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete download for videoId=$videoId: ${e.message}", e)
+            false
         }
     }
 

@@ -16,6 +16,12 @@ class LyroApplication : Application(), ImageLoaderFactory {
     lateinit var databaseHelper: LyroDatabaseHelper
         private set
 
+    lateinit var localMediaIndex: com.lyro.app.core.matcher.LocalMediaIndex
+        private set
+
+    lateinit var playbackSourceResolver: com.lyro.app.service.PlaybackSourceResolver
+        private set
+
     lateinit var musicRepository: MusicRepository
         private set
 
@@ -36,10 +42,12 @@ class LyroApplication : Application(), ImageLoaderFactory {
         instance = this
         playerPreferences = com.lyro.app.data.preferences.PlayerPreferences(this)
         databaseHelper = LyroDatabaseHelper(this)
-        musicRepository = MusicRepository(this, databaseHelper)
+        localMediaIndex = com.lyro.app.core.matcher.LocalMediaIndex()
+        playbackSourceResolver = com.lyro.app.service.PlaybackSourceResolver(this, localMediaIndex)
+        musicRepository = MusicRepository(this, databaseHelper, localMediaIndex)
         onlineMusicRepository = com.lyro.app.data.repository.OnlineMusicRepository()
-        playbackManager = PlaybackManager(this, musicRepository)
-        musicDownloader = com.lyro.app.data.download.MusicDownloader(this, musicRepository)
+        playbackManager = PlaybackManager(this, musicRepository, localMediaIndex = localMediaIndex, playbackSourceResolver = playbackSourceResolver)
+        musicDownloader = com.lyro.app.data.download.MusicDownloader(this, musicRepository, localMediaIndex = localMediaIndex)
     }
 
     override fun newImageLoader(): ImageLoader {

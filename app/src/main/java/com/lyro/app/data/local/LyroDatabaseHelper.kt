@@ -10,7 +10,7 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
     companion object {
         private const val DATABASE_NAME = "lyro_music.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 3
 
         // Tables
         const val TABLE_FAVORITES = "favorites"
@@ -39,6 +39,7 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         const val COL_META_ALBUM = "album"
         const val COL_META_THUMBNAIL_URI = "thumbnail_uri"
         const val COL_META_DURATION = "duration_ms"
+        const val COL_META_LOCAL_URI = "local_uri"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -92,7 +93,8 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
                 $COL_META_ARTIST TEXT NOT NULL,
                 $COL_META_ALBUM TEXT,
                 $COL_META_THUMBNAIL_URI TEXT,
-                $COL_META_DURATION INTEGER DEFAULT 0
+                $COL_META_DURATION INTEGER DEFAULT 0,
+                $COL_META_LOCAL_URI TEXT
             )
             """.trimIndent()
         )
@@ -109,10 +111,15 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
                     $COL_META_ARTIST TEXT NOT NULL,
                     $COL_META_ALBUM TEXT,
                     $COL_META_THUMBNAIL_URI TEXT,
-                    $COL_META_DURATION INTEGER DEFAULT 0
+                    $COL_META_DURATION INTEGER DEFAULT 0,
+                    $COL_META_LOCAL_URI TEXT
                 )
                 """.trimIndent()
             )
+        } else if (oldVersion < 3) {
+            try {
+                db.execSQL("ALTER TABLE $TABLE_DOWNLOADED_METADATA ADD COLUMN $COL_META_LOCAL_URI TEXT")
+            } catch (ignored: Exception) {}
         }
     }
 
@@ -267,8 +274,41 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
             put(COL_META_ALBUM, meta.album)
             put(COL_META_THUMBNAIL_URI, meta.thumbnailUri)
             put(COL_META_DURATION, meta.durationMs)
+            put(COL_META_LOCAL_URI, meta.localUri)
         }
         db.insertWithOnConflict(TABLE_DOWNLOADED_METADATA, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun deleteDownloadedMetadata(videoId: String) {
+        val db = writableDatabase
+        db.delete(TABLE_DOWNLOADED_METADATA, "$COL_META_VIDEO_ID = ?", arrayOf(videoId))
+    }
+
+    fun getDownloadedMetadata(videoId: String): DownloadedMetadata? {
+        val db = readableDatabase
+        var result: DownloadedMetadata? = null
+        try {
+            val cursor = db.rawQuery(
+                "SELECT $COL_META_VIDEO_ID, $COL_META_DISPLAY_NAME, $COL_META_TITLE, $COL_META_ARTIST, $COL_META_ALBUM, $COL_META_THUMBNAIL_URI, $COL_META_DURATION, $COL_META_LOCAL_URI FROM $TABLE_DOWNLOADED_METADATA WHERE $COL_META_VIDEO_ID = ? LIMIT 1",
+                arrayOf(videoId)
+            )
+            if (cursor.moveToFirst()) {
+                result = DownloadedMetadata(
+                    videoId = cursor.getString(0) ?: "",
+                    displayName = cursor.getString(1) ?: "",
+                    title = cursor.getString(2) ?: "",
+                    artist = cursor.getString(3) ?: "",
+                    album = cursor.getString(4),
+                    thumbnailUri = cursor.getString(5),
+                    durationMs = cursor.getLong(6),
+                    localUri = cursor.getString(7)
+                )
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return result
     }
 
     fun getAllDownloadedMetadata(): List<DownloadedMetadata> {
@@ -276,7 +316,7 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         val db = readableDatabase
         try {
             val cursor = db.rawQuery(
-                "SELECT $COL_META_VIDEO_ID, $COL_META_DISPLAY_NAME, $COL_META_TITLE, $COL_META_ARTIST, $COL_META_ALBUM, $COL_META_THUMBNAIL_URI, $COL_META_DURATION FROM $TABLE_DOWNLOADED_METADATA",
+                "SELECT $COL_META_VIDEO_ID, $COL_META_DISPLAY_NAME, $COL_META_TITLE, $COL_META_ARTIST, $COL_META_ALBUM, $COL_META_THUMBNAIL_URI, $COL_META_DURATION, $COL_META_LOCAL_URI FROM $TABLE_DOWNLOADED_METADATA",
                 null
             )
             while (cursor.moveToNext()) {
@@ -288,7 +328,8 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
                         artist = cursor.getString(3) ?: "",
                         album = cursor.getString(4),
                         thumbnailUri = cursor.getString(5),
-                        durationMs = cursor.getLong(6)
+                        durationMs = cursor.getLong(6),
+                        localUri = cursor.getString(7)
                     )
                 )
             }
@@ -307,5 +348,6 @@ data class DownloadedMetadata(
     val artist: String,
     val album: String?,
     val thumbnailUri: String?,
-    val durationMs: Long = 0L
+    val durationMs: Long = 0L,
+    val localUri: String? = null
 )
