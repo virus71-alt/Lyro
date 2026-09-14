@@ -36,7 +36,7 @@ data class LocalTrack(
     override val artworkUriString: String? get() = song.contentUriString
     override val isLocal: Boolean get() = true
     override val isFavorite: Boolean get() = song.isFavorite
-    override val localUri: Uri? get() = song.contentUri
+    override val localUri: Uri? get() = try { song.contentUri } catch (_: Throwable) { null }
     override val isDownloaded: Boolean get() = true
 }
 

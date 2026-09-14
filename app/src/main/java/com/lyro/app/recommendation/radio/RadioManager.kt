@@ -64,16 +64,21 @@ class RadioManager(
             _currentSession.value = session
             _isRadioActive.value = true
 
+            val isOnline = try { com.lyro.app.LyroApplication.instance.networkMonitor.isOnline.value } catch (e: Exception) { true }
             val profile = tasteProfileRepository.tasteProfile.value
-            val initialCandidates = try {
-                candidateGenerator.generateRadioCandidatePool(
-                    seedTrack = seedTrack,
-                    tasteProfile = profile,
-                    extensionBatchIndex = 0,
-                    targetPoolSize = 60
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "Error generating initial radio candidates: ${e.message}", e)
+            val initialCandidates = if (isOnline) {
+                try {
+                    candidateGenerator.generateRadioCandidatePool(
+                        seedTrack = seedTrack,
+                        tasteProfile = profile,
+                        extensionBatchIndex = 0,
+                        targetPoolSize = 60
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error generating initial radio candidates: ${e.message}", e)
+                    emptyList()
+                }
+            } else {
                 emptyList()
             }
 
@@ -145,13 +150,19 @@ class RadioManager(
             }
             try {
                 Log.d(TAG, "Auto-extending radio session: batch=${session.extensionBatchCount}")
+                val isOnline = try { com.lyro.app.LyroApplication.instance.networkMonitor.isOnline.value } catch (e: Exception) { true }
                 val profile = tasteProfileRepository.tasteProfile.value
-                val candidates = candidateGenerator.generateRadioCandidatePool(
-                    seedTrack = session.seedTrack,
-                    tasteProfile = profile,
-                    extensionBatchIndex = session.extensionBatchCount,
-                    targetPoolSize = 45
-                )
+
+                val candidates = if (isOnline) {
+                    candidateGenerator.generateRadioCandidatePool(
+                        seedTrack = session.seedTrack,
+                        tasteProfile = profile,
+                        extensionBatchIndex = session.extensionBatchCount,
+                        targetPoolSize = 45
+                    )
+                } else {
+                    emptyList()
+                }
 
                 val ranked = if (candidates.isNotEmpty()) {
                     ranker.rankCandidates(
@@ -169,7 +180,8 @@ class RadioManager(
                         )
                     ).map { it.track }
                 } else {
-                    findOfflineFallbackCandidates(session.seedTrack, count = RecommendationConfig.RADIO_EXTENSION_BATCH_SIZE)
+                    val fallback = findOfflineFallbackCandidates(session.seedTrack, count = RecommendationConfig.RADIO_EXTENSION_BATCH_SIZE)
+                    fallback.filter { !session.generatedTrackIds.contains(it.id) }
                 }
 
                 if (ranked.isNotEmpty()) {
@@ -178,6 +190,8 @@ class RadioManager(
                         playbackManager.appendToQueue(ranked)
                     }
                     Log.d(TAG, "Radio session auto-extended with ${ranked.size} tracks")
+                } else if (!isOnline) {
+                    Log.i(TAG, "Offline radio: No more local fallback tracks available. Ending extension gracefully.")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to auto-extend radio session: ${e.message}", e)
@@ -186,6 +200,7 @@ class RadioManager(
             }
         }
     }
+
 
     /**
      * Offline fallback candidate finder using local MediaStore tracks and downloads.

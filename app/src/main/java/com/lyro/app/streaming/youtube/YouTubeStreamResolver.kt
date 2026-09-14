@@ -1,10 +1,13 @@
 package com.lyro.app.streaming.youtube
 
 import android.util.Log
+import com.lyro.app.core.network.NetworkMonitor
 import com.lyro.app.data.remote.youtube.InnertubeClient
 import com.lyro.app.streaming.*
 
-class YouTubeStreamResolver : StreamResolver {
+class YouTubeStreamResolver(
+    private val networkMonitor: NetworkMonitor? = null
+) : StreamResolver {
 
     companion object {
         private const val TAG = "LyroStreamResolver"
@@ -15,6 +18,13 @@ class YouTubeStreamResolver : StreamResolver {
         quality: AudioQuality,
         excludeProfiles: Set<String>
     ): Result<ResolvedStream> {
+        val isOnline = networkMonitor?.isOnline?.value
+            ?: try { com.lyro.app.LyroApplication.instance.networkMonitor.isOnline.value } catch (e: Exception) { true }
+        if (!isOnline) {
+            Log.w(TAG, "Stream resolution aborted: device is offline for videoId=$videoId")
+            return Result.failure(OfflineException("Cannot stream online audio: Device is offline"))
+        }
+
         val startTime = System.currentTimeMillis()
         var lastError: Throwable? = null
 
@@ -22,6 +32,7 @@ class YouTubeStreamResolver : StreamResolver {
         if (candidateProfiles.isEmpty()) {
             return Result.failure(Exception("All available stream profiles have been excluded or failed for videoId=$videoId"))
         }
+
 
         for ((index, profile) in candidateProfiles.withIndex()) {
             try {

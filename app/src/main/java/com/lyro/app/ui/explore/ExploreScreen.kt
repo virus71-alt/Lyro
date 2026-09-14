@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -78,6 +79,7 @@ fun ExploreScreen(
     val likedTracks by viewModel.likedTracks.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val isResolvingStream by viewModel.isResolvingStream.collectAsState()
+    val isOnline by viewModel.isOnline.collectAsState()
 
     var selectedTrackForOptions by remember { mutableStateOf<OnlineTrack?>(null) }
 
@@ -100,10 +102,14 @@ fun ExploreScreen(
     // Trigger refresh when released past threshold
     LaunchedEffect(pullRefreshState.isRefreshing) {
         if (pullRefreshState.isRefreshing && !isExploreRefreshing) {
-            if (searchQuery.isNotBlank()) {
-                viewModel.searchOnline(searchQuery)
+            if (isOnline) {
+                if (searchQuery.isNotBlank()) {
+                    viewModel.searchOnline(searchQuery)
+                } else {
+                    viewModel.refreshExplore()
+                }
             } else {
-                viewModel.refreshExplore()
+                pullRefreshState.endRefresh()
             }
         }
     }
@@ -226,7 +232,7 @@ fun ExploreScreen(
             }
         }
 
-        // IF ACTIVE SEARCH: Show Unified Results (On this device + Online)
+        // IF ACTIVE SEARCH: Show Unified Results (On this device + Online if connected)
         if (searchQuery.isNotBlank()) {
             // A. Local Results on Device
             if (localSongs.isNotEmpty()) {
@@ -238,7 +244,7 @@ fun ExploreScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                items(localSongs.take(5), key = { "local_${it.id}" }) { song ->
+                items(if (isOnline) localSongs.take(5) else localSongs, key = { "local_${it.id}" }) { song ->
                     SongRow(
                         song = song,
                         isCurrent = currentSong?.id == song.id,
@@ -247,35 +253,8 @@ fun ExploreScreen(
                         onMoreClick = { viewModel.toggleFavorite(song) }
                     )
                 }
-            }
-
-            // B. Online YouTube Results
-            item(key = "search_online_header") {
-                Spacer(modifier = Modifier.height(16.dp))
-                SectionHeader(
-                    title = "Online Results",
-                    subtitle = "Stream or download with 1-click"
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            if (isSearchingOnline) {
-                item(key = "search_online_loading") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(28.dp),
-                            color = LyroAccent,
-                            strokeWidth = 2.5.dp
-                        )
-                    }
-                }
-            } else if (onlineSearchError != null) {
-                item(key = "search_online_error") {
+            } else if (!isOnline) {
+                item(key = "offline_no_local_matches") {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -283,27 +262,115 @@ fun ExploreScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = onlineSearchError ?: "No tracks found",
+                            text = "No matching tracks found on this device",
                             color = LyroTextSecondary,
                             fontSize = 13.sp
                         )
                     }
                 }
-            } else {
-                items(onlineResults, key = { "online_${it.videoId}" }) { track ->
-                    val status = downloadStatuses[track.videoId]
-                        ?: if (viewModel.isTrackDownloaded(track)) DownloadStatus.Completed else DownloadStatus.Idle
+            }
 
-                    OnlineSongListItem(
-                        track = track,
-                        isCurrentTrack = currentTrack?.id == track.videoId,
-                        isPlaying = isPlaying && currentTrack?.id == track.videoId,
-                        isResolving = isResolvingStream && currentTrack?.id == track.videoId,
-                        downloadStatus = status,
-                        onDownloadClick = { viewModel.downloadTrack(track) },
-                        onMoreClick = { selectedTrackForOptions = track },
-                        onClick = { viewModel.playOnlineTrack(track, onlineResults) }
+            // B. Online YouTube Results (only when online)
+            if (isOnline) {
+                item(key = "search_online_header") {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    SectionHeader(
+                        title = "Online Results",
+                        subtitle = "Stream or download with 1-click"
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (isSearchingOnline) {
+                    item(key = "search_online_loading") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(28.dp),
+                                color = LyroAccent,
+                                strokeWidth = 2.5.dp
+                            )
+                        }
+                    }
+                } else if (onlineSearchError != null) {
+                    item(key = "search_online_error") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = onlineSearchError ?: "No tracks found",
+                                color = LyroTextSecondary,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                } else {
+                    items(onlineResults, key = { "online_${it.videoId}" }) { track ->
+                        val status = downloadStatuses[track.videoId]
+                            ?: if (viewModel.isTrackDownloaded(track)) DownloadStatus.Completed else DownloadStatus.Idle
+
+                        OnlineSongListItem(
+                            track = track,
+                            isCurrentTrack = currentTrack?.id == track.videoId,
+                            isPlaying = isPlaying && currentTrack?.id == track.videoId,
+                            isResolving = isResolvingStream && currentTrack?.id == track.videoId,
+                            downloadStatus = status,
+                            onDownloadClick = { viewModel.downloadTrack(track) },
+                            onMoreClick = { selectedTrackForOptions = track },
+                            onClick = { viewModel.playOnlineTrack(track, onlineResults) }
+                        )
+                    }
+                }
+            }
+        } else if (!isOnline) {
+            // Clean minimal offline state when not searching
+            item(key = "explore_offline_state") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 60.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .background(LyroSurfaceElevated, CircleShape)
+                                .border(1.dp, LyroDivider, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudOff,
+                                contentDescription = null,
+                                tint = LyroTextMuted,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "You're offline",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = LyroTextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Downloaded music is still available in Home and Library.",
+                            fontSize = 13.sp,
+                            color = LyroTextSecondary,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
                 }
             }
         } else {

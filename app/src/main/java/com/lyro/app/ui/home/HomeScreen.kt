@@ -44,6 +44,7 @@ import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Playlist
 import com.lyro.app.data.model.Song
 import com.lyro.app.data.model.UnifiedTrack
+import com.lyro.app.data.model.toLocalTrack
 import com.lyro.app.ui.components.SongArtworkThumbnail
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -78,6 +79,12 @@ fun HomeScreen(
     val selectedMood by viewModel.selectedMood.collectAsState()
     val moodTracks by viewModel.moodTracks.collectAsState()
     val isMoodLoading by viewModel.isMoodLoading.collectAsState()
+    val isOnline by viewModel.isOnline.collectAsState()
+    val isOfflineEmpty by viewModel.isOfflineEmpty.collectAsState()
+    val localSongs by viewModel.songs.collectAsState()
+    val downloadedTracks = remember(localSongs, isOnline) {
+        localSongs.filter { viewModel.isTrackDownloaded(it.toLocalTrack()) }
+    }
 
     val currentSong by viewModel.currentSong.collectAsState()
     val currentTrack by viewModel.currentTrack.collectAsState()
@@ -171,6 +178,30 @@ fun HomeScreen(
                         color = LyroTextPrimary,
                         letterSpacing = 1.5.sp
                     )
+                    if (!isOnline) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(LyroSurfaceElevated)
+                                .border(1.dp, LyroDivider, RoundedCornerShape(12.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudOff,
+                                contentDescription = "Offline",
+                                tint = LyroTextSecondary,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = "Offline",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = LyroTextSecondary
+                            )
+                        }
+                    }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     IconButton(onClick = {
@@ -197,43 +228,92 @@ fun HomeScreen(
             }
         }
 
-        // 2. Horizontally scrollable mood / activity chips
-        item(key = "home_mood_chips") {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(viewModel.moodChips, key = { it }) { mood ->
-                    val isSelected = selectedMood == mood
-                    val chipBg = if (isSelected) LyroSurfaceHighlight else LyroSurfaceElevated
-                    val textColor = if (isSelected) LyroAccent else LyroTextSecondary
-                    val chipBorder = if (isSelected) LyroAccent.copy(alpha = 0.5f) else Color.Transparent
-
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(chipBg)
-                            .border(1.dp, chipBorder, RoundedCornerShape(20.dp))
-                            .clickable {
-                                haptics.selection()
-                                viewModel.selectMood(mood)
-                            }
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.Center
+        // Empty offline state if device has zero music
+        if (isOfflineEmpty) {
+            item(key = "empty_offline_state") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 60.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .background(LyroSurfaceElevated, CircleShape)
+                                .border(1.dp, LyroDivider, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudOff,
+                                contentDescription = null,
+                                tint = LyroTextMuted,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = mood,
+                            text = "You're offline",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = LyroTextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "No downloaded music available.\nConnect to the internet to discover music.",
                             fontSize = 13.sp,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                            color = textColor
+                            color = LyroTextSecondary,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            lineHeight = 18.sp
                         )
                     }
                 }
             }
         }
 
-        // 3. Mood Discovery Section (if mood is selected)
-        if (selectedMood != null) {
+        // 2. Horizontally scrollable mood / activity chips (Online only)
+        if (isOnline) {
+            item(key = "home_mood_chips") {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(viewModel.moodChips, key = { it }) { mood ->
+                        val isSelected = selectedMood == mood
+                        val chipBg = if (isSelected) LyroSurfaceHighlight else LyroSurfaceElevated
+                        val textColor = if (isSelected) LyroAccent else LyroTextSecondary
+                        val chipBorder = if (isSelected) LyroAccent.copy(alpha = 0.5f) else Color.Transparent
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(chipBg)
+                                .border(1.dp, chipBorder, RoundedCornerShape(20.dp))
+                                .clickable {
+                                    haptics.selection()
+                                    viewModel.selectMood(mood)
+                                }
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = mood,
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                color = textColor
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Mood Discovery Section (if mood is selected and online)
+        if (isOnline && selectedMood != null) {
             item(key = "mood_section") {
                 Column(
                     modifier = Modifier
@@ -342,8 +422,8 @@ fun HomeScreen(
             }
         }
 
-        // 5. TRENDING NOW RAIL (Online hits worldwide)
-        if (homeTrending.isNotEmpty()) {
+        // 5. TRENDING NOW RAIL (Online hits worldwide - Online only)
+        if (isOnline && homeTrending.isNotEmpty()) {
             item(key = "home_trending_rail") {
                 Column(
                     modifier = Modifier
@@ -377,8 +457,8 @@ fun HomeScreen(
             }
         }
 
-        // 6. RECOMMENDED RAIL (Personalized for you)
-        if (homeRecommended.isNotEmpty()) {
+        // 6. RECOMMENDED RAIL (Personalized for you - Online only)
+        if (isOnline && homeRecommended.isNotEmpty()) {
             item(key = "home_recommended_rail") {
                 Column(
                     modifier = Modifier
@@ -412,8 +492,8 @@ fun HomeScreen(
             }
         }
 
-        // 7. DISCOVER SOMETHING NEW RAIL (Adjacent discovery & fresh exploratory tracks)
-        if (homeDiscover.isNotEmpty()) {
+        // 7. DISCOVER SOMETHING NEW RAIL (Adjacent discovery & fresh exploratory tracks - Online only)
+        if (isOnline && homeDiscover.isNotEmpty()) {
             item(key = "home_discover_rail") {
                 Column(
                     modifier = Modifier
@@ -440,6 +520,46 @@ fun HomeScreen(
                                 isDownloaded = track.isDownloaded,
                                 onClick = { viewModel.playTrack(track, homeDiscover) },
                                 onLongClick = { selectedTrackForOptions = track }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 8. DOWNLOADED RAIL (Featured offline tracks)
+        if (!isOnline && downloadedTracks.isNotEmpty()) {
+            item(key = "home_downloaded_rail") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 28.dp)
+                ) {
+                    SectionHeader(
+                        title = "Downloaded",
+                        subtitle = "${downloadedTracks.size} tracks available offline",
+                        actionText = "Play all",
+                        onActionClick = {
+                            if (downloadedTracks.isNotEmpty()) {
+                                viewModel.playSong(downloadedTracks.first(), downloadedTracks)
+                            }
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        items(downloadedTracks, key = { "dl_${it.id}" }) { song ->
+                            SquareArtworkCard(
+                                title = song.title,
+                                subtitle = song.artist,
+                                track = song.toLocalTrack(),
+                                isDownloaded = true,
+                                onClick = { viewModel.playSong(song, downloadedTracks) },
+                                onLongClick = { viewModel.toggleFavorite(song) }
                             )
                         }
                     }

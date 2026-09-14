@@ -112,22 +112,27 @@ class QueueContinuationManager(
 
                 try {
                     val seedTrack = playbackManager.currentTrack.value ?: currentQueue.lastOrNull() ?: return@withLock
+                    val isOnline = try { com.lyro.app.LyroApplication.instance.networkMonitor.isOnline.value } catch (e: Exception) { true }
                     val tasteProfile = tasteProfileRepository.tasteProfile.value
                     val existingIds = currentQueue.map { it.id }.toSet()
                     val batchIndex = (currentQueue.size / BATCH_SIZE).coerceAtLeast(0)
 
-                    val candidates = withContext(Dispatchers.IO) {
-                        try {
-                            candidateGenerator.generateRadioCandidatePool(
-                                seedTrack = seedTrack,
-                                tasteProfile = tasteProfile,
-                                extensionBatchIndex = batchIndex,
-                                targetPoolSize = 50
-                            )
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Online candidate pool generation failed: ${e.message}")
-                            emptyList()
+                    val candidates = if (isOnline) {
+                        withContext(Dispatchers.IO) {
+                            try {
+                                candidateGenerator.generateRadioCandidatePool(
+                                    seedTrack = seedTrack,
+                                    tasteProfile = tasteProfile,
+                                    extensionBatchIndex = batchIndex,
+                                    targetPoolSize = 50
+                                )
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Online candidate pool generation failed: ${e.message}")
+                                emptyList()
+                            }
                         }
+                    } else {
+                        emptyList()
                     }
 
                     val rankedCandidates: List<PlayableTrack> = if (candidates.isNotEmpty()) {
@@ -161,7 +166,13 @@ class QueueContinuationManager(
                         _loadError.value = null
                         Log.d(TAG, "Appended ${filteredCandidates.size} tracks to queue. Total: ${playbackManager.queue.value.size}")
                     } else {
-                        _loadError.value = "Couldn't load more"
+                        if (!isOnline) {
+                            _canLoadMore.value = false
+                            _loadError.value = null
+                            Log.d(TAG, "Offline continuation: No more local tracks available. Queue ends gracefully.")
+                        } else {
+                            _loadError.value = "Couldn't load more"
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in ensureMoreTracks: ${e.message}", e)

@@ -6,6 +6,8 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.util.Log
 import com.lyro.app.core.matcher.LocalMediaIndex
+import com.lyro.app.core.network.NetworkMonitor
+import com.lyro.app.core.offline.OfflineAvailabilityResolver
 import com.lyro.app.data.model.LocalTrack
 import com.lyro.app.data.model.OnlineTrack
 import com.lyro.app.data.model.PlayableTrack
@@ -17,7 +19,7 @@ import java.io.File
  */
 sealed interface PlaybackSource {
     data class Local(
-        val uri: Uri,
+        val uri: Uri? = null,
         val localSong: Song? = null,
         val originalTrack: PlayableTrack
     ) : PlaybackSource
@@ -39,8 +41,10 @@ sealed interface PlaybackSource {
  * streamed online from YouTube Music, or reported as unavailable when offline.
  */
 class PlaybackSourceResolver(
-    private val context: Context,
-    private val localMediaIndex: LocalMediaIndex
+    private val context: Context? = null,
+    private val localMediaIndex: LocalMediaIndex,
+    private val networkMonitor: NetworkMonitor? = null,
+    private val offlineAvailabilityResolver: OfflineAvailabilityResolver? = null
 ) {
     companion object {
         private const val TAG = "LyroPlaybackResolver"
@@ -53,10 +57,12 @@ class PlaybackSourceResolver(
         val canonicalId = track.onlineVideoId ?: track.id
 
         // 1. Attempt local resolution first (local-first playback)
-        val localSong = localMediaIndex.findLocalMatch(track)
+        val localSong = localMediaIndex.findLocalMatch(track) ?: (track as? LocalTrack)?.song
         if (localSong != null) {
-            val localUri = Uri.parse(localSong.contentUriString)
-            if (isUriAccessible(localUri)) {
+            val isAccessible = offlineAvailabilityResolver?.isPathOrUriAccessible(localSong.contentUriString)
+                ?: isPathAccessible(localSong.contentUriString)
+            if (isAccessible) {
+                val localUri = try { Uri.parse(localSong.contentUriString) } catch (_: Throwable) { null }
                 Log.i(
                     TAG,
                     "Track: ${track.title} | CanonicalId: $canonicalId | LocalMatch: true | PlaybackSource: LOCAL (matched song id=${localSong.id})"
@@ -87,10 +93,11 @@ class PlaybackSourceResolver(
             }
         }
 
-        // 3. Fallback to online streaming
+        // 3. Fallback to online streaming ONLY if network is online
+        val isOnline = networkMonitor?.isOnline?.value ?: isNetworkAvailable()
         val videoId = track.onlineVideoId ?: if (track is OnlineTrack) track.videoId else null
         if (!videoId.isNullOrBlank()) {
-            if (!isNetworkAvailable()) {
+            if (!isOnline) {
                 Log.w(
                     TAG,
                     "Track: ${track.title} | CanonicalId: $canonicalId | LocalMatch: false | PlaybackSource: UNAVAILABLE (Offline)"
@@ -122,11 +129,14 @@ class PlaybackSourceResolver(
     /**
      * Checks if a Content or File URI is currently accessible for reading.
      */
-    private fun isUriAccessible(uri: Uri): Boolean {
+    fun isUriAccessible(uri: Uri): Boolean {
+        if (offlineAvailabilityResolver != null) {
+            return offlineAvailabilityResolver.isUriAccessible(uri)
+        }
         return try {
             when (uri.scheme) {
                 "content" -> {
-                    context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { true } ?: false
+                    context?.contentResolver?.openAssetFileDescriptor(uri, "r")?.use { true } ?: false
                 }
                 "file" -> {
                     val path = uri.path ?: return false
@@ -147,9 +157,29 @@ class PlaybackSourceResolver(
      * Checks if active network connectivity is present.
      */
     fun isNetworkAvailable(): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        if (networkMonitor != null) {
+            return networkMonitor.isOnline.value
+        }
+        val cm = context?.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
         val activeNet = cm.activeNetwork ?: return false
         val caps = cm.getNetworkCapabilities(activeNet) ?: return false
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
+
+    private fun isPathAccessible(path: String): Boolean {
+        return try {
+            val cleanPath = when {
+                path.startsWith("file://") -> path.removePrefix("file://")
+                path.startsWith("file:") -> path.removePrefix("file:")
+                else -> path
+            }
+            val file = File(cleanPath)
+            if (file.exists() && file.canRead() && file.length() > 0) return true
+            val uri = try { Uri.parse(path) } catch (_: Throwable) { null }
+            if (uri != null) isUriAccessible(uri) else false
+        } catch (_: Exception) {
+            false
+        }
+    }
 }
+

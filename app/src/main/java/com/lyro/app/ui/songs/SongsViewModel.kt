@@ -15,6 +15,8 @@ import com.lyro.app.data.repository.SortOrder
 import com.lyro.app.service.PlaybackManager
 import android.util.Log
 import com.lyro.app.core.matcher.TrackMetadataNormalizer
+import com.lyro.app.core.offline.isAvailableOffline
+import com.lyro.app.core.network.NetworkStatus
 import com.lyro.app.data.model.UnifiedTrack
 import com.lyro.app.data.model.toUnifiedTrack
 import com.lyro.app.recommendation.radio.RadioSession
@@ -95,6 +97,20 @@ class SongsViewModel(
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    val isOnline: StateFlow<Boolean> = try {
+        LyroApplication.instance.networkMonitor.isOnline
+    } catch (e: Exception) {
+        MutableStateFlow(true).asStateFlow()
+    }
+
+    // True if offline and user has zero local tracks
+    val isOfflineEmpty: StateFlow<Boolean> = combine(
+        repository.allSongs,
+        isOnline
+    ) { songs, online ->
+        !online && songs.isEmpty()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _isOnlineMode = MutableStateFlow(false)
     val isOnlineMode: StateFlow<Boolean> = _isOnlineMode.asStateFlow()
@@ -256,8 +272,13 @@ class SongsViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Liked Songs & Tracks (Unified across local & online)
-    val likedTracks: StateFlow<List<PlayableTrack>> = repository.favoriteTracks
+    // Liked Songs & Tracks (Unified across local & online, filtered to offline-safe when offline)
+    val likedTracks: StateFlow<List<PlayableTrack>> = combine(
+        repository.favoriteTracks,
+        isOnline
+    ) { favs, online ->
+        if (online) favs else favs.filter { it.isAvailableOffline() }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Liked Songs (local Song callers)
     val likedSongs: StateFlow<List<Song>> = repository.allSongs.map { all ->
@@ -283,8 +304,32 @@ class SongsViewModel(
         // Refresh Quick Picks whenever local library or favorites change
         viewModelScope.launch {
             repository.allSongs.collect {
-                val currentOnline = _homeRecommended.value.ifEmpty { _homeTrending.value }
+                val currentOnline = if (isOnline.value) _homeRecommended.value.ifEmpty { _homeTrending.value } else emptyList()
                 rebuildQuickPicks(currentOnline)
+            }
+        }
+
+        // React immediately to network status transitions
+        viewModelScope.launch {
+            var previousOnline: Boolean? = null
+            isOnline.collect { online ->
+                if (previousOnline != null && previousOnline != online) {
+                    if (online) {
+                        Log.i("SongsViewModel", "Internet restored: gently restoring online feeds")
+                        loadHomeFeeds()
+                        loadExploreTrending()
+                    } else {
+                        Log.i("SongsViewModel", "Internet lost: adapting Home to offline mode")
+                        _homeTrending.value = emptyList()
+                        _homeRecommended.value = emptyList()
+                        _homeDiscover.value = emptyList()
+                        _onlineSearchResults.value = emptyList()
+                        _moodTracks.value = emptyList()
+                        _selectedMood.value = null
+                        rebuildQuickPicks(emptyList())
+                    }
+                }
+                previousOnline = online
             }
         }
     }
@@ -294,6 +339,17 @@ class SongsViewModel(
             val dbHelper = LyroApplication.instance.databaseHelper
             val localMediaIndex = LyroApplication.instance.localMediaIndex
             val recEngine = LyroApplication.instance.recommendationEngine
+
+            val online = isOnline.value
+            if (!online) {
+                _isHomeLoading.value = false
+                // When offline, only show playable local/downloaded music
+                _homeTrending.value = emptyList()
+                _homeRecommended.value = emptyList()
+                _homeDiscover.value = emptyList()
+                rebuildQuickPicks(emptyList())
+                return@launch
+            }
 
             // 1. Instantly load cached online feeds from SQLite so Home is never blank on launch
             val cachedTrending = withContext(Dispatchers.IO) { dbHelper.getHomeFeedCache("trending") }
@@ -410,6 +466,15 @@ class SongsViewModel(
         viewModelScope.launch {
             _isHomeRefreshing.value = true
             _homeRefreshError.value = null
+
+            val online = isOnline.value
+            if (!online) {
+                Log.d("SongsViewModel", "Refreshing Home while offline: refreshing local/download index only")
+                repository.loadSongs()
+                rebuildQuickPicks(emptyList())
+                _isHomeRefreshing.value = false
+                return@launch
+            }
 
             val dbHelper = LyroApplication.instance.databaseHelper
             val recEngine = LyroApplication.instance.recommendationEngine
@@ -564,9 +629,13 @@ class SongsViewModel(
         // Local candidates (favorites, recents, general local)
         val localCandidates = (favs + recents + allLocal.map { it.toUnifiedTrack() }).distinctBy { it.id }
 
+        // If offline or no online tracks, keep local candidates only
+        val online = isOnline.value
+        val effectiveOnline = if (online) onlineTracks else emptyList()
+
         // Interleave fresh online recommendations (~70%) with useful local/recent songs (~30%)
         val combined = mutableListOf<PlayableTrack>()
-        val onlineSubset = onlineTracks.take(12)
+        val onlineSubset = effectiveOnline.take(12)
         val localSubset = localCandidates.take(6)
 
         var oIdx = 0
@@ -580,7 +649,7 @@ class SongsViewModel(
 
         // If still empty (e.g. no network & no local yet), fall back to whatever is available
         if (combined.isEmpty()) {
-            combined.addAll(onlineTracks)
+            if (online) combined.addAll(effectiveOnline)
             combined.addAll(localCandidates)
         }
 
@@ -603,9 +672,12 @@ class SongsViewModel(
             }
         }
 
+        // When offline, filter deduplicated strictly to offline-playable tracks
+        val availableTracks = if (!online) deduplicated.filter { it.isAvailableOffline() } else deduplicated
+
         // Target: 16 tracks (or nearest multiple of 4 between 12 and 20)
-        val finalCount = if (deduplicated.size >= 16) 16 else if (deduplicated.size >= 12) 12 else deduplicated.size
-        _homeQuickPicks.value = deduplicated.take(finalCount)
+        val finalCount = if (availableTracks.size >= 16) 16 else if (availableTracks.size >= 12) 12 else availableTracks.size
+        _homeQuickPicks.value = availableTracks.take(finalCount)
     }
 
     fun loadSongs() {
@@ -623,6 +695,13 @@ class SongsViewModel(
      */
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
+        if (!isOnline.value) {
+            searchJob?.cancel()
+            _onlineSearchResults.value = emptyList()
+            _isSearchingOnline.value = false
+            _onlineSearchError.value = null
+            return
+        }
         triggerDebouncedOnlineSearch(query)
     }
 
@@ -660,6 +739,13 @@ class SongsViewModel(
         val trimmed = query.trim()
         if (trimmed.isEmpty()) return
 
+        if (!isOnline.value) {
+            _onlineSearchResults.value = emptyList()
+            _isSearchingOnline.value = false
+            _onlineSearchError.value = null
+            return
+        }
+
         searchJob = viewModelScope.launch {
             _isSearchingOnline.value = true
             _onlineSearchError.value = null
@@ -679,6 +765,7 @@ class SongsViewModel(
      * Select or toggle mood filter on Home
      */
     fun selectMood(mood: String) {
+        if (!isOnline.value) return
         if (_selectedMood.value == mood) {
             _selectedMood.value = null
             _moodTracks.value = emptyList()
@@ -704,6 +791,11 @@ class SongsViewModel(
      * Fetch trending online music for Explore screen
      */
     fun loadExploreTrending() {
+        if (!isOnline.value) {
+            _exploreTrending.value = emptyList()
+            _isExploreLoading.value = false
+            return
+        }
         if (_exploreTrending.value.isNotEmpty()) return
         viewModelScope.launch {
             _isExploreLoading.value = true
@@ -727,6 +819,13 @@ class SongsViewModel(
     fun refreshExplore() {
         if (_isExploreRefreshing.value) {
             Log.d("SongsViewModel", "refreshExplore ignored: already refreshing")
+            return
+        }
+
+        if (!isOnline.value) {
+            _exploreTrending.value = emptyList()
+            _isExploreRefreshing.value = false
+            _exploreRefreshError.value = null
             return
         }
 

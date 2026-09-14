@@ -19,6 +19,12 @@ class LyroApplication : Application(), ImageLoaderFactory {
     lateinit var localMediaIndex: com.lyro.app.core.matcher.LocalMediaIndex
         private set
 
+    lateinit var networkMonitor: com.lyro.app.core.network.NetworkMonitor
+        private set
+
+    lateinit var offlineAvailabilityResolver: com.lyro.app.core.offline.OfflineAvailabilityResolver
+        private set
+
     lateinit var playbackSourceResolver: com.lyro.app.service.PlaybackSourceResolver
         private set
 
@@ -58,11 +64,31 @@ class LyroApplication : Application(), ImageLoaderFactory {
         playerPreferences = com.lyro.app.data.preferences.PlayerPreferences(this)
         databaseHelper = LyroDatabaseHelper(this)
         localMediaIndex = com.lyro.app.core.matcher.LocalMediaIndex()
-        playbackSourceResolver = com.lyro.app.service.PlaybackSourceResolver(this, localMediaIndex)
+        networkMonitor = com.lyro.app.core.network.ConnectivityNetworkMonitor(this)
         musicRepository = MusicRepository(this, databaseHelper, localMediaIndex)
         onlineMusicRepository = com.lyro.app.data.repository.OnlineMusicRepository()
-        playbackManager = PlaybackManager(this, musicRepository, localMediaIndex = localMediaIndex, playbackSourceResolver = playbackSourceResolver)
         musicDownloader = com.lyro.app.data.download.MusicDownloader(this, musicRepository, localMediaIndex = localMediaIndex)
+        offlineAvailabilityResolver = com.lyro.app.core.offline.OfflineAvailabilityResolver(
+            context = this,
+            localMediaIndex = localMediaIndex,
+            musicDownloader = musicDownloader,
+            dbHelper = databaseHelper
+        )
+        playbackSourceResolver = com.lyro.app.service.PlaybackSourceResolver(
+            context = this,
+            localMediaIndex = localMediaIndex,
+            networkMonitor = networkMonitor,
+            offlineAvailabilityResolver = offlineAvailabilityResolver
+        )
+        playbackManager = PlaybackManager(
+            context = this,
+            musicRepository = musicRepository,
+            localMediaIndex = localMediaIndex,
+            playbackSourceResolver = playbackSourceResolver,
+            networkMonitor = networkMonitor,
+            offlineAvailabilityResolver = offlineAvailabilityResolver
+        )
+
 
         // Initialize local-first personalized recommendation brain
         listeningEventRepository = com.lyro.app.recommendation.data.ListeningEventRepository(databaseHelper)

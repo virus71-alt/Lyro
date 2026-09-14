@@ -65,6 +65,7 @@ fun LibraryScreen(
     val currentSong by viewModel.currentSong.collectAsState()
     val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
+    val isOnline by viewModel.isOnline.collectAsState()
 
     var selectedFilter by rememberSaveable { mutableStateOf(LibraryFilter.ALL) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
@@ -241,7 +242,7 @@ fun LibraryScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "${likedTracks.size} tracks • Local & Online",
+                                text = if (isOnline) "${likedTracks.size} tracks • Local & Online" else "${likedTracks.size} tracks • Available offline",
                                 fontSize = 13.sp,
                                 color = LyroTextSecondary
                             )
@@ -253,7 +254,11 @@ fun LibraryScreen(
                             .size(36.dp)
                             .background(LyroAccent, CircleShape)
                             .clickable {
-                                if (likedSongs.isNotEmpty()) viewModel.playSong(likedSongs.first(), likedSongs)
+                                if (likedTracks.isNotEmpty()) {
+                                    viewModel.playTrack(likedTracks.first(), likedTracks)
+                                } else if (likedSongs.isNotEmpty()) {
+                                    viewModel.playSong(likedSongs.first(), likedSongs)
+                                }
                             },
                         contentAlignment = Alignment.Center
                     ) {
@@ -353,7 +358,7 @@ fun LibraryScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 SectionHeader(
                     title = "Liked Tracks",
-                    subtitle = "${likedTracks.size} tracks • Local & Online"
+                    subtitle = if (isOnline) "${likedTracks.size} tracks • Local & Online" else "${likedTracks.size} tracks • Available offline"
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }
@@ -363,8 +368,12 @@ fun LibraryScreen(
                     LyroEmptyState(
                         icon = Icons.Default.FavoriteBorder,
                         title = "No Liked Tracks",
-                        description = "Tap the heart on any local or online song to save it to your liked tracks.",
-                        primaryButtonText = "Explore Online Music",
+                        description = if (isOnline) {
+                            "Tap the heart on any local or online song to save it to your liked tracks."
+                        } else {
+                            "No liked tracks are available offline. Connect to the internet or download tracks to view them here."
+                        },
+                        primaryButtonText = if (isOnline) "Explore Online Music" else "View All Tracks",
                         onPrimaryButtonClick = { selectedFilter = LibraryFilter.ALL }
                     )
                 }

@@ -33,7 +33,9 @@ class PlaybackManager(
     private val musicRepository: MusicRepository,
     private val streamResolver: StreamResolver = YouTubeStreamResolver(),
     private val localMediaIndex: LocalMediaIndex? = null,
-    private val playbackSourceResolver: PlaybackSourceResolver? = null
+    private val playbackSourceResolver: PlaybackSourceResolver? = null,
+    private val networkMonitor: com.lyro.app.core.network.NetworkMonitor? = null,
+    private val offlineAvailabilityResolver: com.lyro.app.core.offline.OfflineAvailabilityResolver? = null
 ) {
     companion object {
         private const val TAG = "LyroPlayback"
@@ -41,12 +43,42 @@ class PlaybackManager(
 
     private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
+    private val netMonitor: com.lyro.app.core.network.NetworkMonitor by lazy {
+        networkMonitor ?: try { com.lyro.app.LyroApplication.instance.networkMonitor } catch (e: Exception) {
+            object : com.lyro.app.core.network.NetworkMonitor {
+                override val networkStatus = MutableStateFlow(com.lyro.app.core.network.NetworkStatus.ONLINE)
+                override val isOnline = MutableStateFlow(true)
+            }
+        }
+    }
+
+    private val offlineResolver: com.lyro.app.core.offline.OfflineAvailabilityResolver by lazy {
+        offlineAvailabilityResolver ?: try { com.lyro.app.LyroApplication.instance.offlineAvailabilityResolver } catch (e: Exception) {
+            com.lyro.app.core.offline.OfflineAvailabilityResolver(
+                context,
+                localMediaIndex ?: com.lyro.app.core.matcher.LocalMediaIndex(),
+                com.lyro.app.LyroApplication.instance.musicDownloader
+            )
+        }
+    }
+
+    fun isTrackPlayableOffline(track: PlayableTrack): Boolean {
+        return try {
+            offlineResolver.isAvailableOffline(track)
+        } catch (e: Exception) {
+            track.localUri != null || track is LocalTrack
+        }
+    }
+
     private val sourceResolver: PlaybackSourceResolver by lazy {
         playbackSourceResolver ?: PlaybackSourceResolver(
             context,
-            localMediaIndex ?: LocalMediaIndex()
+            localMediaIndex ?: LocalMediaIndex(),
+            netMonitor,
+            offlineResolver
         )
     }
+
 
     // Authoritative MediaController connected to LyroMediaService's single ExoPlayer
     private var controllerFuture: ListenableFuture<MediaController>? = null
@@ -180,6 +212,37 @@ class PlaybackManager(
 
     init {
         initializeMediaController()
+        observeNetworkState()
+    }
+
+    private fun observeNetworkState() {
+        coroutineScope.launch {
+            netMonitor.isOnline.collect { online ->
+                if (!online) {
+                    onNetworkLost()
+                }
+            }
+        }
+    }
+
+    private fun onNetworkLost() {
+        Log.i(TAG, "Network lost during playback. Filtering upcoming queue to offline-safe tracks.")
+        val currentQueue = _queue.value
+        if (currentQueue.isEmpty()) return
+
+        val curTrack = _currentTrack.value
+        val filteredQueue = currentQueue.filter { track ->
+            (curTrack != null && track.id == curTrack.id) || isTrackPlayableOffline(track)
+        }
+
+        if (filteredQueue.size != currentQueue.size) {
+            _queue.value = filteredQueue
+            val newIdx = curTrack?.let { ct -> filteredQueue.indexOfFirst { it.id == ct.id } } ?: -1
+            if (newIdx >= 0) {
+                _currentIndex.value = newIdx
+            }
+            Log.d(TAG, "Queue filtered for offline: was ${currentQueue.size}, now ${filteredQueue.size}, currentIdx=${_currentIndex.value}")
+        }
     }
 
     private fun initializeMediaController() {
@@ -314,6 +377,22 @@ class PlaybackManager(
             }
         }
 
+        val isOffline = !netMonitor.isOnline.value
+        if (isOffline) {
+            Log.w(TAG, "Player error occurred while offline. Attempting graceful advance to next offline track.")
+            val q = _queue.value
+            val curIdx = _currentIndex.value
+            val nextOfflineIndex = (curIdx + 1 until q.size).firstOrNull { isTrackPlayableOffline(q[it]) }
+                ?: (0 until curIdx).firstOrNull { isTrackPlayableOffline(q[it]) }
+            if (nextOfflineIndex != null) {
+                Log.i(TAG, "Gracefully moving to next offline track at index $nextOfflineIndex: ${q[nextOfflineIndex].title}")
+                playTrackAtIndex(nextOfflineIndex)
+                return
+            } else {
+                _isPlaying.value = false
+            }
+        }
+
         val rootCause = error.cause
         val detail = if (rootCause is HttpDataSource.InvalidResponseCodeException) {
             "HTTP ${rootCause.responseCode}"
@@ -337,29 +416,60 @@ class PlaybackManager(
             }
         }
 
-        if (newQueue != null) {
-            _queue.value = newQueue
-            _currentIndex.value = startIndex?.takeIf { it in newQueue.indices }
-                ?: newQueue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+        val isOffline = !netMonitor.isOnline.value
+        val effectiveQueue: List<PlayableTrack> = if (newQueue != null) {
+            if (isOffline) {
+                newQueue.filter { isTrackPlayableOffline(it) }
+            } else {
+                newQueue
+            }
         } else if (_queue.value.none { it.id == track.id }) {
-            _queue.value = listOf(track)
-            _currentIndex.value = 0
+            if (isOffline && !isTrackPlayableOffline(track)) {
+                emptyList()
+            } else {
+                listOf(track)
+            }
         } else {
-            _currentIndex.value = startIndex?.takeIf { it in _queue.value.indices }
-                ?: _queue.value.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+            if (isOffline) {
+                _queue.value.filter { isTrackPlayableOffline(it) }
+            } else {
+                _queue.value
+            }
+        }
+
+        if (isOffline && !isTrackPlayableOffline(track) && effectiveQueue.isEmpty()) {
+            Log.w(TAG, "Cannot play track offline: '${track.title}' has no local copy")
+            _playbackError.value = "Device is offline and no local copy is available for \"${track.title}\""
+            _isPlaying.value = false
+            return
+        }
+
+        val targetTrack = if (effectiveQueue.any { it.id == track.id }) {
+            track
+        } else {
+            effectiveQueue.firstOrNull() ?: track
+        }
+
+        if (effectiveQueue.isNotEmpty()) {
+            _queue.value = effectiveQueue
+            _currentIndex.value = startIndex?.takeIf { it in effectiveQueue.indices && effectiveQueue[it].id == targetTrack.id }
+                ?: effectiveQueue.indexOfFirst { it.id == targetTrack.id }.coerceAtLeast(0)
+        } else {
+            _queue.value = listOf(targetTrack)
+            _currentIndex.value = 0
         }
 
         Log.d(
             TAG,
-            "LyroPlayback: Starting playback -> queueSize=${_queue.value.size}, currentIndex=${_currentIndex.value}, title=${track.title}, isRadio=$isRadio"
+            "LyroPlayback: Starting playback -> queueSize=${_queue.value.size}, currentIndex=${_currentIndex.value}, title=${targetTrack.title}, isRadio=$isRadio"
         )
 
-        _currentTrack.value = track
+        _currentTrack.value = targetTrack
         _playbackError.value = null
         expiredUrlRetryCount = 0
         failedProfilesForCurrentTrack.clear()
 
-        dispatchPlayback(track, isRadio = isRadio)
+        dispatchPlayback(targetTrack, isRadio = isRadio)
     }
 
     /**
@@ -367,9 +477,13 @@ class PlaybackManager(
      */
     fun appendToQueue(tracks: List<PlayableTrack>) {
         if (tracks.isEmpty()) return
+        val isOffline = !netMonitor.isOnline.value
+        val validTracks = if (isOffline) tracks.filter { isTrackPlayableOffline(it) } else tracks
+        if (validTracks.isEmpty()) return
+
         val current = _queue.value
         val existingIds = current.map { it.id }.toSet()
-        val toAdd = tracks.filter { !existingIds.contains(it.id) }
+        val toAdd = validTracks.filter { !existingIds.contains(it.id) }
         if (toAdd.isNotEmpty()) {
             _queue.value = current + toAdd
             Log.d(TAG, "LyroPlayback: Appended ${toAdd.size} tracks to queue (new total: ${_queue.value.size})")
@@ -380,6 +494,10 @@ class PlaybackManager(
      * Appends a single track to the end of the queue.
      */
     fun addTrackToQueue(track: PlayableTrack) {
+        if (!netMonitor.isOnline.value && !isTrackPlayableOffline(track)) {
+            Log.w(TAG, "Cannot add track '${track.title}' to queue while offline: not available offline")
+            return
+        }
         val current = _queue.value
         _queue.value = current + track
         Log.d(TAG, "LyroPlayback: Added track '${track.title}' to queue (new total: ${_queue.value.size})")
@@ -389,6 +507,10 @@ class PlaybackManager(
      * Inserts a track immediately after the currently playing track so it plays next.
      */
     fun playNextTrack(track: PlayableTrack) {
+        if (!netMonitor.isOnline.value && !isTrackPlayableOffline(track)) {
+            Log.w(TAG, "Cannot set '${track.title}' as next track while offline: not available offline")
+            return
+        }
         val current = _queue.value.toMutableList()
         val curIdx = _currentIndex.value
         val insertIdx = (curIdx + 1).coerceIn(0, current.size)
@@ -448,7 +570,8 @@ class PlaybackManager(
         when (source) {
             is PlaybackSource.Local -> {
                 _currentResolvedStream.value = null
-                playLocalSource(track, source.uri, source.localSong)
+                val targetUri = source.uri ?: source.localSong?.contentUriString?.let { Uri.parse(it) } ?: Uri.EMPTY
+                playLocalSource(track, targetUri, source.localSong)
             }
             is PlaybackSource.Online -> {
                 playOnlineSource(track, source.videoId)
@@ -594,14 +717,27 @@ class PlaybackManager(
                 // RadioManager may not be initialized yet
             }
         }
+
+        val isOffline = !netMonitor.isOnline.value
+        val candidateQueue = if (isOffline) {
+            val curId = _currentTrack.value?.id
+            _queue.value.filter { it.id == curId || isTrackPlayableOffline(it) }
+        } else {
+            _queue.value
+        }
+        if (candidateQueue.size != _queue.value.size) {
+            _queue.value = candidateQueue
+            val curId = _currentTrack.value?.id
+            _currentIndex.value = candidateQueue.indexOfFirst { it.id == curId }.coerceAtLeast(0)
+        }
         val q = _queue.value
         if (q.isEmpty()) return
 
         val curIdx = _currentIndex.value
         val curTrack = q.getOrNull(curIdx)
 
-        val nextIndex = if (_isShuffle.value) {
-            val candidates = q.indices.filter { it != curIdx }
+        var nextIndex = if (_isShuffle.value) {
+            val candidates = q.indices.filter { it != curIdx && (!isOffline || isTrackPlayableOffline(q[it])) }
             if (candidates.isNotEmpty()) candidates.random() else curIdx
         } else {
             when (_repeatMode.value) {
@@ -621,6 +757,18 @@ class PlaybackManager(
             return
         }
 
+        if (isOffline && !isTrackPlayableOffline(q[nextIndex])) {
+            val nextOffline = (nextIndex until q.size).firstOrNull { isTrackPlayableOffline(q[it]) }
+                ?: (0 until nextIndex).firstOrNull { isTrackPlayableOffline(q[it]) }
+            if (nextOffline != null) {
+                nextIndex = nextOffline
+            } else {
+                Log.w(TAG, "LyroPlayback: No offline-safe tracks remaining in queue")
+                _isPlaying.value = false
+                return
+            }
+        }
+
         val nextTrack = q[nextIndex]
         Log.d(
             TAG,
@@ -631,6 +779,7 @@ class PlaybackManager(
     }
 
     fun skipPrevious() {
+        val isOffline = !netMonitor.isOnline.value
         val q = _queue.value
         if (q.isEmpty()) return
 
@@ -643,8 +792,8 @@ class PlaybackManager(
         val curIdx = _currentIndex.value
         val curTrack = q.getOrNull(curIdx)
 
-        val prevIndex = if (_isShuffle.value) {
-            val candidates = q.indices.filter { it != curIdx }
+        var prevIndex = if (_isShuffle.value) {
+            val candidates = q.indices.filter { it != curIdx && (!isOffline || isTrackPlayableOffline(q[it])) }
             if (candidates.isNotEmpty()) candidates.random() else curIdx
         } else {
             when (_repeatMode.value) {
@@ -653,6 +802,14 @@ class PlaybackManager(
                 else -> { // Player.REPEAT_MODE_OFF
                     if (curIdx > 0) curIdx - 1 else 0
                 }
+            }
+        }
+
+        if (isOffline && !isTrackPlayableOffline(q[prevIndex])) {
+            val prevOffline = (prevIndex downTo 0).firstOrNull { isTrackPlayableOffline(q[it]) }
+                ?: (q.size - 1 downTo prevIndex).firstOrNull { isTrackPlayableOffline(q[it]) }
+            if (prevOffline != null) {
+                prevIndex = prevOffline
             }
         }
 
