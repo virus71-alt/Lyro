@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyro.app.core.designsystem.*
+import com.lyro.app.data.local.DownloadedMetadata
 import com.lyro.app.data.model.Playlist
 import com.lyro.app.data.model.Song
 import com.lyro.app.data.model.toLocalTrack
@@ -42,7 +43,8 @@ import com.lyro.app.ui.songs.SongsViewModel
 enum class LibraryFilter {
     ALL,
     PLAYLISTS,
-    LIKED
+    LIKED,
+    DOWNLOADS
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,6 +68,9 @@ fun LibraryScreen(
     val currentTrack by viewModel.currentTrack.collectAsState()
     val isPlaying by viewModel.isPlaying.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
+
+    val downloadedList by viewModel.downloadedMetadataList.collectAsState()
+    var downloadSubFilter by rememberSaveable { mutableStateOf("ALL") }
 
     var selectedFilter by rememberSaveable { mutableStateOf(LibraryFilter.ALL) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
@@ -172,6 +177,17 @@ fun LibraryScreen(
                     }
                 )
 
+                LyroChip(
+                    text = "Downloads (${downloadedList.size})",
+                    selected = selectedFilter == LibraryFilter.DOWNLOADS,
+                    onClick = {
+                        if (selectedFilter != LibraryFilter.DOWNLOADS) {
+                            haptics.selection()
+                            selectedFilter = LibraryFilter.DOWNLOADS
+                        }
+                    }
+                )
+
                 if (selectedFilter == LibraryFilter.ALL) {
                     LyroChip(
                         text = if (sortOrder == SortOrder.TITLE) "Sort: A-Z" else "Sort: Title",
@@ -198,8 +214,8 @@ fun LibraryScreen(
             }
         }
 
-        // 3. Featured Liked Songs Banner (Shown when not filtering only playlists)
-        if (selectedFilter != LibraryFilter.PLAYLISTS) {
+        // 3. Featured Liked Songs Banner (Shown when not filtering playlists or downloads)
+        if (selectedFilter != LibraryFilter.PLAYLISTS && selectedFilter != LibraryFilter.DOWNLOADS) {
             item(key = "library_liked_card") {
                 Spacer(modifier = Modifier.height(10.dp))
                 val cardShape = RoundedCornerShape(14.dp)
@@ -395,6 +411,187 @@ fun LibraryScreen(
                             }
                         }
                     )
+                }
+            }
+        } else if (selectedFilter == LibraryFilter.DOWNLOADS) {
+            val smartCount = downloadedList.count { it.downloadOrigin == com.lyro.app.data.download.DownloadOrigin.SMART }
+            val manualCount = downloadedList.count { it.downloadOrigin == com.lyro.app.data.download.DownloadOrigin.MANUAL }
+            val filteredDownloads = when (downloadSubFilter) {
+                "SMART" -> downloadedList.filter { it.downloadOrigin == com.lyro.app.data.download.DownloadOrigin.SMART }
+                "MANUAL" -> downloadedList.filter { it.downloadOrigin == com.lyro.app.data.download.DownloadOrigin.MANUAL }
+                else -> downloadedList
+            }
+
+            item(key = "downloads_section_header") {
+                Spacer(modifier = Modifier.height(24.dp))
+                SectionHeader(
+                    title = "Downloads",
+                    subtitle = "${downloadedList.size} offline tracks ($smartCount smart, $manualCount manual)"
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    LyroChip(
+                        text = "All (${downloadedList.size})",
+                        selected = downloadSubFilter == "ALL",
+                        onClick = { downloadSubFilter = "ALL" }
+                    )
+                    LyroChip(
+                        text = "Smart Mix ($smartCount)",
+                        selected = downloadSubFilter == "SMART",
+                        onClick = { downloadSubFilter = "SMART" }
+                    )
+                    LyroChip(
+                        text = "Manual ($manualCount)",
+                        selected = downloadSubFilter == "MANUAL",
+                        onClick = { downloadSubFilter = "MANUAL" }
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            if (filteredDownloads.isEmpty()) {
+                item(key = "empty_downloads") {
+                    LyroEmptyState(
+                        icon = Icons.Default.Download,
+                        title = "No Downloads Found",
+                        description = if (downloadSubFilter == "SMART") {
+                            "Smart Downloads hasn't saved any tracks yet. You can enable it in Settings."
+                        } else if (downloadSubFilter == "MANUAL") {
+                            "You haven't manually downloaded any tracks yet."
+                        } else {
+                            "No downloaded music available offline."
+                        },
+                        primaryButtonText = "View All Tracks",
+                        onPrimaryButtonClick = { selectedFilter = LibraryFilter.ALL }
+                    )
+                }
+            } else {
+                items(filteredDownloads, key = { "dl_${it.videoId}" }) { item ->
+                    val isSmart = item.downloadOrigin == com.lyro.app.data.download.DownloadOrigin.SMART
+                    val onlineTrack = com.lyro.app.data.model.OnlineTrack(
+                        videoId = item.videoId,
+                        title = item.title,
+                        artist = item.artist,
+                        album = item.album,
+                        thumbnailUrl = item.thumbnailUri,
+                        durationMs = item.durationMs,
+                        localUri = if (!item.localPath.isNullOrEmpty()) android.net.Uri.parse(item.localPath) else null
+                    )
+                    val isCur = currentTrack?.id == onlineTrack.id || currentTrack?.onlineVideoId == item.videoId
+                    val sizeMb = item.fileSizeBytes / (1024.0 * 1024.0)
+                    val sizeStr = if (sizeMb > 0) String.format(java.util.Locale.US, "%.1f MB", sizeMb) else ""
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 2.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable {
+                                haptics.click()
+                                viewModel.playTrack(onlineTrack)
+                            }
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(LyroSurfaceElevated),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isSmart) Icons.Default.Check else Icons.Default.Download,
+                                contentDescription = null,
+                                tint = if (isSmart) LyroAccent else LyroTextSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = item.title,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = if (isCur) LyroAccent else LyroTextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = item.artist,
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = LyroTextSecondary,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                if (sizeStr.isNotEmpty()) {
+                                    Text(
+                                        text = "• $sizeStr",
+                                        fontSize = 11.sp,
+                                        color = LyroTextMuted
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(if (isSmart) LyroAccent.copy(alpha = 0.2f) else LyroSurfaceHighlight)
+                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = if (isSmart) "Smart Mix" else "Manual",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (isSmart) LyroAccent else LyroTextSecondary
+                                    )
+                                }
+                            }
+                        }
+
+                        if (isSmart) {
+                            IconButton(
+                                onClick = {
+                                    haptics.click()
+                                    viewModel.promoteSmartDownloadToManual(item.videoId)
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = "Keep offline",
+                                    tint = LyroAccent,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = {
+                                haptics.click()
+                                viewModel.deleteDownload(item.videoId)
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Remove download",
+                                tint = LyroTextMuted,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
         } else if (selectedFilter == LibraryFilter.ALL) {

@@ -58,6 +58,15 @@ class LyroApplication : Application(), ImageLoaderFactory {
     lateinit var queueContinuationManager: com.lyro.app.service.QueueContinuationManager
         private set
 
+    lateinit var smartDownloadPreferences: com.lyro.app.data.preferences.SmartDownloadPreferences
+        private set
+
+    lateinit var smartDownloadManager: com.lyro.app.core.smartdownload.SmartDownloadManager
+        private set
+
+    lateinit var lyroLinkManager: com.lyro.app.link.LyroLinkManager
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -121,6 +130,31 @@ class LyroApplication : Application(), ImageLoaderFactory {
             radioManager = radioManager,
             musicRepository = musicRepository
         )
+
+        // Initialize Smart Downloads (Lyro Smart Offline Mix)
+        smartDownloadPreferences = com.lyro.app.data.preferences.SmartDownloadPreferences(this)
+        val smartCandidateProvider = com.lyro.app.core.smartdownload.SmartDownloadCandidateProvider(
+            recommendationEngine = recommendationEngine,
+            dbHelper = databaseHelper,
+            localMediaIndex = localMediaIndex
+        )
+        val smartRetentionEvaluator = com.lyro.app.core.smartdownload.SmartDownloadRetentionEvaluator()
+        smartDownloadManager = com.lyro.app.core.smartdownload.SmartDownloadManager(
+            context = this,
+            preferences = smartDownloadPreferences,
+            candidateProvider = smartCandidateProvider,
+            retentionEvaluator = smartRetentionEvaluator,
+            downloader = musicDownloader,
+            dbHelper = databaseHelper,
+            playbackManager = playbackManager
+        )
+
+        if (smartDownloadPreferences.isEnabled.value) {
+            smartDownloadManager.schedulePeriodicWork()
+        }
+
+        // Initialize Lyro Link (Local Wi-Fi Streaming Server)
+        lyroLinkManager = com.lyro.app.link.LyroLinkManager(this)
     }
 
     override fun newImageLoader(): ImageLoader {

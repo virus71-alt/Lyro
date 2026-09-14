@@ -566,6 +566,14 @@ class PlaybackManager(
         } catch (e: Exception) {
             Log.w(TAG, "Failed to start recommendation playback session: ${e.message}")
         }
+
+        val trackVideoId = track.onlineVideoId ?: (track as? OnlineTrack)?.videoId ?: track.id
+        coroutineScope.launch {
+            try {
+                com.lyro.app.LyroApplication.instance.databaseHelper.updateDownloadedLastPlayed(trackVideoId, System.currentTimeMillis())
+            } catch (_: Exception) {
+            }
+        }
         val source = sourceResolver.resolve(track)
         when (source) {
             is PlaybackSource.Local -> {

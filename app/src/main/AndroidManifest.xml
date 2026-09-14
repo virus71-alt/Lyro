@@ -21,6 +21,8 @@
     <!-- Permissions for online streaming & network detection -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
 
     <application
         android:name=".LyroApplication"
@@ -57,6 +59,12 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+
+        <!-- Lyro Link Local Wi-Fi Streaming Foreground Service -->
+        <service
+            android:name=".link.LyroLinkService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
 
     </application>
 

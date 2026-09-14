@@ -2,9 +2,11 @@ package com.lyro.app.data.local
 
 import android.content.ContentValues
 import android.content.Context
+import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.net.Uri
+import com.lyro.app.data.download.DownloadOrigin
 import com.lyro.app.data.model.LocalTrack
 import com.lyro.app.data.model.OnlineTrack
 import com.lyro.app.data.model.PlayableTrack
@@ -17,7 +19,7 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
     companion object {
         private const val DATABASE_NAME = "lyro_music.db"
-        private const val DATABASE_VERSION = 6
+        private const val DATABASE_VERSION = 7
 
         // Tables
         const val TABLE_FAVORITES = "favorites"
@@ -26,6 +28,7 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         const val TABLE_PLAYLIST_SONGS = "playlist_songs"
         const val TABLE_HISTORY = "history"
         const val TABLE_DOWNLOADED_METADATA = "downloaded_metadata"
+        const val TABLE_SMART_DOWNLOAD_COOLDOWN = "smart_download_cooldown"
         const val TABLE_HOME_FEED_CACHE = "home_feed_cache"
 
         // Recommendation Engine Tables
@@ -56,6 +59,16 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         const val COL_META_THUMBNAIL_URI = "thumbnail_uri"
         const val COL_META_DURATION = "duration_ms"
         const val COL_META_LOCAL_URI = "local_uri"
+        const val COL_META_DOWNLOAD_ORIGIN = "download_origin"
+        const val COL_META_FILE_SIZE = "file_size_bytes"
+        const val COL_META_DOWNLOADED_AT = "downloaded_at"
+        const val COL_META_LAST_PLAYED_AT = "last_played_at"
+        const val COL_META_RECOMMENDATION_SCORE = "recommendation_score"
+
+        // Cooldown Columns
+        const val COL_COOLDOWN_VIDEO_ID = "video_id"
+        const val COL_COOLDOWN_REMOVED_AT = "removed_at"
+        const val COL_COOLDOWN_REASON = "reason"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -110,7 +123,22 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
                 $COL_META_ALBUM TEXT,
                 $COL_META_THUMBNAIL_URI TEXT,
                 $COL_META_DURATION INTEGER DEFAULT 0,
-                $COL_META_LOCAL_URI TEXT
+                $COL_META_LOCAL_URI TEXT,
+                $COL_META_DOWNLOAD_ORIGIN TEXT DEFAULT 'MANUAL',
+                $COL_META_FILE_SIZE INTEGER DEFAULT 0,
+                $COL_META_DOWNLOADED_AT INTEGER DEFAULT 0,
+                $COL_META_LAST_PLAYED_AT INTEGER DEFAULT 0,
+                $COL_META_RECOMMENDATION_SCORE REAL DEFAULT 0.0
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_SMART_DOWNLOAD_COOLDOWN (
+                $COL_COOLDOWN_VIDEO_ID TEXT PRIMARY KEY,
+                $COL_COOLDOWN_REMOVED_AT INTEGER NOT NULL,
+                $COL_COOLDOWN_REASON TEXT
             )
             """.trimIndent()
         )
@@ -258,6 +286,24 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         }
         if (oldVersion < 6) {
             createUnifiedFavoritesTable(db)
+        }
+        if (oldVersion < 7) {
+            try {
+                db.execSQL("ALTER TABLE $TABLE_DOWNLOADED_METADATA ADD COLUMN $COL_META_DOWNLOAD_ORIGIN TEXT DEFAULT 'MANUAL'")
+                db.execSQL("ALTER TABLE $TABLE_DOWNLOADED_METADATA ADD COLUMN $COL_META_FILE_SIZE INTEGER DEFAULT 0")
+                db.execSQL("ALTER TABLE $TABLE_DOWNLOADED_METADATA ADD COLUMN $COL_META_DOWNLOADED_AT INTEGER DEFAULT 0")
+                db.execSQL("ALTER TABLE $TABLE_DOWNLOADED_METADATA ADD COLUMN $COL_META_LAST_PLAYED_AT INTEGER DEFAULT 0")
+                db.execSQL("ALTER TABLE $TABLE_DOWNLOADED_METADATA ADD COLUMN $COL_META_RECOMMENDATION_SCORE REAL DEFAULT 0.0")
+            } catch (ignored: Exception) {}
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS $TABLE_SMART_DOWNLOAD_COOLDOWN (
+                    $COL_COOLDOWN_VIDEO_ID TEXT PRIMARY KEY,
+                    $COL_COOLDOWN_REMOVED_AT INTEGER NOT NULL,
+                    $COL_COOLDOWN_REASON TEXT
+                )
+                """.trimIndent()
+            )
         }
     }
 
@@ -519,6 +565,11 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
             put(COL_META_THUMBNAIL_URI, meta.thumbnailUri)
             put(COL_META_DURATION, meta.durationMs)
             put(COL_META_LOCAL_URI, meta.localUri)
+            put(COL_META_DOWNLOAD_ORIGIN, meta.downloadOrigin.name)
+            put(COL_META_FILE_SIZE, meta.fileSizeBytes)
+            put(COL_META_DOWNLOADED_AT, meta.downloadedAt)
+            put(COL_META_LAST_PLAYED_AT, meta.lastPlayedAt)
+            put(COL_META_RECOMMENDATION_SCORE, meta.recommendationScore)
         }
         db.insertWithOnConflict(TABLE_DOWNLOADED_METADATA, null, values, SQLiteDatabase.CONFLICT_REPLACE)
     }
@@ -528,25 +579,55 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         db.delete(TABLE_DOWNLOADED_METADATA, "$COL_META_VIDEO_ID = ?", arrayOf(videoId))
     }
 
+    private fun parseDownloadedMetadata(cursor: Cursor): DownloadedMetadata {
+        val videoIdIdx = cursor.getColumnIndex(COL_META_VIDEO_ID)
+        val displayNameIdx = cursor.getColumnIndex(COL_META_DISPLAY_NAME)
+        val titleIdx = cursor.getColumnIndex(COL_META_TITLE)
+        val artistIdx = cursor.getColumnIndex(COL_META_ARTIST)
+        val albumIdx = cursor.getColumnIndex(COL_META_ALBUM)
+        val thumbIdx = cursor.getColumnIndex(COL_META_THUMBNAIL_URI)
+        val durationIdx = cursor.getColumnIndex(COL_META_DURATION)
+        val localUriIdx = cursor.getColumnIndex(COL_META_LOCAL_URI)
+        val originIdx = cursor.getColumnIndex(COL_META_DOWNLOAD_ORIGIN)
+        val sizeIdx = cursor.getColumnIndex(COL_META_FILE_SIZE)
+        val downloadedAtIdx = cursor.getColumnIndex(COL_META_DOWNLOADED_AT)
+        val lastPlayedIdx = cursor.getColumnIndex(COL_META_LAST_PLAYED_AT)
+        val scoreIdx = cursor.getColumnIndex(COL_META_RECOMMENDATION_SCORE)
+
+        val originStr = if (originIdx != -1) cursor.getString(originIdx) else null
+        val origin = try {
+            if (originStr != null) DownloadOrigin.valueOf(originStr) else DownloadOrigin.MANUAL
+        } catch (_: Exception) {
+            DownloadOrigin.MANUAL
+        }
+
+        return DownloadedMetadata(
+            videoId = if (videoIdIdx != -1) cursor.getString(videoIdIdx) ?: "" else "",
+            displayName = if (displayNameIdx != -1) cursor.getString(displayNameIdx) ?: "" else "",
+            title = if (titleIdx != -1) cursor.getString(titleIdx) ?: "" else "",
+            artist = if (artistIdx != -1) cursor.getString(artistIdx) ?: "" else "",
+            album = if (albumIdx != -1) cursor.getString(albumIdx) else null,
+            thumbnailUri = if (thumbIdx != -1) cursor.getString(thumbIdx) else null,
+            durationMs = if (durationIdx != -1) cursor.getLong(durationIdx) else 0L,
+            localUri = if (localUriIdx != -1) cursor.getString(localUriIdx) else null,
+            downloadOrigin = origin,
+            fileSizeBytes = if (sizeIdx != -1) cursor.getLong(sizeIdx) else 0L,
+            downloadedAt = if (downloadedAtIdx != -1) cursor.getLong(downloadedAtIdx) else 0L,
+            lastPlayedAt = if (lastPlayedIdx != -1) cursor.getLong(lastPlayedIdx) else 0L,
+            recommendationScore = if (scoreIdx != -1) cursor.getFloat(scoreIdx) else 0f
+        )
+    }
+
     fun getDownloadedMetadata(videoId: String): DownloadedMetadata? {
         val db = readableDatabase
         var result: DownloadedMetadata? = null
         try {
             val cursor = db.rawQuery(
-                "SELECT $COL_META_VIDEO_ID, $COL_META_DISPLAY_NAME, $COL_META_TITLE, $COL_META_ARTIST, $COL_META_ALBUM, $COL_META_THUMBNAIL_URI, $COL_META_DURATION, $COL_META_LOCAL_URI FROM $TABLE_DOWNLOADED_METADATA WHERE $COL_META_VIDEO_ID = ? LIMIT 1",
+                "SELECT * FROM $TABLE_DOWNLOADED_METADATA WHERE $COL_META_VIDEO_ID = ? LIMIT 1",
                 arrayOf(videoId)
             )
             if (cursor.moveToFirst()) {
-                result = DownloadedMetadata(
-                    videoId = cursor.getString(0) ?: "",
-                    displayName = cursor.getString(1) ?: "",
-                    title = cursor.getString(2) ?: "",
-                    artist = cursor.getString(3) ?: "",
-                    album = cursor.getString(4),
-                    thumbnailUri = cursor.getString(5),
-                    durationMs = cursor.getLong(6),
-                    localUri = cursor.getString(7)
-                )
+                result = parseDownloadedMetadata(cursor)
             }
             cursor.close()
         } catch (e: Exception) {
@@ -560,28 +641,141 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         val db = readableDatabase
         try {
             val cursor = db.rawQuery(
-                "SELECT $COL_META_VIDEO_ID, $COL_META_DISPLAY_NAME, $COL_META_TITLE, $COL_META_ARTIST, $COL_META_ALBUM, $COL_META_THUMBNAIL_URI, $COL_META_DURATION, $COL_META_LOCAL_URI FROM $TABLE_DOWNLOADED_METADATA",
+                "SELECT * FROM $TABLE_DOWNLOADED_METADATA",
                 null
             )
             while (cursor.moveToNext()) {
-                list.add(
-                    DownloadedMetadata(
-                        videoId = cursor.getString(0) ?: "",
-                        displayName = cursor.getString(1) ?: "",
-                        title = cursor.getString(2) ?: "",
-                        artist = cursor.getString(3) ?: "",
-                        album = cursor.getString(4),
-                        thumbnailUri = cursor.getString(5),
-                        durationMs = cursor.getLong(6),
-                        localUri = cursor.getString(7)
-                    )
-                )
+                list.add(parseDownloadedMetadata(cursor))
             }
             cursor.close()
         } catch (e: Exception) {
             // In case table does not exist
         }
         return list
+    }
+
+    fun getSmartDownloadedMetadata(): List<DownloadedMetadata> {
+        val list = mutableListOf<DownloadedMetadata>()
+        val db = readableDatabase
+        try {
+            val cursor = db.rawQuery(
+                "SELECT * FROM $TABLE_DOWNLOADED_METADATA WHERE $COL_META_DOWNLOAD_ORIGIN = ?",
+                arrayOf(DownloadOrigin.SMART.name)
+            )
+            while (cursor.moveToNext()) {
+                list.add(parseDownloadedMetadata(cursor))
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return list
+    }
+
+    fun getManualDownloadedMetadata(): List<DownloadedMetadata> {
+        val list = mutableListOf<DownloadedMetadata>()
+        val db = readableDatabase
+        try {
+            val cursor = db.rawQuery(
+                "SELECT * FROM $TABLE_DOWNLOADED_METADATA WHERE $COL_META_DOWNLOAD_ORIGIN = ? OR $COL_META_DOWNLOAD_ORIGIN IS NULL",
+                arrayOf(DownloadOrigin.MANUAL.name)
+            )
+            while (cursor.moveToNext()) {
+                list.add(parseDownloadedMetadata(cursor))
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return list
+    }
+
+    fun getSmartDownloadsTotalBytes(): Long {
+        val db = readableDatabase
+        var total = 0L
+        try {
+            val cursor = db.rawQuery(
+                "SELECT SUM($COL_META_FILE_SIZE) FROM $TABLE_DOWNLOADED_METADATA WHERE $COL_META_DOWNLOAD_ORIGIN = ?",
+                arrayOf(DownloadOrigin.SMART.name)
+            )
+            if (cursor.moveToFirst()) {
+                total = cursor.getLong(0)
+            }
+            cursor.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return total
+    }
+
+    fun updateDownloadOrigin(videoId: String, origin: DownloadOrigin) {
+        val db = writableDatabase
+        val cv = ContentValues().apply {
+            put(COL_META_DOWNLOAD_ORIGIN, origin.name)
+        }
+        db.update(TABLE_DOWNLOADED_METADATA, cv, "$COL_META_VIDEO_ID = ?", arrayOf(videoId))
+    }
+
+    fun updateDownloadedLastPlayed(videoId: String, timestamp: Long) {
+        val db = writableDatabase
+        val cv = ContentValues().apply {
+            put(COL_META_LAST_PLAYED_AT, timestamp)
+        }
+        db.update(TABLE_DOWNLOADED_METADATA, cv, "$COL_META_VIDEO_ID = ?", arrayOf(videoId))
+    }
+
+    fun updateDownloadedFileSize(videoId: String, fileSizeBytes: Long) {
+        val db = writableDatabase
+        val cv = ContentValues().apply {
+            put(COL_META_FILE_SIZE, fileSizeBytes)
+        }
+        db.update(TABLE_DOWNLOADED_METADATA, cv, "$COL_META_VIDEO_ID = ?", arrayOf(videoId))
+    }
+
+    fun addToSmartCooldown(videoId: String, reason: String) {
+        val db = writableDatabase
+        val cv = ContentValues().apply {
+            put(COL_COOLDOWN_VIDEO_ID, videoId)
+            put(COL_COOLDOWN_REMOVED_AT, System.currentTimeMillis())
+            put(COL_COOLDOWN_REASON, reason)
+        }
+        db.insertWithOnConflict(TABLE_SMART_DOWNLOAD_COOLDOWN, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun isSmartCooldownActive(videoId: String, cooldownMs: Long = 14L * 24 * 60 * 60 * 1000): Boolean {
+        val db = readableDatabase
+        var active = false
+        try {
+            val cursor = db.rawQuery(
+                "SELECT $COL_COOLDOWN_REMOVED_AT FROM $TABLE_SMART_DOWNLOAD_COOLDOWN WHERE $COL_COOLDOWN_VIDEO_ID = ?",
+                arrayOf(videoId)
+            )
+            if (cursor.moveToFirst()) {
+                val removedAt = cursor.getLong(0)
+                active = (System.currentTimeMillis() - removedAt) < cooldownMs
+            }
+            cursor.close()
+        } catch (_: Exception) {}
+        return active
+    }
+
+    fun cleanExpiredCooldowns(maxAgeMs: Long = 30L * 24 * 60 * 60 * 1000) {
+        val db = writableDatabase
+        val threshold = System.currentTimeMillis() - maxAgeMs
+        try {
+            db.delete(TABLE_SMART_DOWNLOAD_COOLDOWN, "$COL_COOLDOWN_REMOVED_AT < ?", arrayOf(threshold.toString()))
+        } catch (_: Exception) {}
+    }
+
+    fun deleteSmartDownloadsOnly(): List<DownloadedMetadata> {
+        val smartTracks = getSmartDownloadedMetadata()
+        val db = writableDatabase
+        try {
+            db.delete(TABLE_DOWNLOADED_METADATA, "$COL_META_DOWNLOAD_ORIGIN = ?", arrayOf(DownloadOrigin.SMART.name))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return smartTracks
     }
 
     // --- Home Feed Cache ---
@@ -858,11 +1052,18 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
 
 data class DownloadedMetadata(
     val videoId: String,
-    val displayName: String,
+    val displayName: String = "",
     val title: String,
     val artist: String,
-    val album: String?,
-    val thumbnailUri: String?,
+    val album: String? = null,
+    val thumbnailUri: String? = null,
     val durationMs: Long = 0L,
-    val localUri: String? = null
-)
+    val localUri: String? = null,
+    val downloadOrigin: DownloadOrigin = DownloadOrigin.MANUAL,
+    val fileSizeBytes: Long = 0L,
+    val downloadedAt: Long = System.currentTimeMillis(),
+    val lastPlayedAt: Long = 0L,
+    val recommendationScore: Float = 0f
+) {
+    val localPath: String? get() = localUri
+}

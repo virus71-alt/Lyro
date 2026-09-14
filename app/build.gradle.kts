@@ -80,6 +80,12 @@ dependencies {
     // OkHttp for YouTube Music networking and Range probe validation
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
+    // WorkManager for background Smart Downloads maintenance
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
+    // Embedded HTTP server for Lyro Link
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
+
     testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

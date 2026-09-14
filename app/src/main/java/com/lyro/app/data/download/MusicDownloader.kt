@@ -81,8 +81,28 @@ class MusicDownloader(
         }
     }
 
-    suspend fun downloadTrack(track: OnlineTrack): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun downloadTrack(
+        track: OnlineTrack,
+        origin: DownloadOrigin = DownloadOrigin.MANUAL,
+        score: Float = 0f
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         val videoId = track.videoId
+        val dbHelper = com.lyro.app.data.local.LyroDatabaseHelper(context)
+
+        // Check if already downloaded
+        val existingMeta = dbHelper.getDownloadedMetadata(videoId)
+        if (existingMeta != null) {
+            if (existingMeta.downloadOrigin == DownloadOrigin.SMART && origin == DownloadOrigin.MANUAL) {
+                Log.i(TAG, "Promoting Smart download to MANUAL for videoId=$videoId (${track.title})")
+                dbHelper.updateDownloadOrigin(videoId, DownloadOrigin.MANUAL)
+                updateStatus(videoId, DownloadStatus.Completed)
+                return@withContext Result.success(Unit)
+            } else if (existingMeta.localUri != null) {
+                updateStatus(videoId, DownloadStatus.Completed)
+                return@withContext Result.success(Unit)
+            }
+        }
+
         val currentStatus = _downloadStatuses.value[videoId]
         if (currentStatus is DownloadStatus.Downloading) {
             return@withContext Result.success(Unit)
@@ -91,7 +111,7 @@ class MusicDownloader(
         updateStatus(videoId, DownloadStatus.Downloading(0.01f))
 
         try {
-            Log.d(TAG, "Resolving stream for download: videoId=$videoId (${track.title})")
+            Log.d(TAG, "Resolving stream for download: videoId=$videoId (${track.title}) origin=$origin")
             val resolveResult = streamResolver.resolve(videoId, AudioQuality.HIGH)
             if (resolveResult.isFailure) {
                 val err = resolveResult.exceptionOrNull()?.message ?: "Could not resolve audio stream"
@@ -247,7 +267,7 @@ class MusicDownloader(
                 )
             }
 
-            Log.d(TAG, "Download completed for $fileName ($bytesWritten bytes)")
+            Log.d(TAG, "Download completed for $fileName ($bytesWritten bytes) origin=$origin")
             if (writtenUri != null) {
                 // Update authoritative metadata with final localUri and register in index
                 dbHelper.saveDownloadedMetadata(
@@ -259,7 +279,11 @@ class MusicDownloader(
                         album = track.album ?: "YouTube Music",
                         thumbnailUri = localThumbnailUri ?: track.thumbnailUrl,
                         durationMs = track.durationMs,
-                        localUri = writtenUri.toString()
+                        localUri = writtenUri.toString(),
+                        downloadOrigin = origin,
+                        fileSizeBytes = bytesWritten,
+                        downloadedAt = System.currentTimeMillis(),
+                        recommendationScore = score
                     )
                 )
                 localMediaIndex?.registerDownload(videoId, writtenUri, null)
@@ -347,6 +371,49 @@ class MusicDownloader(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to delete download for videoId=$videoId: ${e.message}", e)
             false
+        }
+    }
+
+    suspend fun deleteSmartDownloadsOnly(): Int = withContext(Dispatchers.IO) {
+        try {
+            val dbHelper = com.lyro.app.data.local.LyroDatabaseHelper(context)
+            val smartTracks = dbHelper.deleteSmartDownloadsOnly()
+            var deletedCount = 0
+
+            for (meta in smartTracks) {
+                val videoId = meta.videoId
+                val uriStr = meta.localUri
+                if (!uriStr.isNullOrBlank()) {
+                    try {
+                        val uri = Uri.parse(uriStr)
+                        if (uri.scheme == "file") {
+                            val f = File(uri.path ?: uriStr)
+                            if (f.exists()) f.delete()
+                        } else {
+                            context.contentResolver.delete(uri, null, null)
+                        }
+                    } catch (_: Exception) {}
+                }
+
+                // Delete cached artwork
+                try {
+                    val thumbFile = File(File(context.filesDir, "artwork"), "$videoId.jpg")
+                    if (thumbFile.exists()) thumbFile.delete()
+                } catch (_: Exception) {}
+
+                localMediaIndex?.unregisterDownload(videoId)
+                val map = _downloadStatuses.value.toMutableMap()
+                map.remove(videoId)
+                _downloadStatuses.value = map
+                deletedCount++
+            }
+
+            musicRepository.loadSongs()
+            Log.i(TAG, "Successfully deleted $deletedCount smart-downloaded tracks")
+            deletedCount
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in deleteSmartDownloadsOnly: ${e.message}", e)
+            0
         }
     }
 

@@ -21,8 +21,8 @@ import kotlinx.coroutines.withContext
 class RecommendationEngine(
     val eventRepository: ListeningEventRepository,
     val tasteProfileRepository: TasteProfileRepository,
-    private val candidateGenerator: CandidateGenerator,
-    private val ranker: RecommendationRanker
+    val candidateGenerator: CandidateGenerator,
+    val ranker: RecommendationRanker
 ) {
     companion object {
         private const val TAG = "LyroRecommendationEngine"

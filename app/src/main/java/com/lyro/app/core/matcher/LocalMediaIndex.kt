@@ -27,6 +27,7 @@ class LocalMediaIndex {
 
     // Cached snapshot of all device songs for heuristic scanning
     private val cachedLocalSongs = CopyOnWriteArrayList<Song>()
+    val allLocalSongs: List<Song> get() = cachedLocalSongs.toList()
 
     /**
      * Rebuilds the in-memory index using current MediaStore songs and SQLite downloaded metadata.

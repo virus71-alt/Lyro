@@ -596,7 +596,7 @@ fun ExploreScreen(
                 HorizontalDivider(color = LyroDivider, thickness = 1.dp)
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Play
+                // 1. Play
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -612,7 +612,55 @@ fun ExploreScreen(
                     Text("Play", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 }
 
-                // Start Radio
+                // 2. Play Next
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            selectedTrackForOptions = null
+                            viewModel.playNext(track)
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.SkipNext, contentDescription = null, tint = LyroTextPrimary)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Play Next", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+
+                // 3. Download
+                val isDownloaded = viewModel.isTrackDownloaded(track)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            haptics.click()
+                            selectedTrackForOptions = null
+                            if (isDownloaded) {
+                                viewModel.deleteDownload(track.videoId)
+                            } else {
+                                viewModel.downloadTrack(track)
+                            }
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (isDownloaded) Icons.Default.Check else Icons.Default.Download,
+                        contentDescription = null,
+                        tint = if (isDownloaded) LyroAccent else LyroTextPrimary
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = if (isDownloaded) "Downloaded" else "Download",
+                        color = if (isDownloaded) LyroAccent else LyroTextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // 4. Start Radio
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -632,24 +680,7 @@ fun ExploreScreen(
                     }
                 }
 
-                // Play Next
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            haptics.click()
-                            selectedTrackForOptions = null
-                            viewModel.playNext(track)
-                        }
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(imageVector = Icons.Default.SkipNext, contentDescription = null, tint = LyroTextPrimary)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text("Play Next", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                }
-
-                // Add to Queue
+                // 5. Add to Queue
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -666,24 +697,7 @@ fun ExploreScreen(
                     Text("Add to Queue", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 }
 
-                // Download
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            haptics.click()
-                            selectedTrackForOptions = null
-                            viewModel.downloadTrack(track)
-                        }
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(imageVector = Icons.Default.Download, contentDescription = null, tint = LyroTextPrimary)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text("Download", color = LyroTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                }
-
-                // Favorite Toggle (Unified PlayableTrack)
+                // 6. Favorite Toggle (Unified PlayableTrack)
                 val isFav = likedTracks.any { 
                     (it.onlineVideoId != null && it.onlineVideoId == track.onlineVideoId) ||
                     it.id == track.id
@@ -711,26 +725,6 @@ fun ExploreScreen(
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium
                     )
-                }
-
-                // Not interested
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            haptics.click()
-                            viewModel.markNotInterested(track)
-                            selectedTrackForOptions = null
-                        }
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(imageVector = Icons.Default.Block, contentDescription = null, tint = Color(0xFFEF5350))
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text("Not interested", color = Color(0xFFEF5350), fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                        Text("Don't recommend this track again", color = LyroTextSecondary, fontSize = 12.sp)
-                    }
                 }
             }
         }

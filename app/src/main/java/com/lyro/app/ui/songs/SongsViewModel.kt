@@ -3,8 +3,10 @@ package com.lyro.app.ui.songs
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lyro.app.LyroApplication
+import com.lyro.app.data.download.DownloadOrigin
 import com.lyro.app.data.download.DownloadStatus
 import com.lyro.app.data.download.MusicDownloader
+import com.lyro.app.core.smartdownload.SmartDownloadsState
 import com.lyro.app.data.model.OnlineTrack
 import com.lyro.app.data.model.PlayableTrack
 import com.lyro.app.data.model.Playlist
@@ -50,9 +52,112 @@ class SongsViewModel(
         return musicDownloader.isTrackDownloaded(track)
     }
 
+    // Smart Downloads State & Actions
+    val smartDownloadManager = LyroApplication.instance.smartDownloadManager
+    val smartDownloadPreferences = LyroApplication.instance.smartDownloadPreferences
+    val smartDownloadState: StateFlow<SmartDownloadsState> = smartDownloadManager.state
+
+    val downloadedMetadataList: StateFlow<List<com.lyro.app.data.local.DownloadedMetadata>> = combine(
+        musicDownloader.downloadStatuses,
+        smartDownloadManager.state
+    ) { _, _ ->
+        withContext(Dispatchers.IO) {
+            LyroApplication.instance.databaseHelper.getAllDownloadedMetadata()
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun promoteSmartDownloadToManual(videoId: String) {
+        viewModelScope.launch {
+            smartDownloadManager.promoteToManual(videoId)
+        }
+    }
+
+    fun setSmartDownloadsEnabled(enabled: Boolean) {
+        smartDownloadPreferences.setEnabled(enabled)
+        if (enabled) {
+            smartDownloadManager.schedulePeriodicWork()
+            smartDownloadManager.refreshOfflineMix()
+        } else {
+            smartDownloadManager.cancelWork()
+        }
+        smartDownloadManager.refreshState()
+    }
+
+    fun setSmartDownloadLimit(limitBytes: Long) {
+        smartDownloadPreferences.setStorageLimitBytes(limitBytes)
+        smartDownloadManager.refreshState()
+        if (smartDownloadPreferences.isEnabled.value) {
+            smartDownloadManager.refreshOfflineMix()
+        }
+    }
+
+    fun setSmartDownloadWifiOnly(wifiOnly: Boolean) {
+        smartDownloadPreferences.setWifiOnly(wifiOnly)
+        if (smartDownloadPreferences.isEnabled.value) {
+            smartDownloadManager.schedulePeriodicWork()
+        }
+    }
+
+    fun setSmartDownloadChargingOnly(chargingOnly: Boolean) {
+        smartDownloadPreferences.setChargingOnly(chargingOnly)
+        if (smartDownloadPreferences.isEnabled.value) {
+            smartDownloadManager.schedulePeriodicWork()
+        }
+    }
+
+    fun refreshOfflineMix() {
+        smartDownloadManager.refreshOfflineMix()
+    }
+
+    fun removeSmartDownloads() {
+        viewModelScope.launch {
+            smartDownloadManager.removeSmartDownloads()
+        }
+    }
+
+    fun markConsentSeen() {
+        smartDownloadPreferences.setHasSeenConsentDialog(true)
+    }
+
+    // Lyro Link (Local Wi-Fi Streaming Server)
+    val lyroLinkManager = LyroApplication.instance.lyroLinkManager
+    val lyroLinkState: StateFlow<com.lyro.app.link.LyroLinkState> = lyroLinkManager.state
+
+    fun startLyroLink() {
+        lyroLinkManager.start()
+    }
+
+    fun stopLyroLink() {
+        lyroLinkManager.stop()
+    }
+
+    fun regenerateLinkPairingCode() {
+        lyroLinkManager.regeneratePairingCode()
+    }
+
+    fun downloadTrack(track: PlayableTrack) {
+        if (track is OnlineTrack) {
+            downloadTrack(track)
+            return
+        }
+        val targetVideoId = track.onlineVideoId
+        if (targetVideoId != null) {
+            val online = OnlineTrack(
+                videoId = targetVideoId,
+                title = track.title,
+                artist = track.artist,
+                album = track.album,
+                durationMs = track.durationMs,
+                thumbnailUrl = track.artworkUriString
+            )
+            downloadTrack(online)
+        }
+    }
+
     fun downloadTrack(track: OnlineTrack) {
         viewModelScope.launch {
-            musicDownloader.downloadTrack(track)
+            musicDownloader.downloadTrack(track, origin = DownloadOrigin.MANUAL)
+            smartDownloadManager.refreshState()
             try {
                 LyroApplication.instance.listeningEventRepository.recordEvent(
                     com.lyro.app.recommendation.model.ListeningEvent(
@@ -72,17 +177,24 @@ class SongsViewModel(
 
     fun deleteDownload(videoId: String) {
         viewModelScope.launch {
+            val meta = withContext(Dispatchers.IO) { LyroApplication.instance.databaseHelper.getDownloadedMetadata(videoId) }
+            val isSmart = meta?.downloadOrigin == DownloadOrigin.SMART
             musicDownloader.deleteDownload(videoId)
+            if (isSmart) {
+                withContext(Dispatchers.IO) {
+                    LyroApplication.instance.databaseHelper.addToSmartCooldown(
+                        videoId = videoId,
+                        reason = "USER_DELETED"
+                    )
+                }
+            }
+            smartDownloadManager.refreshState()
         }
     }
 
     fun deleteDownload(track: PlayableTrack) {
-        val videoId = track.onlineVideoId ?: (track as? OnlineTrack)?.videoId
-        if (videoId != null) {
-            viewModelScope.launch {
-                musicDownloader.deleteDownload(videoId)
-            }
-        }
+        val videoId = track.onlineVideoId ?: (track as? OnlineTrack)?.videoId ?: track.id
+        deleteDownload(videoId)
     }
 
     // Search query
@@ -919,6 +1031,25 @@ class SongsViewModel(
         _homeRecommended.value = _homeRecommended.value.filter { it.id != track.id && it.onlineVideoId != vid }
         _homeTrending.value = _homeTrending.value.filter { it.id != track.id && it.onlineVideoId != vid }
         _homeDiscover.value = _homeDiscover.value.filter { it.id != track.id && it.onlineVideoId != vid }
+
+        viewModelScope.launch {
+            try {
+                val dbHelper = LyroApplication.instance.databaseHelper
+                val meta = withContext(Dispatchers.IO) { dbHelper.getDownloadedMetadata(vid) }
+                if (meta != null && meta.downloadOrigin == DownloadOrigin.SMART) {
+                    musicDownloader.deleteDownload(vid)
+                    withContext(Dispatchers.IO) {
+                        dbHelper.addToSmartCooldown(
+                            videoId = vid,
+                            reason = "NOT_INTERESTED"
+                        )
+                    }
+                    smartDownloadManager.refreshState()
+                }
+            } catch (e: Exception) {
+                Log.w("SongsViewModel", "Failed to cleanup not interested smart download: ${e.message}")
+            }
+        }
     }
 
     // Lyro Radio StateFlows
