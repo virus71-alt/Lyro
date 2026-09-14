@@ -3,1371 +3,264 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lyro Link — Local Wi-Fi Music Player</title>
-  <style>
-    :root {
-      --bg: #0d0d0d;
-      --surface: #161616;
-      --surface-elevated: #202020;
-      --border: #282828;
-      --accent: #e0fe10;
-      --accent-hover: #ccee0c;
-      --text-primary: #ffffff;
-      --text-secondary: #a0a0a0;
-      --text-muted: #666666;
-      --error: #ef5350;
-      --radius: 12px;
-      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: var(--font);
-      -webkit-font-smoothing: antialiased;
-    }
-
-    body {
-      background-color: var(--bg);
-      color: var(--text-primary);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow-x: hidden;
-    }
-
-    /* Auth / Pairing Screen */
-    #auth-screen {
-      position: fixed;
-      inset: 0;
-      background: var(--bg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      padding: 20px;
-    }
-
-    .auth-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 40px;
-      max-width: 440px;
-      width: 100%;
-      text-align: center;
-      box-shadow: 0 16px 40px rgba(0,0,0,0.6);
-    }
-
-    .auth-logo {
-      width: 60px;
-      height: 60px;
-      border-radius: 16px;
-      background: var(--accent);
-      color: #000;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 20px;
-      font-weight: 900;
-      font-size: 28px;
-    }
-
-    .auth-title {
-      font-size: 24px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-
-    .auth-subtitle {
-      color: var(--text-secondary);
-      font-size: 14px;
-      line-height: 1.5;
-      margin-bottom: 28px;
-    }
-
-    .pin-input {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      margin-bottom: 24px;
-    }
-
-    .pin-input input {
-      width: 48px;
-      height: 56px;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text-primary);
-      font-size: 24px;
-      font-weight: 700;
-      text-align: center;
-      outline: none;
-      transition: all 0.2s;
-    }
-
-    .pin-input input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(224, 254, 16, 0.2);
-    }
-
-    .btn-primary {
-      width: 100%;
-      padding: 14px;
-      background: var(--accent);
-      color: #000000;
-      border: none;
-      border-radius: 12px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
-    }
-
-    .btn-primary:hover {
-      background: var(--accent-hover);
-    }
-
-    .btn-primary:active {
-      transform: scale(0.98);
-    }
-
-    .auth-error {
-      margin-top: 14px;
-      color: var(--error);
-      font-size: 13px;
-      display: none;
-    }
-
-    /* Main App Interface */
-    #app-screen {
-      display: none;
-      flex-direction: column;
-      min-height: 100vh;
-      padding-bottom: 120px;
-    }
-
-    /* Header */
-    header {
-      position: sticky;
-      top: 0;
-      background: rgba(13, 13, 13, 0.92);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-      padding: 14px 28px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      z-index: 100;
-      gap: 20px;
-    }
-
-    .brand-section {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .brand-logo {
-      width: 32px;
-      height: 32px;
-      background: var(--accent);
-      color: #000;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      font-size: 16px;
-    }
-
-    .brand-name {
-      font-size: 18px;
-      font-weight: 800;
-      letter-spacing: 0.5px;
-    }
-
-    .badge-status {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      background: rgba(224, 254, 16, 0.12);
-      color: var(--accent);
-      border: 1px solid rgba(224, 254, 16, 0.25);
-    }
-
-    .badge-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--accent);
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
-      100% { opacity: 1; transform: scale(1); }
-    }
-
-    .search-bar {
-      flex: 1;
-      max-width: 460px;
-      position: relative;
-    }
-
-    .search-bar input {
-      width: 100%;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 16px 10px 38px;
-      color: var(--text-primary);
-      font-size: 14px;
-      outline: none;
-      transition: border 0.2s;
-    }
-
-    .search-bar input:focus {
-      border-color: var(--accent);
-    }
-
-    .search-icon {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-secondary);
-      pointer-events: none;
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .btn-icon {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-icon:hover {
-      background: var(--surface-elevated);
-      color: var(--text-primary);
-    }
-
-    /* Tabs & Content */
-    .tab-bar {
-      display: flex;
-      gap: 10px;
-      padding: 20px 28px 10px;
-      overflow-x: auto;
-      scrollbar-width: none;
-    }
-
-    .tab-bar::-webkit-scrollbar {
-      display: none;
-    }
-
-    .tab-btn {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      padding: 8px 18px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.2s;
-    }
-
-    .tab-btn:hover {
-      color: var(--text-primary);
-      background: var(--surface-elevated);
-    }
-
-    .tab-btn.active {
-      background: var(--accent);
-      color: #000;
-      border-color: var(--accent);
-    }
-
-    .content-area {
-      padding: 16px 28px;
-      flex: 1;
-    }
-
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 18px;
-    }
-
-    .section-title {
-      font-size: 20px;
-      font-weight: 700;
-    }
-
-    .section-subtitle {
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
-
-    .offline-banner {
-      background: #252210;
-      border: 1px solid #756a1b;
-      color: #f7e463;
-      padding: 10px 16px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    /* Grid of Tracks */
-    .track-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-      gap: 18px;
-    }
-
-    .track-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px;
-      cursor: pointer;
-      transition: transform 0.2s, background 0.2s, border-color 0.2s;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .track-card:hover {
-      background: var(--surface-elevated);
-      border-color: #383838;
-      transform: translateY(-3px);
-    }
-
-    .track-card.playing {
-      border-color: var(--accent);
-      background: rgba(224, 254, 16, 0.05);
-    }
-
-    .artwork-container {
-      width: 100%;
-      aspect-ratio: 1 / 1;
-      border-radius: 8px;
-      background: #111;
-      position: relative;
-      overflow: hidden;
-      margin-bottom: 10px;
-    }
-
-    .artwork-container img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .play-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-
-    .track-card:hover .play-overlay {
-      opacity: 1;
-    }
-
-    .play-btn-circle {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transform: scale(0.9);
-      transition: transform 0.2s;
-    }
-
-    .track-card:hover .play-btn-circle {
-      transform: scale(1);
-    }
-
-    .track-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-bottom: 4px;
-    }
-
-    .track-artist {
-      font-size: 12px;
-      color: var(--text-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-bottom: 8px;
-    }
-
-    .track-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: auto;
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .badge-tag {
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: var(--surface-elevated);
-      color: var(--text-secondary);
-    }
-
-    .badge-tag.downloaded {
-      background: rgba(224, 254, 16, 0.15);
-      color: var(--accent);
-    }
-
-    .fav-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 4px;
-      transition: color 0.2s;
-    }
-
-    .fav-btn:hover {
-      color: var(--text-primary);
-    }
-
-    .fav-btn.active {
-      color: var(--accent);
-    }
-
-    /* Persistent Bottom Player */
-    #player-bar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 90px;
-      background: #111111;
-      border-top: 1px solid var(--border);
-      padding: 0 28px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      z-index: 500;
-      box-shadow: 0 -8px 24px rgba(0,0,0,0.5);
-    }
-
-    .player-track-info {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      width: 280px;
-      min-width: 180px;
-    }
-
-    .player-artwork {
-      width: 56px;
-      height: 56px;
-      border-radius: 8px;
-      background: #1e1e1e;
-      object-fit: cover;
-    }
-
-    .player-meta {
-      overflow: hidden;
-    }
-
-    .player-title {
-      font-size: 14px;
-      font-weight: 700;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-bottom: 4px;
-    }
-
-    .player-artist {
-      font-size: 12px;
-      color: var(--text-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .player-controls-container {
-      flex: 1;
-      max-width: 600px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .player-buttons {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .ctrl-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-secondary);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-    }
-
-    .ctrl-btn:hover {
-      color: var(--text-primary);
-    }
-
-    .ctrl-btn-play {
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: #000000;
-      box-shadow: 0 2px 10px rgba(224, 254, 16, 0.3);
-    }
-
-    .ctrl-btn-play:hover {
-      background: var(--accent-hover);
-      transform: scale(1.05);
-    }
-
-    .progress-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      font-size: 11px;
-      color: var(--text-secondary);
-    }
-
-    .slider {
-      flex: 1;
-      -webkit-appearance: none;
-      height: 4px;
-      border-radius: 2px;
-      background: #333333;
-      outline: none;
-      cursor: pointer;
-    }
-
-    .slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: var(--text-primary);
-      cursor: pointer;
-      transition: transform 0.1s;
-    }
-
-    .slider:hover::-webkit-slider-thumb {
-      background: var(--accent);
-      transform: scale(1.2);
-    }
-
-    .player-tools {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      width: 240px;
-      justify-content: flex-end;
-    }
-
-    .vol-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 120px;
-    }
-
-    /* Queue Drawer */
-    #queue-drawer {
-      position: fixed;
-      right: 0;
-      top: 0;
-      bottom: 90px;
-      width: 360px;
-      background: var(--surface);
-      border-left: 1px solid var(--border);
-      z-index: 400;
-      transform: translateX(100%);
-      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      display: flex;
-      flex-direction: column;
-      padding: 20px;
-      box-shadow: -10px 0 30px rgba(0,0,0,0.6);
-    }
-
-    #queue-drawer.open {
-      transform: translateX(0);
-    }
-
-    .queue-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .queue-list {
-      flex: 1;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .queue-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 8px;
-      border-radius: 8px;
-      background: var(--surface-elevated);
-      cursor: pointer;
-    }
-
-    .queue-item.current {
-      border: 1px solid var(--accent);
-    }
-
-    .queue-item-meta {
-      flex: 1;
-      overflow: hidden;
-    }
-
-    .queue-item-title {
-      font-size: 13px;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .queue-item-artist {
-      font-size: 11px;
-      color: var(--text-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Toast */
-    #toast {
-      position: fixed;
-      bottom: 105px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(30, 30, 30, 0.95);
-      border: 1px solid var(--border);
-      color: var(--text-primary);
-      padding: 10px 20px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 500;
-      z-index: 1000;
-      display: none;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.5);
-    }
-  </style>
+  <title>Lyro Link — Desktop Web Player</title>
+  <link rel="icon" type="image/png" href="/assets/logo.png">
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 
-  <!-- Pairing / Authentication View -->
+  <!-- =========================================================================
+       1. AUTHENTICATION / PAIRING SCREEN
+       ========================================================================= -->
   <div id="auth-screen">
-    <div class="auth-card">
-      <div class="auth-logo">L</div>
-      <h1 class="auth-title">Connect to Lyro Link</h1>
-      <p class="auth-subtitle">
-        Enter the 6-digit pairing code shown in the <strong>Settings &rarr; Lyro Link</strong> screen on your Android phone.
-      </p>
+    <div class="auth-box">
+      <div class="auth-brand">
+        <img src="/assets/logo.png" alt="Lyro" class="auth-logo" onerror="this.style.display='none';">
+        <span class="auth-brand-name">LYRO</span>
+      </div>
+      <h1 class="auth-title">Connect to Lyro</h1>
+      <p class="auth-subtitle">Enter the 6-digit pairing code displayed on your phone's screen to start streaming</p>
 
-      <div class="pin-input" id="pin-container">
-        <input type="text" maxlength="1" inputmode="numeric" class="pin-digit" autofocus>
-        <input type="text" maxlength="1" inputmode="numeric" class="pin-digit">
-        <input type="text" maxlength="1" inputmode="numeric" class="pin-digit">
-        <input type="text" maxlength="1" inputmode="numeric" class="pin-digit">
-        <input type="text" maxlength="1" inputmode="numeric" class="pin-digit">
-        <input type="text" maxlength="1" inputmode="numeric" class="pin-digit">
+      <div class="pin-container">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" autocomplete="off" autofocus>
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" autocomplete="off">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" autocomplete="off">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" autocomplete="off">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" autocomplete="off">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" autocomplete="off">
       </div>
 
-      <button class="btn-primary" id="btn-pair">Connect Player</button>
-      <div class="auth-error" id="auth-error"></div>
+      <button id="btn-auth-submit" class="btn-auth-submit">Connect</button>
+      <div id="auth-error" class="auth-error-msg"></div>
     </div>
   </div>
 
-  <!-- Main Web Music Player Screen -->
+  <!-- =========================================================================
+       2. MAIN APPLICATION SHELL
+       ========================================================================= -->
   <div id="app-screen">
-    <header>
-      <div class="brand-section">
-        <div class="brand-logo">L</div>
-        <div>
-          <div class="brand-name">LYRO LINK</div>
-        </div>
-        <div class="badge-status" id="badge-status">
-          <div class="badge-dot"></div>
-          <span id="badge-status-text">Connected to Lyro</span>
-        </div>
-      </div>
 
-      <div class="search-bar">
-        <span class="search-icon">&#128269;</span>
-        <input type="text" id="search-input" placeholder="Search your library and songs...">
-      </div>
-
-      <div class="header-actions">
-        <button class="btn-icon" id="btn-refresh" title="Refresh Library">&#8635;</button>
-        <button class="btn-icon" id="btn-logout" title="Disconnect">&#9211;</button>
-      </div>
-    </header>
-
-    <!-- Navigation Tabs -->
-    <div class="tab-bar">
-      <button class="tab-btn active" data-tab="quick-picks">Quick Picks</button>
-      <button class="tab-btn" data-tab="downloaded">Downloaded &amp; Smart Mix</button>
-      <button class="tab-btn" data-tab="liked">Liked Songs</button>
-      <button class="tab-btn" data-tab="device">Device Tracks</button>
-    </div>
-
-    <div class="content-area">
-      <div class="offline-banner" id="offline-banner" style="display: none;">
-        <span>&#9888;</span>
-        <span>Phone is offline from internet. Playing directly from local and downloaded phone storage.</span>
-      </div>
-
-      <div class="section-header">
-        <div>
-          <h2 class="section-title" id="section-title">Quick Picks</h2>
-          <div class="section-subtitle" id="section-subtitle">Recommended for you right now</div>
+    <!-- LEFT SIDEBAR NAVIGATION RAIL -->
+    <aside id="sidebar">
+      <div class="sidebar-header" data-nav="home">
+        <img src="/assets/logo.png" alt="Lyro" class="sidebar-logo" onerror="this.style.display='none';">
+        <div class="sidebar-brand-title">
+          LYRO
+          <span class="sidebar-brand-badge">Link</span>
         </div>
       </div>
 
-      <div class="track-grid" id="track-grid">
-        <!-- Track cards injected by JS -->
-      </div>
-    </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item active" data-nav="home" title="Home">
+          <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+          <span>Home</span>
+        </a>
+        <a class="nav-item" data-nav="library" title="Library">
+          <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+          <span>Library</span>
+        </a>
+      </nav>
 
-    <!-- Persistent Bottom Audio Player -->
-    <div id="player-bar">
-      <div class="player-track-info">
-        <img class="player-artwork" id="player-artwork" src="" alt="">
-        <div class="player-meta">
-          <div class="player-title" id="player-title">Select a track to play</div>
-          <div class="player-artist" id="player-artist">Lyro Link</div>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-section-label">Your Collection</div>
+
+      <nav class="sidebar-nav">
+        <a class="nav-item" data-nav="liked" title="Liked Music">
+          <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          <span>Liked Music</span>
+        </a>
+        <a class="nav-item" data-nav="downloads" title="Downloads">
+          <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+          <span>Downloads</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- MAIN VIEWPORT (STICKY TOPBAR + SCROLLABLE VIEWS) -->
+    <div id="main-viewport">
+
+      <!-- STICKY TOPBAR -->
+      <header id="topbar">
+        <div class="search-container">
+          <svg class="search-icon-inside" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          <input type="text" id="search-input" class="search-input" placeholder="Search songs, artists, albums" autocomplete="off" spellcheck="false">
+          <button id="search-clear-btn" class="search-clear-btn" title="Clear">&times;</button>
         </div>
-        <button class="fav-btn" id="player-fav-btn" title="Like song">&#9825;</button>
-      </div>
 
-      <div class="player-controls-container">
-        <div class="player-buttons">
-          <button class="ctrl-btn" id="btn-prev" title="Previous track">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        <div class="topbar-right-tools">
+          <div class="connection-indicator">
+            <span class="conn-dot"></span>
+            <span id="conn-text">Connected</span>
+          </div>
+
+          <div id="offline-pill" class="offline-pill">
+            <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4c-1.48 0-2.85.43-4.01 1.17l1.46 1.46C10.21 6.23 11.08 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3 0 1.13-.64 2.11-1.56 2.62l1.45 1.45C23.16 17.76 24 16.48 24 15c0-2.64-2.05-4.78-4.65-4.96zM3 5.27l2.75 2.74C2.56 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h11.73l2 2L21 20.73 4.27 4 3 5.27zM7.73 10l8 8H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h1.73z"/></svg>
+            <span>Offline mode</span>
+          </div>
+
+          <button id="btn-refresh" class="icon-btn-subtle" title="Refresh library">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
           </button>
-          <button class="ctrl-btn ctrl-btn-play" id="btn-play-pause" title="Play / Pause">
-            <svg id="play-icon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            <svg id="pause-icon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-          </button>
-          <button class="ctrl-btn" id="btn-next" title="Next track">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="m6 18 8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+
+          <button id="btn-disconnect" class="icon-btn-subtle" title="Disconnect browser">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
           </button>
         </div>
+      </header>
 
-        <div class="progress-row">
-          <span id="current-time">0:00</span>
-          <input type="range" class="slider" id="seek-slider" min="0" max="100" value="0">
-          <span id="total-time">0:00</span>
+      <!-- CONTENT VIEWS -->
+      <main id="content-view">
+        <!-- VIEW: HOME (Dynamic Horizontal Shelves) -->
+        <div id="view-home" class="view-section active"></div>
+
+        <!-- VIEW: SEARCH RESULTS -->
+        <div id="view-search" class="view-section">
+          <div class="shelf-header">
+            <h2 class="shelf-title" id="search-query-title">Search Results</h2>
+          </div>
+          <div class="table-header-row">
+            <div></div>
+            <div>Title</div>
+            <div>Album</div>
+            <div>Time</div>
+            <div></div>
+          </div>
+          <div id="search-results-list" class="track-row-list"></div>
         </div>
-      </div>
 
-      <div class="player-tools">
-        <div class="vol-row">
-          <button class="ctrl-btn" id="btn-mute" title="Mute">
-            <svg id="vol-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
-          </button>
-          <input type="range" class="slider" id="vol-slider" min="0" max="100" value="80">
+        <!-- VIEW: LIBRARY -->
+        <div id="view-library" class="view-section">
+          <div class="shelf-header">
+            <h2 class="shelf-title">Library</h2>
+          </div>
+          <div class="chip-row">
+            <button class="filter-chip active" data-filter="all">All Songs</button>
+            <button class="filter-chip" data-filter="downloads">Downloaded</button>
+            <button class="filter-chip" data-filter="liked">Liked Music</button>
+          </div>
+          <div class="table-header-row">
+            <div></div>
+            <div>Title</div>
+            <div>Album</div>
+            <div>Time</div>
+            <div></div>
+          </div>
+          <div id="library-list" class="track-row-list"></div>
         </div>
-        <button class="btn-icon" id="btn-queue" title="View Queue">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M4 10h12v2H4zm0-4h12v2H4zm0 8h8v2H4zm10 0v6l5-3z"/></svg>
-        </button>
-      </div>
-    </div>
+      </main>
 
-    <!-- Queue Drawer Panel -->
+    </div><!-- /main-viewport -->
+
+    <!-- SLIDE-OUT QUEUE DRAWER -->
     <div id="queue-drawer">
       <div class="queue-header">
-        <h3 style="font-size: 16px; font-weight: 700;">Browser Queue</h3>
-        <button class="btn-icon" id="btn-close-queue">&times;</button>
+        <span class="queue-title">Queue</span>
+        <button id="queue-close-btn" class="icon-btn-subtle" title="Close queue">&times;</button>
       </div>
-      <div class="queue-list" id="queue-list">
-        <!-- Queue items injected by JS -->
+      <div id="queue-list" class="queue-list"></div>
+    </div>
+
+    <!-- NOW PLAYING EXPANDED OVERLAY -->
+    <div id="now-playing-overlay">
+      <button id="np-close-btn" class="np-close-btn icon-btn-subtle" title="Minimize">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+      </button>
+      <div class="np-body">
+        <img id="np-art" class="np-art-large" src="" alt="">
+        <div class="np-details">
+          <h1 id="np-title" class="np-title">Select a track</h1>
+          <h3 id="np-artist" class="np-artist">Lyro Link</h3>
+          <p id="np-album" class="np-album"></p>
+        </div>
       </div>
     </div>
 
+    <!-- PERSISTENT BOTTOM AUDIO PLAYER BAR (DESKTOP-GRADE) -->
+    <footer id="player-bar">
+      <!-- LEFT: Track Info -->
+      <div class="player-left">
+        <div id="player-art-box" class="player-art-box" title="Expand view">
+          <img id="player-art" class="player-art" src="" alt="">
+          <div class="player-art-expand-hint">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#ffffff"><path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/></svg>
+          </div>
+        </div>
+        <div class="player-meta">
+          <div id="player-title" class="player-title">Select a track</div>
+          <div id="player-artist" class="player-artist">Lyro Link</div>
+        </div>
+        <button id="player-like-btn" class="player-like-btn" title="Like">&#9825;</button>
+      </div>
+
+      <!-- CENTER: Transport & Scrubber -->
+      <div class="player-center">
+        <div class="transport-buttons">
+          <button id="btn-shuffle" class="btn-ctrl" title="Shuffle">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+          </button>
+          <button id="btn-prev" class="btn-ctrl" title="Previous">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+          <button id="btn-play-pause" class="btn-play-pause" title="Play / Pause">
+            <svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="icon-pause" viewBox="0 0 24 24" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          </button>
+          <button id="btn-next" class="btn-ctrl" title="Next">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+          <button id="btn-repeat" class="btn-ctrl" title="Repeat off">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+          </button>
+        </div>
+
+        <div class="progress-container">
+          <span id="time-current" class="time-label">0:00</span>
+          <input type="range" id="scrubber" class="scrubber-slider" min="0" max="100" value="0">
+          <span id="time-total" class="time-label right">0:00</span>
+        </div>
+      </div>
+
+      <!-- RIGHT: Volume & Tools -->
+      <div class="player-right">
+        <div class="volume-container">
+          <button id="btn-mute" class="btn-ctrl" title="Mute">
+            <svg id="icon-vol-high" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            <svg id="icon-vol-mute" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+          </button>
+          <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="85">
+        </div>
+
+        <button id="btn-queue" class="btn-ctrl" title="View Queue">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M4 10h12v2H4zm0-4h12v2H4zm0 8h8v2H4zm10 0v6l5-3z"/></svg>
+        </button>
+      </div>
+    </footer>
+
+  </div><!-- /app-screen -->
+
+  <!-- FLOATING CONTEXT MENU -->
+  <div id="floating-menu" class="floating-menu">
+    <div class="menu-item" data-menu-action="play-next">
+      <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+      <span>Play next</span>
+    </div>
+    <div class="menu-item" data-menu-action="add-queue">
+      <svg viewBox="0 0 24 24"><path d="M4 10h12v2H4zm0-4h12v2H4zm0 8h8v2H4zm10 0v6l5-3z"/></svg>
+      <span>Add to queue</span>
+    </div>
+    <div class="menu-item" data-menu-action="toggle-fav">
+      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      <span>Like / Favorite</span>
+    </div>
   </div>
 
+  <!-- FLOATING TOAST -->
   <div id="toast"></div>
 
-  <!-- HTML5 Audio Element for Laptop Playback -->
-  <audio id="audio-player" preload="auto"></audio>
+  <!-- SINGLE PERSISTENT HTML5 AUDIO ELEMENT -->
+  <audio id="persistent-audio" preload="auto"></audio>
 
-  <script>
-    // Lyro Link Client State
-    let authToken = localStorage.getItem('lyro_link_token') || '';
-    let currentTracks = [];
-    let queue = [];
-    let currentTrackIndex = -1;
-    let activeTab = 'quick-picks';
-    let isSeeking = false;
-    let reported50 = false;
-    let reportedComplete = false;
-    let playSessionId = 'session_' + Math.random().toString(36).substring(2, 10);
-
-    const audio = document.getElementById('audio-player');
-    const authScreen = document.getElementById('auth-screen');
-    const appScreen = document.getElementById('app-screen');
-    const authError = document.getElementById('auth-error');
-    const pinDigits = document.querySelectorAll('.pin-digit');
-    const seekSlider = document.getElementById('seek-slider');
-    const volSlider = document.getElementById('vol-slider');
-
-    // Init PIN Auto-Focus
-    pinDigits.forEach((input, index) => {
-      input.addEventListener('input', (e) => {
-        if (e.target.value.length === 1 && index < pinDigits.length - 1) {
-          pinDigits[index + 1].focus();
-        }
-      });
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Backspace' && !e.target.value && index > 0) {
-          pinDigits[index - 1].focus();
-        }
-      });
-      input.addEventListener('paste', (e) => {
-        e.preventDefault();
-        const text = (e.clipboardData || window.clipboardData).getData('text').trim();
-        if (/^\d{6}$/.test(text)) {
-          text.split('').forEach((char, i) => { if (pinDigits[i]) pinDigits[i].value = char; });
-          submitPairing();
-        }
-      });
-    });
-
-    document.getElementById('btn-pair').addEventListener('click', submitPairing);
-
-    async function submitPairing() {
-      const code = Array.from(pinDigits).map(d => d.value).join('');
-      if (code.length !== 6) {
-        showAuthError('Please enter all 6 digits of the pairing code.');
-        return;
-      }
-
-      try {
-        const resp = await fetch('/api/auth/pair', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: code })
-        });
-        const data = await resp.json();
-
-        if (resp.ok && data.token) {
-          authToken = data.token;
-          localStorage.setItem('lyro_link_token', authToken);
-          showApp();
-        } else {
-          showAuthError(data.error || 'Invalid code. Check your phone screen.');
-        }
-      } catch (err) {
-        showAuthError('Failed to connect to phone server. Ensure Wi-Fi is connected.');
-      }
-    }
-
-    function showAuthError(msg) {
-      authError.textContent = msg;
-      authError.style.display = 'block';
-    }
-
-    async function checkAuth() {
-      if (!authToken) {
-        showAuth();
-        return;
-      }
-      try {
-        const resp = await fetch('/api/auth/check', {
-          headers: { 'X-Lyro-Session': authToken }
-        });
-        if (resp.ok) {
-          showApp();
-        } else {
-          localStorage.removeItem('lyro_link_token');
-          authToken = '';
-          showAuth();
-        }
-      } catch (e) {
-        showAuth();
-      }
-    }
-
-    function showAuth() {
-      authScreen.style.display = 'flex';
-      appScreen.style.display = 'none';
-      pinDigits[0].focus();
-    }
-
-    function showApp() {
-      authScreen.style.display = 'none';
-      appScreen.style.display = 'flex';
-      loadTab(activeTab);
-      loadStatus();
-    }
-
-    // Tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        activeTab = btn.getAttribute('data-tab');
-        loadTab(activeTab);
-      });
-    });
-
-    async function loadTab(tab) {
-      const titleElem = document.getElementById('section-title');
-      const subtitleElem = document.getElementById('section-subtitle');
-
-      let url = '/api/library';
-      if (tab === 'quick-picks') {
-        titleElem.textContent = 'Quick Picks';
-        subtitleElem.textContent = 'Endless personalized music from your taste profile';
-        url = '/api/quick-picks';
-      } else if (tab === 'downloaded') {
-        titleElem.textContent = 'Downloaded & Smart Mix';
-        subtitleElem.textContent = 'Offline ready tracks stored directly on your phone';
-        url = '/api/library';
-      } else if (tab === 'liked') {
-        titleElem.textContent = 'Liked Songs';
-        subtitleElem.textContent = 'Tracks you have saved to your favorites';
-        url = '/api/liked';
-      } else if (tab === 'device') {
-        titleElem.textContent = 'Device Tracks';
-        subtitleElem.textContent = 'Local files found in phone storage';
-        url = '/api/library';
-      }
-
-      try {
-        const resp = await fetch(url, { headers: { 'X-Lyro-Session': authToken } });
-        if (resp.status === 401 || resp.status === 403) {
-          showAuth();
-          return;
-        }
-        let tracks = await resp.json();
-
-        if (tab === 'downloaded') {
-          tracks = tracks.filter(t => t.isDownloaded && !t.isLocal);
-        } else if (tab === 'device') {
-          tracks = tracks.filter(t => t.isLocal);
-        }
-
-        currentTracks = tracks;
-        renderTracks(tracks);
-      } catch (err) {
-        showToast('Failed to load tracks from phone');
-      }
-    }
-
-    async function loadStatus() {
-      try {
-        const resp = await fetch('/api/status', { headers: { 'X-Lyro-Session': authToken } });
-        if (resp.ok) {
-          const status = await resp.json();
-          document.getElementById('badge-status-text').textContent = status.deviceName || 'Connected to Lyro';
-          document.getElementById('offline-banner').style.display = status.isOnline ? 'none' : 'flex';
-        }
-      } catch (ignored) {}
-    }
-
-    function renderTracks(tracks) {
-      const grid = document.getElementById('track-grid');
-      grid.innerHTML = '';
-
-      if (tracks.length === 0) {
-        grid.innerHTML = '<div style="grid-column: 1/-1; padding: 40px; text-align: center; color: var(--text-secondary);">No tracks found in this category.</div>';
-        return;
-      }
-
-      tracks.forEach((track, index) => {
-        const card = document.createElement('div');
-        card.className = 'track-card' + (currentTrackIndex >= 0 && queue[currentTrackIndex]?.id === track.id ? ' playing' : '');
-
-        const artworkSrc = track.artworkUrl ? (track.artworkUrl + (track.artworkUrl.includes('?') ? '&' : '?') + 'session=' + authToken) : '';
-
-        card.innerHTML = `
-          <div class="artwork-container">
-            <img src="${artworkSrc}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23444%22><path d=%22M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z%22/></svg>'">
-            <div class="play-overlay">
-              <div class="play-btn-circle">&#9658;</div>
-            </div>
-          </div>
-          <div class="track-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</div>
-          <div class="track-artist" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</div>
-          <div class="track-footer">
-            <span class="badge-tag ${track.isDownloaded ? 'downloaded' : ''}">${track.isLocal ? 'Device' : (track.isDownloaded ? 'Downloaded' : 'Online')}</span>
-            <button class="fav-btn ${track.isFavorite ? 'active' : ''}" data-id="${track.id}">
-              ${track.isFavorite ? '&#9829;' : '&#9825;'}
-            </button>
-          </div>
-        `;
-
-        card.addEventListener('click', (e) => {
-          if (e.target.closest('.fav-btn')) return;
-          playTrackFromList(tracks, index);
-        });
-
-        const favBtn = card.querySelector('.fav-btn');
-        favBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          toggleFavorite(track.id, favBtn);
-        });
-
-        grid.appendChild(card);
-      });
-    }
-
-    async function toggleFavorite(trackId, btnElem) {
-      try {
-        const resp = await fetch(`/api/tracks/${encodeURIComponent(trackId)}/favorite`, {
-          method: 'POST',
-          headers: { 'X-Lyro-Session': authToken }
-        });
-        if (resp.ok) {
-          const res = await resp.json();
-          const isFav = res.isFavorite;
-          if (btnElem) {
-            btnElem.classList.toggle('active', isFav);
-            btnElem.innerHTML = isFav ? '&#9829;' : '&#9825;';
-          }
-          if (queue[currentTrackIndex]?.id === trackId) {
-            const pBtn = document.getElementById('player-fav-btn');
-            pBtn.classList.toggle('active', isFav);
-            pBtn.innerHTML = isFav ? '&#9829;' : '&#9825;';
-          }
-          showToast(isFav ? 'Added to Liked Songs' : 'Removed from Liked Songs');
-        }
-      } catch (err) {
-        showToast('Failed to update favorite');
-      }
-    }
-
-    function playTrackFromList(list, index) {
-      queue = [...list];
-      currentTrackIndex = index;
-      renderQueue();
-      playCurrentTrack();
-    }
-
-    function playCurrentTrack() {
-      if (currentTrackIndex < 0 || currentTrackIndex >= queue.length) return;
-      const track = queue[currentTrackIndex];
-
-      reported50 = false;
-      reportedComplete = false;
-      playSessionId = 'session_' + Math.random().toString(36).substring(2, 10);
-
-      document.getElementById('player-title').textContent = track.title;
-      document.getElementById('player-artist').textContent = track.artist;
-      const artElem = document.getElementById('player-artwork');
-      artElem.src = track.artworkUrl ? (track.artworkUrl + (track.artworkUrl.includes('?') ? '&' : '?') + 'session=' + authToken) : '';
-
-      const pFav = document.getElementById('player-fav-btn');
-      pFav.classList.toggle('active', track.isFavorite);
-      pFav.innerHTML = track.isFavorite ? '&#9829;' : '&#9825;';
-      pFav.onclick = () => toggleFavorite(track.id, pFav);
-
-      // Stream URL with auth token header or param
-      const streamUrl = `${track.streamUrl}?session=${encodeURIComponent(authToken)}`;
-      audio.src = streamUrl;
-      audio.play().catch(err => {
-        showToast('Playback error: ' + err.message);
-      });
-
-      sendEvent(track.id, 'PLAY_STARTED', 0, track.durationMs);
-
-      updatePlayPauseButton(true);
-      highlightCurrentPlaying();
-    }
-
-    // Audio Player Events
-    audio.addEventListener('play', () => updatePlayPauseButton(true));
-    audio.addEventListener('pause', () => updatePlayPauseButton(false));
-
-    audio.addEventListener('timeupdate', () => {
-      if (isSeeking) return;
-      const cur = audio.currentTime;
-      const dur = audio.duration || (queue[currentTrackIndex]?.durationMs ? queue[currentTrackIndex].durationMs / 1000 : 0);
-
-      document.getElementById('current-time').textContent = formatTime(cur);
-      if (dur > 0) {
-        document.getElementById('total-time').textContent = formatTime(dur);
-        seekSlider.value = (cur / dur) * 100;
-
-        if (!reported50 && cur / dur >= 0.5) {
-          reported50 = true;
-          sendEvent(queue[currentTrackIndex]?.id, 'PLAY_50_PERCENT', Math.round(cur * 1000), Math.round(dur * 1000));
-        }
-      }
-    });
-
-    audio.addEventListener('ended', () => {
-      if (!reportedComplete && queue[currentTrackIndex]) {
-        reportedComplete = true;
-        sendEvent(queue[currentTrackIndex].id, 'PLAY_COMPLETED', Math.round(audio.currentTime * 1000), queue[currentTrackIndex].durationMs);
-      }
-      playNext();
-    });
-
-    audio.addEventListener('error', () => {
-      showToast('Track streaming failed or offline unavailable');
-      setTimeout(playNext, 1500);
-    });
-
-    function playNext() {
-      if (currentTrackIndex < queue.length - 1) {
-        currentTrackIndex++;
-        renderQueue();
-        playCurrentTrack();
-      }
-    }
-
-    function playPrev() {
-      if (audio.currentTime > 3) {
-        audio.currentTime = 0;
-      } else if (currentTrackIndex > 0) {
-        currentTrackIndex--;
-        renderQueue();
-        playCurrentTrack();
-      }
-    }
-
-    document.getElementById('btn-play-pause').addEventListener('click', () => {
-      if (audio.paused) {
-        if (!audio.src && queue.length > 0) {
-          playTrackFromList(queue, 0);
-        } else {
-          audio.play();
-        }
-      } else {
-        audio.pause();
-      }
-    });
-
-    document.getElementById('btn-next').addEventListener('click', () => {
-      if (audio.currentTime < 15 && queue[currentTrackIndex]) {
-        sendEvent(queue[currentTrackIndex].id, 'SKIPPED_EARLY', Math.round(audio.currentTime * 1000), queue[currentTrackIndex].durationMs);
-      }
-      playNext();
-    });
-
-    document.getElementById('btn-prev').addEventListener('click', playPrev);
-
-    seekSlider.addEventListener('input', () => { isSeeking = true; });
-    seekSlider.addEventListener('change', () => {
-      const dur = audio.duration || (queue[currentTrackIndex]?.durationMs ? queue[currentTrackIndex].durationMs / 1000 : 0);
-      if (dur > 0) {
-        audio.currentTime = (seekSlider.value / 100) * dur;
-      }
-      isSeeking = false;
-    });
-
-    volSlider.addEventListener('input', () => {
-      audio.volume = volSlider.value / 100;
-    });
-
-    document.getElementById('btn-mute').addEventListener('click', () => {
-      audio.muted = !audio.muted;
-      document.getElementById('vol-icon').style.opacity = audio.muted ? '0.3' : '1';
-    });
-
-    // Queue Drawer
-    const queueDrawer = document.getElementById('queue-drawer');
-    document.getElementById('btn-queue').addEventListener('click', () => {
-      queueDrawer.classList.toggle('open');
-    });
-    document.getElementById('btn-close-queue').addEventListener('click', () => {
-      queueDrawer.classList.remove('open');
-    });
-
-    function renderQueue() {
-      const qList = document.getElementById('queue-list');
-      qList.innerHTML = '';
-      queue.forEach((track, idx) => {
-        const item = document.createElement('div');
-        item.className = 'queue-item' + (idx === currentTrackIndex ? ' current' : '');
-        item.innerHTML = `
-          <div class="queue-item-meta">
-            <div class="queue-item-title">${escapeHtml(track.title)}</div>
-            <div class="queue-item-artist">${escapeHtml(track.artist)}</div>
-          </div>
-          <span style="font-size: 11px; color: var(--text-secondary);">${formatTime(track.durationMs / 1000)}</span>
-        `;
-        item.addEventListener('click', () => {
-          currentTrackIndex = idx;
-          renderQueue();
-          playCurrentTrack();
-        });
-        qList.appendChild(item);
-      });
-    }
-
-    function highlightCurrentPlaying() {
-      document.querySelectorAll('.track-card').forEach((c, idx) => {
-        const id = currentTracks[idx]?.id;
-        c.classList.toggle('playing', id && id === queue[currentTrackIndex]?.id);
-      });
-    }
-
-    // Search
-    let searchTimeout = null;
-    document.getElementById('search-input').addEventListener('input', (e) => {
-      clearTimeout(searchTimeout);
-      const q = e.target.value.trim();
-      searchTimeout = setTimeout(async () => {
-        if (!q) {
-          loadTab(activeTab);
-          return;
-        }
-        document.getElementById('section-title').textContent = 'Search Results';
-        document.getElementById('section-subtitle').textContent = `Matches for "${q}"`;
-        try {
-          const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
-            headers: { 'X-Lyro-Session': authToken }
-          });
-          if (resp.ok) {
-            const results = await resp.json();
-            currentTracks = results;
-            renderTracks(results);
-          }
-        } catch (err) {
-          showToast('Search failed');
-        }
-      }, 300);
-    });
-
-    // Refresh & Logout
-    document.getElementById('btn-refresh').addEventListener('click', () => {
-      loadTab(activeTab);
-      loadStatus();
-      showToast('Library refreshed');
-    });
-
-    document.getElementById('btn-logout').addEventListener('click', () => {
-      localStorage.removeItem('lyro_link_token');
-      authToken = '';
-      audio.pause();
-      showAuth();
-    });
-
-    // Telemetry
-    async function sendEvent(trackId, eventType, positionMs, durationMs) {
-      if (!trackId || !authToken) return;
-      try {
-        await fetch('/api/events', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Lyro-Session': authToken
-          },
-          body: JSON.stringify({
-            trackId: trackId,
-            eventType: eventType,
-            positionMs: positionMs,
-            durationMs: durationMs,
-            sessionId: playSessionId
-          })
-        });
-      } catch (ignored) {}
-    }
-
-    // Utilities
-    function updatePlayPauseButton(isPlaying) {
-      document.getElementById('play-icon').style.display = isPlaying ? 'none' : 'block';
-      document.getElementById('pause-icon').style.display = isPlaying ? 'block' : 'none';
-    }
-
-    function formatTime(seconds) {
-      if (!seconds || isNaN(seconds)) return '0:00';
-      const m = Math.floor(seconds / 60);
-      const s = Math.floor(seconds % 60);
-      return `${m}:${s < 10 ? '0' : ''}${s}`;
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    }
-
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      toast.textContent = msg;
-      toast.style.display = 'block';
-      setTimeout(() => { toast.style.display = 'none'; }, 3000);
-    }
-
-    // Startup
-    checkAuth();
-    setInterval(loadStatus, 15000);
-  </script>
+  <!-- JAVASCRIPT APPLICATION SCRIPT -->
+  <script src="/app.js"></script>
 </body>
 </html>

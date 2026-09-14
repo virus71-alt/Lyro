@@ -766,7 +766,34 @@ fun SettingsScreen(
             if (lyroLinkState.enabled) {
                 HorizontalDivider(color = LyroDivider, thickness = 0.8.dp)
 
-                if (lyroLinkState.running && lyroLinkState.fullAddress != null) {
+                if (lyroLinkState.status == com.lyro.app.link.LyroLinkStatus.STARTING) {
+                    // Starting Card
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(LyroSurfaceHighlight)
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = LyroAccent,
+                                strokeWidth = 2.dp
+                            )
+                            Text(
+                                text = lyroLinkState.statusMessage ?: "Starting Lyro Link...",
+                                fontSize = 13.sp,
+                                color = LyroTextPrimary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                } else if (lyroLinkState.status == com.lyro.app.link.LyroLinkStatus.RUNNING && lyroLinkState.fullAddress != null) {
                     // Address Card
                     Column(
                         modifier = Modifier
@@ -906,7 +933,7 @@ fun SettingsScreen(
                         Text("Stop Lyro Link", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     }
                 } else {
-                    // Status warning / not running
+                    // Status warning / Error state
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -926,6 +953,17 @@ fun SettingsScreen(
                             color = LyroTextSecondary,
                             fontSize = 11.sp
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                haptics.click()
+                                viewModel.startLyroLink()
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = LyroAccent)
+                        ) {
+                            Text("Retry", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
 

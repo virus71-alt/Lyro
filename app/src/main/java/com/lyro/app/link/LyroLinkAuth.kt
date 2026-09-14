@@ -61,7 +61,7 @@ class LyroLinkAuth {
     fun regeneratePairingCode(): String {
         currentPairingCode = generateRandomPairingCode()
         pairingCodeGeneratedAt = System.currentTimeMillis()
-        Log.d(TAG, "Generated new pairing code: $currentPairingCode")
+        Log.d(TAG, "Generated new pairing code")
         return currentPairingCode
     }
 

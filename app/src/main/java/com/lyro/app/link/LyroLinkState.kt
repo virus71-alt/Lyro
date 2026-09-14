@@ -1,9 +1,20 @@
 package com.lyro.app.link
 
 /**
+ * High-level status of the Lyro Link local server and service.
+ */
+enum class LyroLinkStatus {
+    OFF,
+    STARTING,
+    RUNNING,
+    ERROR
+}
+
+/**
  * State of the Lyro Link local Wi-Fi music streaming server.
  */
 data class LyroLinkState(
+    val status: LyroLinkStatus = LyroLinkStatus.OFF,
     val enabled: Boolean = false,
     val running: Boolean = false,
     val localIp: String? = null,

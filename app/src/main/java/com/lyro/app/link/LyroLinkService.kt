@@ -1,5 +1,6 @@
 package com.lyro.app.link
 
+import android.app.ForegroundServiceStartNotAllowedException
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -10,7 +11,9 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.lyro.app.LyroApplication
 import com.lyro.app.MainActivity
 import com.lyro.app.R
 import kotlinx.coroutines.CoroutineScope
@@ -23,10 +26,14 @@ import kotlinx.coroutines.launch
 /**
  * Foreground service to keep the Lyro Link local web server alive and reliable
  * even when the Android device screen turns off or the app is backgrounded.
+ *
+ * Implements defensive foreground promotion to protect the application from
+ * crashing on Android 14+ permission or background execution constraints.
  */
 class LyroLinkService : Service() {
 
     companion object {
+        private const val TAG = "LyroLinkService"
         const val ACTION_START = "com.lyro.app.link.ACTION_START"
         const val ACTION_STOP = "com.lyro.app.link.ACTION_STOP"
         private const val CHANNEL_ID = "lyro_link_foreground_channel"
@@ -44,10 +51,7 @@ class LyroLinkService : Service() {
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, LyroLinkService::class.java).apply {
-                action = ACTION_STOP
-            }
-            context.startService(intent)
+            context.stopService(Intent(context, LyroLinkService::class.java))
         }
     }
 
@@ -63,46 +67,90 @@ class LyroLinkService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                com.lyro.app.LyroApplication.instance.lyroLinkManager.stop()
+                Log.d(TAG, "Received ACTION_STOP intent, cleaning up service and server")
+                try {
+                    LyroApplication.instance.lyroLinkManager.stopServerOnly()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error stopping server during service stop: ${e.message}")
+                }
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
             }
             ACTION_START -> {
-                val notification = buildNotification(
-                    address = com.lyro.app.LyroApplication.instance.lyroLinkManager.state.value.fullAddress ?: "Starting...",
-                    clients = com.lyro.app.LyroApplication.instance.lyroLinkManager.state.value.connectedClients
+                promoteToForeground()
+            }
+        }
+        return START_STICKY
+    }
+
+    private fun promoteToForeground() {
+        Log.d(TAG, "Attempting foreground service promotion...")
+        val notification = buildNotification(
+            address = LyroApplication.instance.lyroLinkManager.state.value.fullAddress ?: "Starting...",
+            clients = LyroApplication.instance.lyroLinkManager.state.value.connectedClients
+        )
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
                 )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    startForeground(
-                        NOTIFICATION_ID,
-                        notification,
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
-                    )
-                } else {
-                    startForeground(NOTIFICATION_ID, notification)
-                }
+            Log.i(TAG, "Foreground service promoted successfully with type connectedDevice")
+            LyroApplication.instance.lyroLinkManager.onForegroundServiceStarted()
 
-                // Collect state changes to update notification dynamically
-                serviceScope.launch {
-                    com.lyro.app.LyroApplication.instance.lyroLinkManager.state.collectLatest { state ->
-                        if (!state.running) {
-                            stopForeground(STOP_FOREGROUND_REMOVE)
-                            stopSelf()
-                        } else {
+            // Observe state changes and update notification without crashing
+            serviceScope.launch {
+                LyroApplication.instance.lyroLinkManager.state.collectLatest { state ->
+                    if (!state.running && state.status != LyroLinkStatus.STARTING) {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                    } else if (state.running) {
+                        try {
                             val updatedNotif = buildNotification(
                                 address = state.fullAddress ?: "Active",
                                 clients = state.connectedClients
                             )
-                            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                            manager.notify(NOTIFICATION_ID, updatedNotif)
+                            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                            manager?.notify(NOTIFICATION_ID, updatedNotif)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to update notification: ${e.message}")
                         }
                     }
                 }
             }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Foreground service promotion failed (SecurityException): ${e.message}", e)
+            handlePromotionFailure("Security permission missing for connectedDevice: ${e.message}")
+        } catch (e: IllegalStateException) {
+            Log.e(TAG, "Foreground service promotion failed (IllegalStateException): ${e.message}", e)
+            handlePromotionFailure("Foreground service start not allowed in current state: ${e.message}")
+        } catch (e: Exception) {
+            val isStartNotAllowed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && e is ForegroundServiceStartNotAllowedException
+            if (isStartNotAllowed) {
+                Log.e(TAG, "Foreground service start not allowed from background: ${e.message}", e)
+                handlePromotionFailure("Cannot start foreground service from background")
+            } else {
+                Log.e(TAG, "Foreground service promotion failed (${e.javaClass.simpleName}): ${e.message}", e)
+                handlePromotionFailure(e.message ?: "Failed to start foreground service")
+            }
         }
-        return START_STICKY
+    }
+
+    private fun handlePromotionFailure(reason: String) {
+        try {
+            LyroApplication.instance.lyroLinkManager.onForegroundServiceFailed(reason)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error notifying manager of failure: ${e.message}")
+        }
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     override fun onDestroy() {
@@ -140,16 +188,20 @@ class LyroLinkService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Lyro Link",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Lyro Link local Wi-Fi music streaming service"
-                setShowBadge(false)
+            try {
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    "Lyro Link",
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = "Lyro Link local Wi-Fi music streaming service"
+                    setShowBadge(false)
+                }
+                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                manager?.createNotificationChannel(channel)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to create notification channel: ${e.message}")
             }
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
         }
     }
 }

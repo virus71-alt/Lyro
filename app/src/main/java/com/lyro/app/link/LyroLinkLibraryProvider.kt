@@ -209,6 +209,69 @@ class LyroLinkLibraryProvider(
     }
 
     /**
+     * Retrieves recently played tracks from history.
+     */
+    suspend fun getRecentTracks(): List<WebTrack> = withContext(Dispatchers.IO) {
+        val app = LyroApplication.instance
+        val recentIds = app.databaseHelper.getRecentSongIds(20)
+        val allSongsMap = app.musicRepository.allSongs.value.associateBy { it.id }
+
+        recentIds.mapNotNull { id ->
+            allSongsMap[id]?.let { song ->
+                val trackId = "local_${song.id}"
+                WebTrack(
+                    id = trackId,
+                    title = song.title,
+                    artist = song.artist,
+                    album = song.album,
+                    durationMs = song.duration,
+                    artworkUrl = "/api/artwork/$trackId",
+                    isDownloaded = true,
+                    isLocal = true,
+                    isFavorite = song.isFavorite,
+                    streamUrl = "/stream/$trackId"
+                )
+            }
+        }
+    }
+
+    data class HomeShelves(
+        val quickPicks: List<WebTrack>,
+        val listenAgain: List<WebTrack>,
+        val downloaded: List<WebTrack>,
+        val favorites: List<WebTrack>,
+        val library: List<WebTrack>
+    ) {
+        fun toJson(): JSONObject = JSONObject().apply {
+            put("quickPicks", JSONArray().apply { quickPicks.forEach { put(it.toJson()) } })
+            put("listenAgain", JSONArray().apply { listenAgain.forEach { put(it.toJson()) } })
+            put("downloaded", JSONArray().apply { downloaded.forEach { put(it.toJson()) } })
+            put("favorites", JSONArray().apply { favorites.forEach { put(it.toJson()) } })
+            put("library", JSONArray().apply { library.forEach { put(it.toJson()) } })
+        }
+    }
+
+    /**
+     * Aggregates personalized shelves for the desktop home feed.
+     */
+    suspend fun getHomeShelves(): HomeShelves = withContext(Dispatchers.IO) {
+        val libraryTracks = getLibraryTracks()
+        val quickPicks = getQuickPicks().take(16)
+        val listenAgain = getRecentTracks().take(12)
+        val downloaded = libraryTracks.filter { it.isDownloaded && !it.isLocal }.take(12)
+        val favorites = getLikedTracks().take(12)
+        val deviceLib = libraryTracks.filter { it.isLocal }.take(12)
+
+        HomeShelves(
+            quickPicks = quickPicks,
+            listenAgain = listenAgain,
+            downloaded = downloaded,
+            favorites = favorites,
+            library = deviceLib
+        )
+    }
+
+    /**
      * Search tracks by query across local library and downloaded songs.
      */
     suspend fun search(query: String): List<WebTrack> = withContext(Dispatchers.IO) {

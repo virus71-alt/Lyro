@@ -43,9 +43,25 @@ class LyroLinkRoutes(
 
         return try {
             when {
-                // 1. Web UI Root
+                // 1. Web UI & Static Assets
                 (uri == "/" || uri == "/index.html") && method == NanoHTTPD.Method.GET -> {
                     serveWebIndex()
+                }
+
+                uri == "/styles.css" && method == NanoHTTPD.Method.GET -> {
+                    serveWebCss()
+                }
+
+                uri == "/app.js" && method == NanoHTTPD.Method.GET -> {
+                    serveWebJs()
+                }
+
+                uri.startsWith("/assets/") && method == NanoHTTPD.Method.GET -> {
+                    serveStaticAsset(uri.removePrefix("/assets/"))
+                }
+
+                uri == "/favicon.ico" && method == NanoHTTPD.Method.GET -> {
+                    serveStaticAsset("logo.png")
                 }
 
                 // 2. Authentication: Pairing
@@ -68,6 +84,10 @@ class LyroLinkRoutes(
                     when {
                         uri == "/api/status" && method == NanoHTTPD.Method.GET -> {
                             handleStatus()
+                        }
+
+                        uri == "/api/home" && method == NanoHTTPD.Method.GET -> {
+                            handleHome()
                         }
 
                         uri == "/api/library" && method == NanoHTTPD.Method.GET -> {
@@ -121,6 +141,28 @@ class LyroLinkRoutes(
     private fun serveWebIndex(): Response {
         val html = webAssets.getIndexHtml()
         return NanoHTTPD.newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", html)
+    }
+
+    private fun serveWebCss(): Response {
+        val css = webAssets.getStylesCss()
+        return NanoHTTPD.newFixedLengthResponse(Response.Status.OK, "text/css; charset=utf-8", css)
+    }
+
+    private fun serveWebJs(): Response {
+        val js = webAssets.getAppJs()
+        return NanoHTTPD.newFixedLengthResponse(Response.Status.OK, "application/javascript; charset=utf-8", js)
+    }
+
+    private fun serveStaticAsset(relativePath: String): Response {
+        val asset = webAssets.openAsset(relativePath)
+            ?: return NanoHTTPD.newFixedLengthResponse(Response.Status.NOT_FOUND, "text/plain", "Asset Not Found")
+        val mime = webAssets.getMimeType(relativePath)
+        return NanoHTTPD.newFixedLengthResponse(Response.Status.OK, mime, asset.first, asset.second)
+    }
+
+    private fun handleHome(): Response {
+        val shelves = runBlocking { libraryProvider.getHomeShelves() }
+        return NanoHTTPD.newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", shelves.toJson().toString())
     }
 
     private fun handlePairing(session: IHTTPSession, clientIp: String): Response {
