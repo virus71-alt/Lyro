@@ -399,7 +399,7 @@
     const artUrl = getTrackArtwork(track);
     row.innerHTML = `
       <div class="quick-pick-art-wrap">
-        <img class="quick-pick-art" src="${artUrl}" loading="lazy" alt="" onerror="this.src=getFallbackArt();">
+        <img class="quick-pick-art" src="${artUrl}" loading="eager" decoding="async" alt="" onerror="this.src=getFallbackArt();">
         <div class="quick-pick-overlay-play">
           <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         </div>
@@ -454,7 +454,7 @@
 
       card.innerHTML = `
         <div class="card-artwork-box">
-          <img class="card-artwork-img" src="${artUrl}" loading="lazy" alt="" onerror="this.src=getFallbackArt();">
+          <img class="card-artwork-img" src="${artUrl}" loading="lazy" decoding="async" alt="" onerror="this.src=getFallbackArt();">
           <div class="card-play-overlay">
             <div class="card-play-circle">
               <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -589,7 +589,7 @@
       const artUrl = getTrackArtwork(track);
 
       row.innerHTML = `
-        <img class="track-row-art" src="${artUrl}" loading="lazy" alt="" onerror="this.src=getFallbackArt();">
+        <img class="track-row-art" src="${artUrl}" loading="lazy" decoding="async" alt="" onerror="this.src=getFallbackArt();">
         <div class="track-row-primary">
           <span class="track-row-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</span>
           <span class="track-row-artist" title="${escapeHtml(track.artist)}">${escapeHtml(track.artist)}</span>
@@ -891,7 +891,7 @@
       const artUrl = getTrackArtwork(track);
 
       item.innerHTML = `
-        <img class="queue-item-art" src="${artUrl}" loading="lazy" alt="" onerror="this.src=getFallbackArt();">
+        <img class="queue-item-art" src="${artUrl}" loading="lazy" decoding="async" alt="" onerror="this.src=getFallbackArt();">
         <div class="queue-item-meta">
           <div class="queue-item-title">${escapeHtml(track.title)}</div>
           <div class="queue-item-artist">${escapeHtml(track.artist)}</div>
@@ -1063,7 +1063,7 @@
   }
 
   function getFallbackArt() {
-    return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="%23262626"><rect width="24" height="24" fill="%23141414"/><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" fill="%23e0fe10"/></svg>';
+    return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24"><rect width="24" height="24" fill="%23161616"/><circle cx="12" cy="12" r="9" fill="%231f1f1f"/><path d="M12 7v7.2c-.44-.2-.93-.32-1.45-.32-1.74 0-3.15 1.34-3.15 3s1.41 3 3.15 3 3.15-1.34 3.15-3V9.5h3.3V7H12z" fill="rgba(255,255,255,0.2)"/><circle cx="16.5" cy="7.8" r="0.9" fill="%23e0fe10"/></svg>';
   }
 
   function highlightPlayingRow() {

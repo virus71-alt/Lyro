@@ -29,7 +29,8 @@ class LyroLinkRoutes(
     private val auth: LyroLinkAuth,
     private val libraryProvider: LyroLinkLibraryProvider,
     private val streamProvider: LyroLinkStreamProvider,
-    private val webAssets: LyroLinkWebAssets
+    private val webAssets: LyroLinkWebAssets,
+    private val artworkProvider: LyroLinkArtworkProvider = LyroLinkArtworkProvider(context, libraryProvider)
 ) {
 
     companion object {
@@ -259,42 +260,39 @@ class LyroLinkRoutes(
     }
 
     private fun handleArtwork(trackId: String): Response {
-        val sanitized = libraryProvider.sanitizeTrackId(trackId)
-            ?: return fallbackArtworkResponse()
-
-        val app = LyroApplication.instance
-        try {
-            if (sanitized.startsWith("local_")) {
-                val songId = sanitized.removePrefix("local_").toLongOrNull()
-                if (songId != null) {
-                    val song = app.musicRepository.allSongs.value.firstOrNull { it.id == songId }
-                    if (song != null) {
-                        val artUri = ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), song.albumId)
-                        try {
-                            val stream = context.contentResolver.openInputStream(artUri)
-                            if (stream != null) {
-                                return NanoHTTPD.newChunkedResponse(Response.Status.OK, "image/jpeg", stream)
-                            }
-                        } catch (ignored: Exception) {}
-                    }
-                }
-            } else if (sanitized.startsWith("yt_")) {
-                val videoId = sanitized.removePrefix("yt_")
-                val artworkFile = File(context.filesDir, "artwork/$videoId.jpg")
-                if (artworkFile.exists()) {
-                    return NanoHTTPD.newFixedLengthResponse(
+        val result = runBlocking { artworkProvider.resolveArtwork(trackId) }
+        return when (result) {
+            is LyroLinkArtworkProvider.ArtworkResult.FileResult -> {
+                try {
+                    NanoHTTPD.newFixedLengthResponse(
                         Response.Status.OK,
-                        "image/jpeg",
-                        FileInputStream(artworkFile),
-                        artworkFile.length()
+                        result.mimeType,
+                        FileInputStream(result.file),
+                        result.file.length()
                     )
+                } catch (e: Exception) {
+                    fallbackArtworkResponse()
                 }
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to load artwork for $trackId: ${e.message}")
+            is LyroLinkArtworkProvider.ArtworkResult.StreamResult -> {
+                if (result.length >= 0) {
+                    NanoHTTPD.newFixedLengthResponse(Response.Status.OK, result.mimeType, result.stream, result.length)
+                } else {
+                    NanoHTTPD.newChunkedResponse(Response.Status.OK, result.mimeType, result.stream)
+                }
+            }
+            is LyroLinkArtworkProvider.ArtworkResult.BytesResult -> {
+                NanoHTTPD.newFixedLengthResponse(
+                    Response.Status.OK,
+                    result.mimeType,
+                    ByteArrayInputStream(result.bytes),
+                    result.bytes.size.toLong()
+                )
+            }
+            is LyroLinkArtworkProvider.ArtworkResult.Fallback -> {
+                fallbackArtworkResponse()
+            }
         }
-
-        return fallbackArtworkResponse()
     }
 
     private fun handleToggleFavorite(trackId: String): Response {
@@ -395,7 +393,7 @@ class LyroLinkRoutes(
     }
 
     private fun fallbackArtworkResponse(): Response {
-        val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="#222222"><rect width="24" height="24" fill="#161616"/><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" fill="#E0FE10"/></svg>"""
+        val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24"><rect width="24" height="24" fill="#161616"/><circle cx="12" cy="12" r="9" fill="#1f1f1f"/><path d="M12 7v7.2c-.44-.2-.93-.32-1.45-.32-1.74 0-3.15 1.34-3.15 3s1.41 3 3.15 3 3.15-1.34 3.15-3V9.5h3.3V7H12z" fill="rgba(255,255,255,0.2)"/><circle cx="16.5" cy="7.8" r="0.9" fill="#e0fe10"/></svg>"""
         return NanoHTTPD.newFixedLengthResponse(Response.Status.OK, "image/svg+xml", svg)
     }
 }

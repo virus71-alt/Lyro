@@ -24,7 +24,15 @@ class LyroLinkLibraryProvider(
     companion object {
         private const val TAG = "LyroLinkLibrary"
         private val VALID_ID_REGEX = Regex("^[a-zA-Z0-9_-]{1,64}$")
+        private const val MAX_WEB_TRACK_CACHE_SIZE = 400
     }
+
+    private val webTrackCache = java.util.concurrent.ConcurrentHashMap<String, PlayableTrack>()
+
+    /**
+     * Retrieves an in-memory cached PlayableTrack by sanitized ID.
+     */
+    fun getCachedPlayableTrack(id: String): PlayableTrack? = webTrackCache[id]
 
     data class WebTrack(
         val id: String,
@@ -291,17 +299,25 @@ class LyroLinkLibraryProvider(
      */
     suspend fun resolveTrack(id: String): PlayableTrack? = withContext(Dispatchers.IO) {
         val sanitized = sanitizeTrackId(id) ?: return@withContext null
+
+        // 1. Check in-memory web track cache first (preserves online-only recommendation metadata)
+        webTrackCache[sanitized]?.let { return@withContext it }
+
         val app = LyroApplication.instance
 
         if (sanitized.startsWith("local_")) {
             val songId = sanitized.removePrefix("local_").toLongOrNull() ?: return@withContext null
             val song = app.musicRepository.allSongs.value.firstOrNull { it.id == songId }
-            return@withContext song?.let { LocalTrack(it) }
+            return@withContext song?.let {
+                val localTrack = LocalTrack(it)
+                webTrackCache[sanitized] = localTrack
+                localTrack
+            }
         } else if (sanitized.startsWith("yt_")) {
             val videoId = sanitized.removePrefix("yt_")
             val meta = app.databaseHelper.getDownloadedMetadata(videoId)
             if (meta != null) {
-                return@withContext OnlineTrack(
+                val onlineTrack = OnlineTrack(
                     videoId = meta.videoId,
                     title = meta.title,
                     artist = meta.artist,
@@ -309,16 +325,36 @@ class LyroLinkLibraryProvider(
                     durationMs = meta.durationMs,
                     thumbnailUrl = meta.thumbnailUri
                 )
+                webTrackCache[sanitized] = onlineTrack
+                return@withContext onlineTrack
             }
-            // If not downloaded but valid videoId
-            return@withContext OnlineTrack(
+
+            // Check unified favorites
+            val favMeta = app.databaseHelper.getUnifiedFavorite("online_$videoId")
+            if (favMeta != null) {
+                val favTrack = OnlineTrack(
+                    videoId = videoId,
+                    title = favMeta.title,
+                    artist = favMeta.artist,
+                    album = favMeta.album,
+                    durationMs = favMeta.durationMs,
+                    thumbnailUrl = favMeta.thumbnailUri
+                )
+                webTrackCache[sanitized] = favTrack
+                return@withContext favTrack
+            }
+
+            // Fallback for valid video ID
+            val fallbackTrack = OnlineTrack(
                 videoId = videoId,
                 title = "Online Track",
                 artist = "YouTube Music",
                 album = "YouTube Music",
                 durationMs = 0L,
-                thumbnailUrl = null
+                thumbnailUrl = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
             )
+            webTrackCache[sanitized] = fallbackTrack
+            return@withContext fallbackTrack
         }
         null
     }
@@ -350,6 +386,13 @@ class LyroLinkLibraryProvider(
             track is OnlineTrack -> "yt_${track.videoId}"
             else -> null
         } ?: return null
+
+        // Cache in memory with bounded eviction
+        if (webTrackCache.size >= MAX_WEB_TRACK_CACHE_SIZE) {
+            val toRemove = webTrackCache.keys().toList().take(50)
+            toRemove.forEach { webTrackCache.remove(it) }
+        }
+        webTrackCache[id] = track
 
         return WebTrack(
             id = id,

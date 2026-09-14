@@ -415,6 +415,34 @@ class LyroDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_
         }
     }
 
+    fun getUnifiedFavorite(canonicalId: String): UnifiedTrack? {
+        val db = readableDatabase
+        val cleanVideoId = canonicalId.removePrefix("online_")
+        val cursor = db.rawQuery(
+            "SELECT $COL_CANONICAL_ID, $COL_META_VIDEO_ID, $COL_META_TITLE, $COL_META_ARTIST, $COL_META_ALBUM, $COL_META_THUMBNAIL_URI, $COL_META_DURATION, $COL_META_LOCAL_URI FROM $TABLE_UNIFIED_FAVORITES WHERE $COL_CANONICAL_ID = ? OR $COL_META_VIDEO_ID = ?",
+            arrayOf(canonicalId, cleanVideoId)
+        )
+        return if (cursor.moveToFirst()) {
+            val track = UnifiedTrack(
+                canonicalId = cursor.getString(0),
+                onlineVideoId = cursor.getString(1),
+                title = cursor.getString(2),
+                artist = cursor.getString(3),
+                album = cursor.getString(4),
+                artworkUrl = cursor.getString(5),
+                durationMs = cursor.getLong(6),
+                localUri = cursor.getString(7)?.let { Uri.parse(it) },
+                localSong = null,
+                isFavorite = true
+            )
+            cursor.close()
+            track
+        } else {
+            cursor.close()
+            null
+        }
+    }
+
     fun getAllUnifiedFavorites(): List<UnifiedTrack> {
         val list = mutableListOf<UnifiedTrack>()
         val db = readableDatabase

@@ -19,6 +19,9 @@ data class UnifiedTrack(
         get() = artworkUrl ?: localSong?.albumArtUriString ?: localSong?.contentUriString
     override val isLocal: Boolean get() = localUri != null
     override val isDownloaded: Boolean get() = localUri != null
+
+    // Compatibility alias for OnlineTrack/DownloadedMetadata callers
+    val thumbnailUri: String? get() = artworkUrl
 }
 
 fun Song.toUnifiedTrack(matchedVideoId: String? = null, highResArt: String? = null): UnifiedTrack {
