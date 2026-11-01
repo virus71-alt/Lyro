@@ -111,7 +111,7 @@ class ArtistDetailScreen extends StatelessWidget {
                                         icon: const Icon(Icons.play_arrow, size: 14),
                                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                         onPressed: artistSongs.isNotEmpty
-                                            ? () => context.read<PlayerProvider>().playSong(artistSongs.first, artistSongs)
+                                            ? () => context.read<PlayerProvider>().playSong(artistSongs.first, artistSongs, source: 'Artist · ${artist.artist}')
                                             : null,
                                       ),
                                       const SizedBox(width: 8),
@@ -123,7 +123,7 @@ class ArtistDetailScreen extends StatelessWidget {
                                         onPressed: artistSongs.isNotEmpty
                                             ? () {
                                                 final shuffled = List.of(artistSongs)..shuffle();
-                                                context.read<PlayerProvider>().playSong(shuffled.first, shuffled);
+                                                context.read<PlayerProvider>().playSong(shuffled.first, shuffled, source: 'Artist · ${artist.artist}');
                                               }
                                             : null,
                                       ),
@@ -144,6 +144,7 @@ class ArtistDetailScreen extends StatelessWidget {
                           return SongTile(
                             song: song,
                             playlist: artistSongs,
+                            source: 'Artist · ${artist.artist}',
                           );
                         },
                         childCount: artistSongs.length,

@@ -11,6 +11,9 @@ import '../../../shared/widgets/nothing_status_badge.dart';
 class SongTile extends StatelessWidget {
   final Song song;
   final List<Song> playlist;
+
+  /// Shown as "Playing from" in the queue, e.g. "Folder · Downloads".
+  final String? source;
   final VoidCallback? onTap;
   final bool showArtwork;
   final bool showFormatBadge;
@@ -19,6 +22,7 @@ class SongTile extends StatelessWidget {
     super.key,
     required this.song,
     required this.playlist,
+    this.source,
     this.onTap,
     this.showArtwork = true,
     this.showFormatBadge = true,
@@ -37,7 +41,7 @@ class SongTile extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap ?? () => context.read<PlayerProvider>().playSong(song, playlist),
+        onTap: onTap ?? () => context.read<PlayerProvider>().playSong(song, playlist, source: source),
         onLongPress: () => _showTrackOptions(context),
         splashColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.06),
         highlightColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
@@ -243,7 +247,7 @@ class SongTile extends StatelessWidget {
                   title: Text('PLAY NOW', style: NothingTypography.monoLabel(isDark: isDark)),
                   onTap: () {
                     Navigator.pop(ctx);
-                    player.playSong(song, playlist);
+                    player.playSong(song, playlist, source: source);
                   },
                 ),
                 ListTile(

@@ -13,6 +13,9 @@ import '../../../shared/widgets/nothing_status_badge.dart';
 import '../../library/providers/library_provider.dart';
 import '../../player/widgets/equalizer_sheet.dart';
 import '../../search/screens/search_screen.dart';
+import '../../../shared/widgets/dot_matrix.dart';
+import '../providers/profile_provider.dart';
+import '../widgets/edit_profile_sheet.dart';
 
 class ProfileScreen extends StatelessWidget {
   final bool isTab;
@@ -27,6 +30,7 @@ class ProfileScreen extends StatelessWidget {
     final isDark = context.isDark;
     final library = context.watch<LibraryProvider>();
     final themeProvider = context.watch<ThemeProvider>();
+    final profile = context.watch<ProfileProvider>();
 
     return Scaffold(
       backgroundColor: isDark ? NothingColors.darkBg : NothingColors.lightBg,
@@ -97,39 +101,51 @@ class ProfileScreen extends StatelessWidget {
                         padding: const EdgeInsets.all(20.0),
                         child: Column(
                           children: [
-                            // Monogram Avatar
-                            Container(
-                              width: 72,
-                              height: 72,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isDark ? NothingColors.darkRaised : NothingColors.lightRaised,
-                                border: Border.all(
-                                  color: isDark ? NothingColors.darkLine : NothingColors.lightLine,
-                                  width: 2.0,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'L',
-                                  style: NothingTypography.dottedBold(
-                                    isDark: isDark,
-                                    fontSize: 32,
-                                    color: NothingColors.signalRed,
+                            // Dot-matrix avatar + name (tap either to edit)
+                            GestureDetector(
+                              key: const Key('profile_edit'),
+                              onTap: () => EditProfileSheet.show(context),
+                              child: Column(
+                                children: [
+                                  Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      NothingAvatar(
+                                        avatarId: profile.avatarId,
+                                        name: profile.name,
+                                        size: 84,
+                                      ),
+                                      Positioned(
+                                        right: -2,
+                                        bottom: -2,
+                                        child: Container(
+                                          width: 26,
+                                          height: 26,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: NothingColors.darkDisplay,
+                                            border: Border.all(
+                                              color: isDark ? NothingColors.darkSurface : NothingColors.lightSurface,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: const Icon(Icons.edit, size: 13, color: Colors.black),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            Text(
-                              'LYRO LISTENER',
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    profile.name.toUpperCase(),
                               style: TextStyle(
                                 fontFamily: NothingTypography.fontMono,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.5,
-                                color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1.5,
+                                      color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -399,6 +415,48 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            Divider(height: 28, color: isDark ? NothingColors.darkLine : NothingColors.lightLine),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'ONLINE ARTWORK',
+                                        style: TextStyle(
+                                          fontFamily: NothingTypography.fontMono,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.8,
+                                          color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Find missing covers in the iTunes catalogue (sends title & artist)',
+                                        style: TextStyle(
+                                          fontFamily: NothingTypography.fontUi,
+                                          fontSize: 11,
+                                          color: isDark ? NothingColors.darkSecondary : NothingColors.lightSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Switch(
+                                  key: const Key('online_artwork_switch'),
+                                  value: library.onlineArtwork,
+                                  activeThumbColor: NothingColors.darkDisplay,
+                                  activeTrackColor: NothingColors.signalRed,
+                                  onChanged: (v) {
+                                    HapticFeedback.selectionClick();
+                                    library.setOnlineArtwork(v);
+                                  },
+                                ),
+                              ],
+                            ),
                             const SizedBox(height: 16),
                             NothingButton(
                               text: 'RESCAN MUSIC STORAGE',
@@ -440,8 +498,6 @@ class ProfileScreen extends StatelessWidget {
                             _aboutRow(isDark, label: 'APPLICATION', value: AppConstants.appName),
                             Divider(height: 16, color: isDark ? NothingColors.darkLine : NothingColors.lightLine),
                             _aboutRow(isDark, label: 'VERSION', value: '1.0.0 (Nothing Edition)'),
-                            Divider(height: 16, color: isDark ? NothingColors.darkLine : NothingColors.lightLine),
-                            _aboutRow(isDark, label: 'PACKAGE ID', value: 'com.lyro.doyalabs'),
                             Divider(height: 16, color: isDark ? NothingColors.darkLine : NothingColors.lightLine),
                             _aboutRow(isDark, label: 'HARDWARE THEME', value: 'CMF Speaker S'),
                           ],

@@ -119,7 +119,7 @@ class _AllSongsScreenState extends State<AllSongsScreen> {
                         onPressed: () {
                           final shuffled = List.of(songs)..shuffle();
                           if (shuffled.isNotEmpty) {
-                            context.read<PlayerProvider>().playSong(shuffled.first, shuffled);
+                            context.read<PlayerProvider>().playSong(shuffled.first, shuffled, source: 'All songs');
                           }
                         },
                       ),
@@ -142,6 +142,7 @@ class _AllSongsScreenState extends State<AllSongsScreen> {
                           return SongTile(
                             song: songs[index],
                             playlist: songs,
+                            source: 'All songs',
                           );
                         },
                       ),

@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import '../../../core/theme/nothing_colors.dart';
 import '../../../core/theme/nothing_theme.dart';
 import '../../../core/theme/nothing_typography.dart';
+import 'artwork_cache.dart';
 
 class TrackArtwork extends StatelessWidget {
   final int songId;
@@ -33,17 +36,12 @@ class TrackArtwork extends StatelessWidget {
 
     return _buildDecoratedContainer(
       isDark: isDark,
-      child: QueryArtworkWidget(
+      child: _CachedArtwork(
         key: ValueKey('artwork_${type.name}_$songId'),
         id: songId,
         type: type,
-        artworkBorder: BorderRadius.circular(radius),
-        artworkWidth: size,
-        artworkHeight: size,
-        artworkFit: BoxFit.cover,
-        keepOldArtwork: true,
-        nullArtworkWidget: _buildFallback(isDark),
-        errorBuilder: (context, error, stackTrace) => _buildFallback(isDark),
+        size: size,
+        fallback: _buildFallback(isDark),
       ),
     );
   }
@@ -122,4 +120,94 @@ class _VinylGroovePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _VinylGroovePainter oldDelegate) =>
       oldDelegate.isDark != isDark;
+}
+
+/// Artwork resolved once through [ArtworkCache] and decoded at display size.
+class _CachedArtwork extends StatefulWidget {
+  final int id;
+  final ArtworkType type;
+  final double size;
+  final Widget fallback;
+
+  const _CachedArtwork({
+    super.key,
+    required this.id,
+    required this.type,
+    required this.size,
+    required this.fallback,
+  });
+
+  @override
+  State<_CachedArtwork> createState() => _CachedArtworkState();
+}
+
+class _CachedArtworkState extends State<_CachedArtwork> {
+  Uint8List? _bytes;
+  bool _resolved = false;
+  int _bucket = 0;
+  double _dpr = 1; // read only in didChangeDependencies
+
+  @override
+  void initState() {
+    super.initState();
+    ArtworkCache.revision.addListener(_retryIfBlank);
+  }
+
+  @override
+  void dispose() {
+    ArtworkCache.revision.removeListener(_retryIfBlank);
+    super.dispose();
+  }
+
+  /// A cover source became available (permission granted, online enabled).
+  void _retryIfBlank() {
+    if (_bytes != null || !mounted) return;
+    _bucket = 0;
+    setState(_resolve); // a cache hit resolves synchronously
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _dpr = MediaQuery.devicePixelRatioOf(context);
+    _resolve();
+  }
+
+  void _resolve() {
+    final bucket = ArtworkCache.bucket(widget.size * _dpr);
+    if (bucket == _bucket) return;
+    _bucket = bucket;
+    final cached = ArtworkCache.peek(widget.id, widget.type, bucket);
+    if (cached.hit) {
+      _bytes = cached.bytes;
+      _resolved = true;
+      return;
+    }
+    ArtworkCache.load(widget.id, widget.type, bucket).then((bytes) {
+      if (!mounted || bucket != _bucket) return;
+      setState(() {
+        _bytes = bytes;
+        _resolved = true;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = _bytes;
+    if (bytes == null) {
+      return _resolved ? widget.fallback : const SizedBox.expand();
+    }
+    final px = (widget.size * MediaQuery.devicePixelRatioOf(context)).round();
+    return Image.memory(
+      bytes,
+      width: widget.size,
+      height: widget.size,
+      fit: BoxFit.cover,
+      cacheWidth: px,
+      gaplessPlayback: true,
+      filterQuality: FilterQuality.medium,
+      errorBuilder: (_, _, _) => widget.fallback,
+    );
+  }
 }

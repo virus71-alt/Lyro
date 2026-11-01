@@ -71,5 +71,28 @@ class PreferencesRepository {
       list.map((e) => e.toString()).toList(),
     );
   }
-}
 
+  // Profile
+  String getProfileName() =>
+      _prefs.getString(AppConstants.prefProfileName) ?? 'Lyro Listener';
+
+  Future<void> setProfileName(String name) =>
+      _prefs.setString(AppConstants.prefProfileName, name);
+
+  int getProfileAvatar() => _prefs.getInt(AppConstants.prefProfileAvatar) ?? 0;
+
+  Future<void> setProfileAvatar(int id) =>
+      _prefs.setInt(AppConstants.prefProfileAvatar, id);
+
+  // Artwork
+  bool getOnlineArtwork() => _prefs.getBool(AppConstants.prefOnlineArtwork) ?? true;
+
+  Future<void> setOnlineArtwork(bool enabled) =>
+      _prefs.setBool(AppConstants.prefOnlineArtwork, enabled);
+
+  bool getAskedImagePermission() =>
+      _prefs.getBool(AppConstants.prefAskedImagePermission) ?? false;
+
+  Future<void> setAskedImagePermission() =>
+      _prefs.setBool(AppConstants.prefAskedImagePermission, true);
+}

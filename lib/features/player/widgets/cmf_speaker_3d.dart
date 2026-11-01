@@ -631,11 +631,20 @@ class SpeakerBackPainter extends CustomPainter {
     // Soft contact shadow on the floor
     final shadow = _planePath(cam, const V3(0, 0, 0), V3.xAxis, V3.zAxis,
         _stadium(_G.width * 1.12, _G.depth * 1.2, seg: 6));
-    canvas.drawPath(
-      shadow,
+    // Radial gradient instead of a blur mask filter: a blur costs an extra
+    // offscreen pass on every frame.
+    final shadowRect = shadow.getBounds().inflate(cam.scale * 0.08);
+    canvas.drawOval(
+      shadowRect,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.6)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, cam.scale * 0.06),
+        ..shader = RadialGradient(
+          colors: [
+            Colors.black.withValues(alpha: 0.6),
+            Colors.black.withValues(alpha: 0.35),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.6, 1.0],
+        ).createShader(shadowRect),
     );
 
     // Controls on a roof slope facing away are hidden behind the body.
@@ -852,13 +861,15 @@ class SpeakerFrontFace extends StatelessWidget {
                   ),
                   child: Stack(
                     children: [
+                      // Artwork is already round (TrackArtwork clips itself),
+                      // so no second clip under the 3D transform.
                       Transform.translate(
                         offset: clamped,
-                        child: ClipOval(
+                        child: SizedBox.expand(
                           child: Stack(
                             children: [
-                              Positioned.fill(child: artwork(rPx * 2)),
-                              Positioned.fill(child: grille),
+                              Positioned.fill(child: RepaintBoundary(child: artwork(rPx * 2))),
+                              Positioned.fill(child: RepaintBoundary(child: grille)),
                             ],
                           ),
                         ),
@@ -931,15 +942,19 @@ class _ApertureLipPainter extends CustomPainter {
           transform: GradientRotation(-math.pi / 4),
         ).createShader(rect),
     );
-    // Inner shadow cast by the lip onto the recess
+    // Inner shadow cast by the lip onto the recess (gradient, not a blur)
+    final inner = Rect.fromCircle(center: c, radius: r);
     canvas.drawCircle(
       c,
-      r - 2,
+      r,
       Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 6
-        ..color = Colors.black.withValues(alpha: 0.45)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+        ..shader = RadialGradient(
+          colors: [
+            Colors.transparent,
+            Colors.black.withValues(alpha: 0.45),
+          ],
+          stops: [((r - 8) / r).clamp(0.0, 1.0), 1.0],
+        ).createShader(inner),
     );
   }
 
@@ -1003,8 +1018,7 @@ class SpeakerSoundWavePainter extends CustomPainter {
           Paint()
             ..style = PaintingStyle.stroke
             ..strokeWidth = camera.scale * (0.008 + 0.012 * (1 - t))
-            ..color = const Color(0xFFEDEDED).withValues(alpha: 0.5 * fade)
-            ..maskFilter = MaskFilter.blur(BlurStyle.normal, 0.8 + 3 * t),
+            ..color = const Color(0xFFEDEDED).withValues(alpha: 0.45 * fade),
         );
       }
     }

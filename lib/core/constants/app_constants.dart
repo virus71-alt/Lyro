@@ -24,5 +24,9 @@ class AppConstants {
   static const String prefRepeat = 'lyro_repeat_mode';
   static const String prefFavorites = 'lyro_favorites';
   static const String prefRecentlyPlayed = 'lyro_recently_played';
+  static const String prefProfileName = 'lyro_profile_name';
+  static const String prefProfileAvatar = 'lyro_profile_avatar';
+  static const String prefOnlineArtwork = 'lyro_online_artwork';
+  static const String prefAskedImagePermission = 'lyro_asked_image_permission';
 }
 

@@ -1,4 +1,7 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' show PointMode;
+
 import 'package:flutter/material.dart';
 
 /// Custom painter for the stationary metallic speaker grille and convex speaker cone.
@@ -67,42 +70,39 @@ class SpeakerGrillePainter extends CustomPainter {
     final holeRadius = math.max(0.95, size.width * 0.0095);
     final step = holeRadius * 4.0;
 
-    final dotPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = Colors.black.withValues(alpha: opacity);
-
-    final highlightPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.5
-      ..color = Colors.white.withValues(alpha: opacity * 0.35);
-
-    // Clip neatly inside the cone boundary
-    canvas.save();
-    canvas.clipPath(
-      Path()..addOval(Rect.fromCircle(center: center, radius: radius - 1.0)),
-    );
-
+    // Perforations as two batched point draws (rim catch, then hole) rather
+    // than two drawCircle calls per hole.
+    final holes = <double>[];
+    final rims = <double>[];
     int rowIndex = 0;
     for (double y = 0; y <= size.height; y += step * 0.866) {
       final xOffset = (rowIndex % 2 == 0) ? 0.0 : step * 0.5;
       for (double x = -step; x <= size.width + step; x += step) {
         final dotCenter = Offset(x + xOffset, y);
-        final dist = (dotCenter - center).distance;
-        if (dist <= radius - 2.5) {
-          // Perforation hole
-          canvas.drawCircle(dotCenter, holeRadius, dotPaint);
-          // Delicate metallic specular rim catch
-          canvas.drawCircle(
-            Offset(dotCenter.dx, dotCenter.dy + 0.35),
-            holeRadius,
-            highlightPaint,
-          );
+        if ((dotCenter - center).distance <= radius - 2.5) {
+          holes..add(dotCenter.dx)..add(dotCenter.dy);
+          rims..add(dotCenter.dx)..add(dotCenter.dy + 0.5);
         }
       }
       rowIndex++;
     }
 
-    canvas.restore();
+    canvas.drawRawPoints(
+      PointMode.points,
+      Float32List.fromList(rims),
+      Paint()
+        ..strokeWidth = holeRadius * 2 + 0.6
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.white.withValues(alpha: opacity * 0.35),
+    );
+    canvas.drawRawPoints(
+      PointMode.points,
+      Float32List.fromList(holes),
+      Paint()
+        ..strokeWidth = holeRadius * 2
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.black.withValues(alpha: opacity),
+    );
   }
 
   @override

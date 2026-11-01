@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
 import '../../../core/permissions/permission_service.dart';
 import '../../../data/models/album_model.dart';
@@ -6,6 +8,7 @@ import '../../../data/models/folder_model.dart';
 import '../../../data/models/song_model.dart';
 import '../../../data/repositories/music_repository.dart';
 import '../../../data/repositories/preferences_repository.dart';
+import '../../player/widgets/artwork_cache.dart';
 
 class LibraryProvider extends ChangeNotifier {
   final MusicRepository musicRepo;
@@ -25,7 +28,29 @@ class LibraryProvider extends ChangeNotifier {
     required this.musicRepo,
     required this.prefsRepo,
   }) {
+    ArtworkCache.onlineEnabled = prefsRepo.getOnlineArtwork();
     init();
+  }
+
+  /// Whether missing covers are looked up online.
+  bool get onlineArtwork => prefsRepo.getOnlineArtwork();
+
+  Future<void> setOnlineArtwork(bool enabled) async {
+    await prefsRepo.setOnlineArtwork(enabled);
+    ArtworkCache.onlineEnabled = enabled;
+    if (enabled) ArtworkCache.forgetMisses();
+    notifyListeners();
+  }
+
+  /// Asks once for the photos permission (album art saved next to songs),
+  /// right after music access is granted.
+  Future<void> _askImagePermissionOnce() async {
+    if (prefsRepo.getAskedImagePermission()) return;
+    await prefsRepo.setAskedImagePermission();
+    if (await PermissionService.instance.requestImagePermission()) {
+      ArtworkCache.forgetMisses();
+      notifyListeners();
+    }
   }
 
   // Getters
@@ -34,10 +59,14 @@ class LibraryProvider extends ChangeNotifier {
   AudioPermissionStatus get permissionStatus => _permissionStatus;
   bool get isPermissionGranted => _permissionStatus == AudioPermissionStatus.granted;
 
-  List<Song> get songs => List.unmodifiable(_songs);
-  List<Album> get albums => List.unmodifiable(_albums);
-  List<Artist> get artists => List.unmodifiable(_artists);
-  List<MusicFolder> get folders => List.unmodifiable(_folders);
+  // Read-only views (no copy per access — these are read in list builders).
+  List<Song> get songs => UnmodifiableListView(_songs);
+  List<Album> get albums => UnmodifiableListView(_albums);
+  List<Artist> get artists => UnmodifiableListView(_artists);
+  List<MusicFolder> get folders => UnmodifiableListView(_folders);
+
+  /// Memoised album → artwork song id (resolution scans every song).
+  final Map<int, int?> _artworkIdCache = {};
   SongSort get currentSort => _currentSort;
 
   List<Song> get recentlyPlayedSongs {
@@ -55,6 +84,7 @@ class LibraryProvider extends ChangeNotifier {
     _permissionStatus = await PermissionService.instance.checkAudioPermission();
     if (_permissionStatus == AudioPermissionStatus.granted) {
       await loadLibrary();
+      await _askImagePermissionOnce();
     } else {
       _isLoading = false;
       notifyListeners();
@@ -68,6 +98,7 @@ class LibraryProvider extends ChangeNotifier {
     _permissionStatus = await PermissionService.instance.requestAudioPermission();
     if (_permissionStatus == AudioPermissionStatus.granted) {
       await loadLibrary();
+      await _askImagePermissionOnce();
     } else {
       _isLoading = false;
       notifyListeners();
@@ -85,6 +116,7 @@ class LibraryProvider extends ChangeNotifier {
 
     try {
       final fetchedSongs = await musicRepo.fetchAllSongs(sort: _currentSort);
+      ArtworkCache.registerSongs(fetchedSongs);
       final fetchedAlbums = await musicRepo.fetchAllAlbums();
       final fetchedArtists = await musicRepo.fetchAllArtists();
       final groupedFolders = musicRepo.groupSongsByFolder(fetchedSongs);
@@ -121,6 +153,7 @@ class LibraryProvider extends ChangeNotifier {
 
       _songs = fetchedSongs;
       _albums = mappedAlbums;
+      _artworkIdCache.clear();
       _artists = fetchedArtists;
       _folders = groupedFolders;
     } catch (e) {
@@ -183,6 +216,12 @@ class LibraryProvider extends ChangeNotifier {
   }
 
   int? getArtworkSongIdForAlbum(int albumId, [String? albumName, String? artistName]) {
+    if (_artworkIdCache.containsKey(albumId)) return _artworkIdCache[albumId];
+    return _artworkIdCache[albumId] =
+        _computeArtworkSongIdForAlbum(albumId, albumName, artistName);
+  }
+
+  int? _computeArtworkSongIdForAlbum(int albumId, String? albumName, String? artistName) {
     final album = _albums.where((a) => a.id == albumId).firstOrNull;
     if (album?.songId != null && album!.songId! > 0) return album.songId;
 

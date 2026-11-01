@@ -85,6 +85,19 @@ class PermissionService {
     }
   }
 
+  /// Requests read access to images (Android 13+: READ_MEDIA_IMAGES), used
+  /// only to show album art saved next to songs. Returns whether granted.
+  Future<bool> requestImagePermission() async {
+    if (kIsWeb || !Platform.isAndroid) return false;
+    try {
+      final status = await Permission.photos.request();
+      return status.isGranted || status.isLimited;
+    } catch (e) {
+      debugPrint('Image permission error: $e');
+      return false;
+    }
+  }
+
   /// Opens application settings when permission is permanently denied.
   Future<bool> openSettings() async {
     return await openAppSettings();

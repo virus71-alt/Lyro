@@ -115,7 +115,7 @@ class AlbumDetailScreen extends StatelessWidget {
                                         icon: const Icon(Icons.play_arrow, size: 14),
                                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                         onPressed: albumSongs.isNotEmpty
-                                            ? () => context.read<PlayerProvider>().playSong(albumSongs.first, albumSongs)
+                                            ? () => context.read<PlayerProvider>().playSong(albumSongs.first, albumSongs, source: 'Album · ${album.album}')
                                             : null,
                                       ),
                                       const SizedBox(width: 8),
@@ -127,7 +127,7 @@ class AlbumDetailScreen extends StatelessWidget {
                                         onPressed: albumSongs.isNotEmpty
                                             ? () {
                                                 final shuffled = List.of(albumSongs)..shuffle();
-                                                context.read<PlayerProvider>().playSong(shuffled.first, shuffled);
+                                                context.read<PlayerProvider>().playSong(shuffled.first, shuffled, source: 'Album · ${album.album}');
                                               }
                                             : null,
                                       ),
@@ -151,6 +151,7 @@ class AlbumDetailScreen extends StatelessWidget {
                           return SongTile(
                             song: song,
                             playlist: albumSongs,
+                            source: 'Album · ${album.album}',
                             showArtwork: false, // Track in album doesn't need redundant artwork
                           );
                         },

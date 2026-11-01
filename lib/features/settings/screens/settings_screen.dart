@@ -215,8 +215,6 @@ class SettingsScreen extends StatelessWidget {
                           const SizedBox(height: 16),
                           _infoRow(isDark, 'VERSION', AppConstants.appVersion),
                           const SizedBox(height: 8),
-                          _infoRow(isDark, 'APPLICATION ID', AppConstants.bundleId),
-                          const SizedBox(height: 8),
                           _infoRow(isDark, 'DECODER', 'ExoPlayer (Android) / AVPlayer (iOS)'),
                           const SizedBox(height: 8),
                           _infoRow(isDark, 'FLAC LOSSLESS', 'Supported (16/24-bit PCM)'),

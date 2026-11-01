@@ -74,12 +74,24 @@ class FoldersScreen extends StatelessWidget {
                         ),
                       )
                     : ListView.builder(
-                        padding: EdgeInsets.fromLTRB(16.0, 8.0, 16.0, isTab ? 140.0 : 16.0),
-                        itemCount: folders.length,
-                        itemBuilder: (context, index) {
+                        padding: EdgeInsets.fromLTRB(20.0, 0, 20.0, isTab ? 140.0 : 16.0),
+                        itemCount: folders.length + 1,
+                        itemBuilder: (context, i) {
+                          if (i == 0) {
+                            final tracks = folders.fold<int>(0, (n, f) => n + f.songCount);
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 4, bottom: 6),
+                              child: Text(
+                                '${folders.length} FOLDERS  ·  $tracks TRACKS',
+                                style: NothingTypography.monoLabel(isDark: isDark),
+                              ),
+                            );
+                          }
+                          final index = i - 1;
                           final folder = folders[index];
                           return FolderTile(
                             folder: folder,
+                            index: index,
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
@@ -141,6 +153,7 @@ class _FolderSongsScreen extends StatelessWidget {
                     return SongTile(
                       song: song,
                       playlist: folder.songs,
+                      source: 'Folder · ${folder.name}',
                     );
                   },
                 ),

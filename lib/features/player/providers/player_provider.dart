@@ -22,6 +22,11 @@ class PlayerProvider extends ChangeNotifier {
   bool _isShuffle = false;
   AudioServiceRepeatMode _repeatMode = AudioServiceRepeatMode.none;
   Set<int> _favorites = {};
+  String _queueSource = 'Library';
+
+  /// Supplies the whole library, used to keep the queue topped up after the
+  /// songs of the folder/album/artist being played.
+  List<Song> Function()? librarySongs;
 
   // High-frequency position notifiers to prevent rebuilding the whole widget tree
   final ValueNotifier<Duration> positionNotifier = ValueNotifier<Duration>(Duration.zero);
@@ -49,6 +54,12 @@ class PlayerProvider extends ChangeNotifier {
   bool get isShuffle => _isShuffle;
   AudioServiceRepeatMode get repeatMode => _repeatMode;
   bool get hasTrack => _currentSong != null;
+
+  /// Where playback was started from, e.g. "Folder · Downloads".
+  String get queueSource => _queueSource;
+
+  /// Number of leading queue entries that belong to [queueSource].
+  int get priorityEnd => audioHandler.priorityEnd;
   bool isFavorite(int songId) => _favorites.contains(songId);
 
   void _initSubscriptions() {
@@ -122,16 +133,34 @@ class PlayerProvider extends ChangeNotifier {
     });
   }
 
-  /// Plays a specific song with its playlist context
-  Future<void> playSong(Song song, List<Song> playlist) async {
-    final index = playlist.indexOf(song);
-    final validIndex = index >= 0 ? index : 0;
-    _queue = List<Song>.from(playlist);
+  /// Plays [song] from [playlist] (the folder, album, ... it was tapped in).
+  ///
+  /// The queue is the source songs in their order, followed by the rest of the
+  /// library, so it never runs empty while the source keeps priority.
+  Future<void> playSong(Song song, List<Song> playlist, {String? source}) async {
+    final context = List<Song>.from(playlist);
+    var index = context.indexOf(song);
+    if (index < 0) {
+      context.insert(0, song);
+      index = 0;
+    }
+    final inContext = {for (final s in context) s.path};
+    final rest = (librarySongs?.call() ?? const <Song>[])
+        .where((s) => !inContext.contains(s.path));
+    final full = [...context, ...rest];
+
+    _queue = full;
+    _queueIndex = index;
+    _queueSource = source ?? 'Library';
     _currentSong = song;
     positionNotifier.value = Duration.zero;
     notifyListeners();
 
-    await audioHandler.loadQueue(playlist, initialIndex: validIndex);
+    await audioHandler.loadQueue(
+      full,
+      initialIndex: index,
+      priorityCount: context.length,
+    );
   }
 
   /// Plays or pauses current playback
@@ -205,7 +234,14 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   void clearQueue() {
-    audioHandler.clearQueue();
+    final current = _currentSong?.path;
+    audioHandler.clearQueue(
+      refill: [
+        for (final s in librarySongs?.call() ?? const <Song>[])
+          if (s.path != current) s,
+      ],
+    );
+    _queueSource = 'Library';
     _queue = audioHandler.playlist;
     notifyListeners();
   }

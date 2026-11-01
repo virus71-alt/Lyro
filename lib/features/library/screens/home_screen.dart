@@ -62,18 +62,17 @@ class HomeScreen extends StatelessWidget {
                     children: [
                       Row(
                         children: [
+                          // Brand mark (speaker aperture + red knob)
+                          Image.asset(
+                            'assets/icon/mark.png',
+                            width: 36,
+                            height: 36,
+                            filterQuality: FilterQuality.medium,
+                          ),
+                          const SizedBox(width: 10),
                           Text(
                             AppConstants.appName.toUpperCase(),
                             style: NothingTypography.displayHero(isDark: isDark, fontSize: 36),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: NothingColors.darkAccent,
-                              shape: BoxShape.circle,
-                            ),
                           ),
                         ],
                       ),
@@ -186,6 +185,7 @@ class HomeScreen extends StatelessWidget {
                                   (s) => SongTile(
                                     song: s,
                                     playlist: library.favoriteSongs,
+                                    source: 'Favorites',
                                   ),
                                 ),
                           ],
@@ -299,6 +299,7 @@ class HomeScreen extends StatelessWidget {
                                 (song) => SongTile(
                                   song: song,
                                   playlist: library.songs,
+                                  source: 'All songs',
                                 ),
                               ),
                           const SizedBox(height: 24),
@@ -454,7 +455,7 @@ class HomeScreen extends StatelessWidget {
     List<dynamic> list,
   ) {
     return GestureDetector(
-      onTap: () => context.read<PlayerProvider>().playSong(song, list.cast()),
+      onTap: () => context.read<PlayerProvider>().playSong(song, list.cast(), source: 'Recently played'),
       child: Container(
         width: 108,
         decoration: BoxDecoration(

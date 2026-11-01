@@ -70,6 +70,11 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
   late final AnimationController _knobTurnController;
   late final AnimationController _dialRotationController;
 
+  // Static grille overlay, built once so it never repaints.
+  final Widget _grille = CustomPaint(
+    painter: SpeakerGrillePainter(isDark: true, opacity: 0.22),
+  );
+
   // Sound waves from the side radiators
   late final AnimationController _wavePhaseController;
   late final AnimationController _waveLevelController;
@@ -338,11 +343,11 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
       clipBehavior: Clip.none,
       children: [
         Positioned.fill(
-          child: IgnorePointer(child: CustomPaint(painter: waves(near: false))),
+          child: IgnorePointer(child: RepaintBoundary(child: CustomPaint(painter: waves(near: false)))),
         ),
-        Positioned.fill(child: CustomPaint(painter: SpeakerBackPainter(pose))),
+        Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: SpeakerBackPainter(pose)))),
         Positioned.fill(
-          child: IgnorePointer(child: CustomPaint(painter: waves(near: true))),
+          child: IgnorePointer(child: RepaintBoundary(child: CustomPaint(painter: waves(near: true)))),
         ),
         if (SpeakerFrontFace.visibility(camera) > 0.02)
           Positioned(
@@ -361,15 +366,13 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
                     radius: diameter / 2,
                   ),
                 ),
-                grille: CustomPaint(
-                  painter: SpeakerGrillePainter(isDark: true, opacity: 0.22),
-                ),
+                grille: _grille,
               ),
             ),
           ),
         Positioned.fill(
           child: IgnorePointer(
-            child: CustomPaint(painter: SpeakerFrontPainter(pose)),
+            child: RepaintBoundary(child: CustomPaint(painter: SpeakerFrontPainter(pose))),
           ),
         ),
 

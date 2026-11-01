@@ -9,6 +9,7 @@ import 'data/services/audio_handler.dart';
 import 'features/library/providers/library_provider.dart';
 import 'features/navigation/screens/main_navigation_screen.dart';
 import 'features/player/providers/player_provider.dart';
+import 'features/profile/providers/profile_provider.dart';
 
 class LyroApp extends StatelessWidget {
   final PreferencesRepository prefsRepo;
@@ -30,16 +31,19 @@ class LyroApp extends StatelessWidget {
           create: (_) => ThemeProvider(prefsRepo),
         ),
         ChangeNotifierProvider(
+          create: (_) => ProfileProvider(prefsRepo),
+        ),
+        ChangeNotifierProvider(
           create: (_) => LibraryProvider(
             musicRepo: musicRepo,
             prefsRepo: prefsRepo,
           ),
         ),
         ChangeNotifierProvider(
-          create: (_) => PlayerProvider(
+          create: (context) => PlayerProvider(
             audioHandler: audioHandler,
             prefsRepo: prefsRepo,
-          ),
+          )..librarySongs = () => context.read<LibraryProvider>().songs,
         ),
       ],
       child: Consumer<ThemeProvider>(

@@ -22,7 +22,8 @@ class AlbumCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
-    final library = context.watch<LibraryProvider>();
+    // read, not watch: the parent list already rebuilds on library changes
+    final library = context.read<LibraryProvider>();
     final resolvedSongId = album.songId ?? library.getArtworkSongIdForAlbum(album.id, album.album, album.artist);
 
     return Material(

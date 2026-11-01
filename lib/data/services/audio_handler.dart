@@ -13,6 +13,10 @@ class LyroAudioHandler extends BaseAudioHandler with SeekHandler {
   List<Song> _playlist = [];
   int _currentIndex = -1;
 
+  /// Songs before this index came from the source the user played from
+  /// (folder, album, ...); the rest is library fill-up.
+  int _priorityEnd = 0;
+
   LyroAudioHandler() {
     _initAudio();
   }
@@ -20,6 +24,7 @@ class LyroAudioHandler extends BaseAudioHandler with SeekHandler {
   AudioPlayer get player => _player;
   List<Song> get playlist => List.unmodifiable(_playlist);
   int get currentIndex => _currentIndex;
+  int get priorityEnd => _priorityEnd;
   Song? get currentSong => (_currentIndex >= 0 && _currentIndex < _playlist.length)
       ? _playlist[_currentIndex]
       : null;
@@ -120,11 +125,18 @@ class LyroAudioHandler extends BaseAudioHandler with SeekHandler {
     );
   }
 
-  /// Sets up a new playlist and starts playing from [initialIndex]
-  Future<void> loadQueue(List<Song> songs, {int initialIndex = 0, bool autoPlay = true}) async {
+  /// Sets up a new playlist and starts playing from [initialIndex].
+  /// The first [priorityCount] songs are the source the user played from.
+  Future<void> loadQueue(
+    List<Song> songs, {
+    int initialIndex = 0,
+    bool autoPlay = true,
+    int? priorityCount,
+  }) async {
     if (songs.isEmpty) return;
 
     _playlist = List<Song>.from(songs);
+    _priorityEnd = (priorityCount ?? songs.length).clamp(0, songs.length);
     _currentIndex = initialIndex.clamp(0, _playlist.length - 1);
 
     // Update audio_service queue
@@ -230,10 +242,18 @@ class LyroAudioHandler extends BaseAudioHandler with SeekHandler {
     playbackState.add(playbackState.value.copyWith(shuffleMode: shuffleMode));
 
     if (isShuffled && _playlist.isNotEmpty && _currentIndex >= 0) {
+      // Shuffle within the source first, then within the library fill-up.
       final current = _playlist[_currentIndex];
-      final others = List<Song>.from(_playlist)..removeAt(_currentIndex);
-      others.shuffle();
-      _playlist = [current, ...others];
+      final source = <Song>[];
+      final rest = <Song>[];
+      for (var i = 0; i < _playlist.length; i++) {
+        if (i == _currentIndex) continue;
+        (i < _priorityEnd ? source : rest).add(_playlist[i]);
+      }
+      source.shuffle();
+      rest.shuffle();
+      _playlist = [current, ...source, ...rest];
+      _priorityEnd = _currentIndex < _priorityEnd ? source.length + 1 : source.length;
       _currentIndex = 0;
       queue.add(_playlist.map((s) => s.toMediaItem()).toList());
     }
@@ -258,6 +278,11 @@ class LyroAudioHandler extends BaseAudioHandler with SeekHandler {
     }
     final item = _playlist.removeAt(oldIndex);
     _playlist.insert(newIndex, item);
+    if (oldIndex >= _priorityEnd && newIndex < _priorityEnd) {
+      _priorityEnd++;
+    } else if (oldIndex < _priorityEnd && newIndex >= _priorityEnd - 1) {
+      _priorityEnd--;
+    }
 
     if (_currentIndex == oldIndex) {
       _currentIndex = newIndex;
@@ -284,6 +309,7 @@ class LyroAudioHandler extends BaseAudioHandler with SeekHandler {
     if (index < 0 || index >= _playlist.length) return;
 
     _playlist.removeAt(index);
+    if (index < _priorityEnd) _priorityEnd--;
     if (_currentIndex == index) {
       if (_playlist.isNotEmpty) {
         await _playTrackAtIndex(_currentIndex.clamp(0, _playlist.length - 1));
@@ -299,10 +325,13 @@ class LyroAudioHandler extends BaseAudioHandler with SeekHandler {
     _broadcastPlaybackState(_player.playbackEvent);
   }
 
-  /// Clears the upcoming queue
-  void clearQueue() {
+  /// Clears the upcoming queue, keeping the current song and optionally
+  /// refilling it with [refill] so playback never runs dry.
+  void clearQueue({List<Song> refill = const []}) {
     if (_currentIndex >= 0 && _currentIndex < _playlist.length) {
-      _playlist = [_playlist[_currentIndex]];
+      final current = _playlist[_currentIndex];
+      _playlist = [current, ...refill.where((s) => s.path != current.path)];
+      _priorityEnd = 1;
       _currentIndex = 0;
     } else {
       _playlist.clear();

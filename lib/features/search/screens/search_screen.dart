@@ -138,6 +138,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                       (s) => SongTile(
                                         song: s,
                                         playlist: matchingSongs.cast(),
+                                        source: 'Search',
                                       ),
                                     ),
                               ],

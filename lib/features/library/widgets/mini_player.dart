@@ -93,6 +93,7 @@ class MiniPlayer extends StatelessWidget {
                           // Track title and artist
                           Expanded(
                             child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -147,6 +148,9 @@ class MiniPlayer extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                                visualDensity: VisualDensity.compact,
                                 icon: Icon(
                                   isPlaying ? Icons.pause : Icons.play_arrow,
                                   size: 24,
@@ -156,6 +160,9 @@ class MiniPlayer extends StatelessWidget {
                                 tooltip: isPlaying ? 'Pause' : 'Play',
                               ),
                               IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                                visualDensity: VisualDensity.compact,
                                 icon: Icon(
                                   Icons.skip_next,
                                   size: 24,

@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+import 'dart:ui' show PointMode;
+
 import 'package:flutter/material.dart';
 import 'nothing_colors.dart';
 
@@ -16,16 +19,27 @@ class NothingDotPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = isDark ? NothingColors.darkDot : NothingColors.lightDot
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-
-    for (double x = spacing / 2; x < size.width; x += spacing) {
-      for (double y = spacing / 2; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), dotRadius, paint);
+    // One batched points draw instead of a drawCircle per dot: the field has
+    // thousands of dots and is re-rasterised every frame behind animations.
+    final cols = (size.width / spacing).ceil();
+    final rows = (size.height / spacing).ceil();
+    final points = Float32List(cols * rows * 2);
+    var i = 0;
+    for (var cx = 0; cx < cols; cx++) {
+      final x = spacing / 2 + cx * spacing;
+      for (var cy = 0; cy < rows; cy++) {
+        points[i++] = x;
+        points[i++] = spacing / 2 + cy * spacing;
       }
     }
+    canvas.drawRawPoints(
+      PointMode.points,
+      points,
+      Paint()
+        ..color = isDark ? NothingColors.darkDot : NothingColors.lightDot
+        ..strokeWidth = dotRadius * 2
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   @override
