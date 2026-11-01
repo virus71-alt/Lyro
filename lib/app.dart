@@ -7,7 +7,7 @@ import 'data/repositories/music_repository.dart';
 import 'data/repositories/preferences_repository.dart';
 import 'data/services/audio_handler.dart';
 import 'features/library/providers/library_provider.dart';
-import 'features/library/screens/home_screen.dart';
+import 'features/navigation/screens/main_navigation_screen.dart';
 import 'features/player/providers/player_provider.dart';
 
 class LyroApp extends StatelessWidget {
@@ -50,7 +50,7 @@ class LyroApp extends StatelessWidget {
             theme: NothingTheme.lightTheme,
             darkTheme: NothingTheme.darkTheme,
             themeMode: themeProvider.themeMode,
-            home: const HomeScreen(),
+            home: const MainNavigationScreen(),
           );
         },
       ),

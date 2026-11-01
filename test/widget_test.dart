@@ -6,6 +6,7 @@ import 'package:lyro/core/utils/formatters.dart';
 import 'package:lyro/data/models/album_model.dart';
 import 'package:lyro/data/models/artist_model.dart';
 import 'package:lyro/data/models/song_model.dart';
+import 'package:lyro/features/navigation/widgets/nothing_navigation_bar.dart';
 import 'package:lyro/features/player/widgets/lyro_speaker_player.dart';
 import 'package:lyro/features/player/widgets/progress_bar.dart';
 import 'package:lyro/shared/widgets/nothing_button.dart';
@@ -228,6 +229,40 @@ void main() {
       await tester.tap(find.byKey(const Key('speaker_shuffle_dial')));
       await tester.pump(const Duration(milliseconds: 50));
       expect(shuffleCalled, isTrue);
+    });
+
+    testWidgets('NothingNavigationBar renders 3 tabs: Home, Folders, Profile and handles tap', (tester) async {
+      int selected = 0;
+      const items = [
+        NothingNavigationItem(label: 'Home', icon: Icons.home_outlined, activeIcon: Icons.home),
+        NothingNavigationItem(label: 'Folders', icon: Icons.folder_outlined, activeIcon: Icons.folder),
+        NothingNavigationItem(label: 'Profile', icon: Icons.person_outline, activeIcon: Icons.person),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NothingTheme.darkTheme,
+          home: Scaffold(
+            bottomNavigationBar: NothingNavigationBar(
+              currentIndex: selected,
+              onTap: (i) => selected = i,
+              items: items,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('HOME'), findsOneWidget);
+      expect(find.text('FOLDERS'), findsOneWidget);
+      expect(find.text('PROFILE'), findsOneWidget);
+
+      await tester.tap(find.text('FOLDERS'));
+      await tester.pump();
+      expect(selected, 1);
+
+      await tester.tap(find.text('PROFILE'));
+      await tester.pump();
+      expect(selected, 2);
     });
   });
 }

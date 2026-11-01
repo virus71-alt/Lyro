@@ -11,7 +11,12 @@ import '../widgets/mini_player.dart';
 import '../widgets/song_tile.dart';
 
 class FoldersScreen extends StatelessWidget {
-  const FoldersScreen({super.key});
+  final bool isTab;
+
+  const FoldersScreen({
+    super.key,
+    this.isTab = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -22,10 +27,29 @@ class FoldersScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: isDark ? NothingColors.darkBg : NothingColors.lightBg,
       appBar: AppBar(
-        title: Text(
-          'FOLDERS',
-          style: NothingTypography.displayTitle(isDark: isDark, fontSize: 18),
-        ),
+        automaticallyImplyLeading: !isTab,
+        title: isTab
+            ? Row(
+                children: [
+                  Text(
+                    'FOLDERS',
+                    style: NothingTypography.displayHero(isDark: isDark, fontSize: 36),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: NothingColors.darkAccent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              )
+            : Text(
+                'FOLDERS',
+                style: NothingTypography.displayTitle(isDark: isDark, fontSize: 18),
+              ),
       ),
       body: Stack(
         fit: StackFit.expand,
@@ -50,6 +74,7 @@ class FoldersScreen extends StatelessWidget {
                         ),
                       )
                     : ListView.builder(
+                        padding: EdgeInsets.fromLTRB(16.0, 8.0, 16.0, isTab ? 140.0 : 16.0),
                         itemCount: folders.length,
                         itemBuilder: (context, index) {
                           final folder = folders[index];

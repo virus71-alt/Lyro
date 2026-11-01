@@ -63,10 +63,10 @@ class NowPlayingScreen extends StatelessWidget {
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Responsive speaker width matching CaseLab CMF Speaker S proportions (420 x 605)
-                final maxSpeakerW = (constraints.maxWidth * 0.62).clamp(210.0, 250.0);
-                final maxSpeakerH = constraints.maxHeight * 0.42;
-                final speakerWidth = math.min(maxSpeakerW, maxSpeakerH / 1.44);
+                // Responsive speaker width matching approved CMF Speaker proportions (350 x 475)
+                final maxSpeakerW = (constraints.maxWidth * 0.72).clamp(240.0, 300.0);
+                final maxSpeakerH = constraints.maxHeight * 0.45;
+                final speakerWidth = math.min(maxSpeakerW, maxSpeakerH / (475.0 / 350.0));
 
                 return Column(
                   children: [

@@ -24,7 +24,12 @@ import 'artists_screen.dart';
 import 'folders_screen.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  final bool isTab;
+
+  const HomeScreen({
+    super.key,
+    this.isTab = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +117,7 @@ class HomeScreen extends StatelessWidget {
                     color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
                     backgroundColor: isDark ? NothingColors.darkRaised : NothingColors.lightRaised,
                     child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                      padding: EdgeInsets.fromLTRB(20.0, 0, 20.0, isTab ? 140.0 : 24.0),
                       children: [
                         // Permission Banner if needed
                         if (!library.isPermissionGranted)
@@ -302,7 +307,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                const MiniPlayer(),
+                if (!isTab) const MiniPlayer(),
               ],
             ),
           ),

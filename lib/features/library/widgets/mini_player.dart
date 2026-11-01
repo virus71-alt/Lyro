@@ -9,7 +9,12 @@ import '../../player/screens/now_playing_screen.dart';
 import '../../player/widgets/track_artwork.dart';
 
 class MiniPlayer extends StatelessWidget {
-  const MiniPlayer({super.key});
+  final bool hasBottomNav;
+
+  const MiniPlayer({
+    super.key,
+    this.hasBottomNav = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -24,10 +29,8 @@ class MiniPlayer extends StatelessWidget {
 
     final player = context.read<PlayerProvider>();
 
-    return SafeArea(
-      top: false,
-      minimum: const EdgeInsets.only(bottom: 2.0),
-      child: GestureDetector(
+    final playerWidget = GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () {
           Navigator.of(context).push(
             PageRouteBuilder(
@@ -172,7 +175,16 @@ class MiniPlayer extends StatelessWidget {
             ),
           ),
         ),
-      ),
+      );
+
+    if (hasBottomNav) {
+      return playerWidget;
+    }
+
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.only(bottom: 2.0),
+      child: playerWidget,
     );
   }
 }
