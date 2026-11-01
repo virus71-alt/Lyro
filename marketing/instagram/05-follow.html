@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DoyaLabs 05 Follow</title>
+<script>if (location.hash === "#portrait") document.documentElement.classList.add("portrait");</script>
+<link rel="stylesheet" href="slides.css">
+<style>
+  .topbar, .topbar .mark { color: #fff; }
+  .topbar span:last-child { color: var(--secondary); }
+  .hero { margin-top: auto; }
+  .lead { font-size: 66px; color: #fff; margin-bottom: 22px; }
+  .word { font-size: 236px; color: #000; }
+  .word .pix { background: #000; }
+  .portrait .word { font-size: 280px; }
+  .cta { display: flex; align-items: center; gap: 28px; margin-top: 56px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 18px;
+    background: #000; color: #fff;
+    padding: 26px 40px; border-radius: 999px;
+    font-size: 40px; font-weight: 600; letter-spacing: -0.01em;
+  }
+  .pill .rec { width: 16px; height: 16px; background: var(--accent); box-shadow: 0 0 16px rgba(255, 68, 56, 0.9); }
+  .note { font-size: 28px; line-height: 1.25; color: #fff; max-width: 330px; }
+  .rule { height: 2px; background: var(--line); margin: 56px 0 32px; }
+  .portrait .rule { margin-top: 96px; }
+  .bottombar { color: #fff; }
+</style>
+</head>
+<body>
+<div class="slide red">
+  <div class="topbar">
+    <span class="mark"><span class="rec"></span>DoyaLabs</span>
+    <span>05 / 05</span>
+  </div>
+
+  <div class="hero">
+    <div class="lead serif">Lyro is just the start.</div>
+    <div class="dotmatrix word">MORE<br>SOON<span class="pix"></span></div>
+    <div class="cta">
+      <span class="pill"><span class="rec"></span>Follow @doyalabs</span>
+      <span class="note">Turn on post alerts so you catch the next drop.</span>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+  <div class="bottombar">
+    <span>Stay tuned</span>
+    <span class="pager"><i></i><i></i><i></i><i></i><i class="on"></i></span>
+  </div>
+</div>
+</body>
+</html>

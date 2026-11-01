@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DoyaLabs 03 Lyro</title>
+<script>if (location.hash === "#portrait") document.documentElement.classList.add("portrait");</script>
+<link rel="stylesheet" href="slides.css">
+<style>
+  .body { flex: 1; display: grid; grid-template-columns: 470px minmax(0, 1fr); gap: 28px; align-items: center; }
+  .portrait .body { gap: 24px; }
+  .name { font-size: 210px; margin: 26px 0 18px -8px; }
+  .lede { font-size: 58px; line-height: 1.02; color: var(--display); }
+  .lede span { color: var(--secondary); }
+  .chips { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 44px; }
+  .chip {
+    font-family: "GeistMono", monospace;
+    font-weight: 500;
+    font-size: 20px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 12px 18px;
+    border: 2px solid var(--line2);
+    border-radius: 999px;
+    color: var(--primary);
+    background: rgba(12, 12, 12, 0.85);
+  }
+  .chip.hot { border-color: var(--accent); color: #fff; background: var(--accent); }
+
+  /* The app's own 3D speaker, cropped from the player screenshot, shown as a lit product card */
+  .device {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1440 / 1600;
+    border-radius: 40px;
+    overflow: hidden;
+    background: #F2F2F2;
+    box-shadow: 0 0 0 2px #2a2a2a, 0 40px 80px rgba(0, 0, 0, 0.6);
+  }
+  .device img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .device .tag {
+    position: absolute;
+    left: 22px; bottom: 22px;
+    display: flex; align-items: center; gap: 10px;
+    font-family: "GeistMono", monospace;
+    font-weight: 500;
+    font-size: 17px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #1C1C1C;
+  }
+  .device .tag .rec { width: 11px; height: 11px; }
+
+  .bottombar { margin-top: 32px; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="topbar">
+    <span class="mark"><span class="rec"></span>DoyaLabs</span>
+    <span>03 / 05</span>
+  </div>
+
+  <div class="body">
+    <div>
+      <div class="eyebrow">Our first release</div>
+      <div class="dotmatrix name">LYRO</div>
+      <div class="lede serif">Your music.<br><span>Offline. Beautiful.</span></div>
+      <div class="chips">
+        <span class="chip hot">Android</span>
+        <span class="chip">Local library</span>
+        <span class="chip">AutoEQ for IEMs</span>
+        <span class="chip">Lyrics</span>
+        <span class="chip">Playlists</span>
+      </div>
+    </div>
+
+    <div class="device">
+      <img src="img/lyro-speaker.png" alt="Lyro's 3D speaker player">
+      <span class="tag"><span class="rec"></span>In the app</span>
+    </div>
+  </div>
+
+  <div class="bottombar">
+    <span>Now playing</span>
+    <span class="pager"><i></i><i></i><i class="on"></i><i></i><i></i></span>
+  </div>
+</div>
+</body>
+</html>

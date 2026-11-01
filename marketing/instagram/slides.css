@@ -1,0 +1,134 @@
+/* DoyaLabs Instagram launch carousel — shared styles.
+   Colours mirror lib/core/theme/nothing_colors.dart. Fonts come from assets/fonts.
+   Each slide renders at 1080×1080; add #portrait to the URL for 1080×1350. */
+
+@font-face { font-family: "Doto"; src: url("../../assets/fonts/Doto-ROND-wght.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Geist"; src: url("../../assets/fonts/Geist-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Geist"; src: url("../../assets/fonts/Geist-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: "GeistMono"; src: url("../../assets/fonts/GeistMono-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "GeistMono"; src: url("../../assets/fonts/GeistMono-Medium.ttf"); font-weight: 500; }
+@font-face { font-family: "Newsreader"; src: url("../../assets/fonts/Newsreader-Italic.ttf"); font-style: italic; }
+
+:root {
+  --bg: #000000;
+  --surface: #0C0C0C;
+  --raised: #171717;
+  --line: #262626;
+  --line2: #3A3A3A;
+  --muted: #5A5A5A;
+  --secondary: #8C8C8C;
+  --primary: #EDEDED;
+  --display: #FFFFFF;
+  --accent: #D71921;
+  --accent-text: #FF4438;
+  --dot: rgba(255, 255, 255, 0.12);
+
+  --w: 1080px;
+  --h: 1080px;
+  --pad: 80px;
+}
+:root.portrait { --h: 1350px; --pad: 88px; }
+
+/* Light slide (02) */
+.light {
+  --bg: #F2F2F2;
+  --surface: #FFFFFF;
+  --line: #E2E2E2;
+  --line2: #CFCFCF;
+  --muted: #9A9A9A;
+  --secondary: #585A5A;
+  --primary: #1C1C1C;
+  --display: #000000;
+  --accent-text: #C2141C;
+  --dot: rgba(0, 0, 0, 0.09);
+}
+
+/* Red slide (04) */
+.red {
+  --bg: #D71921;
+  --secondary: rgba(255, 255, 255, 0.72);
+  --muted: rgba(255, 255, 255, 0.5);
+  --line: rgba(255, 255, 255, 0.28);
+  --primary: #FFFFFF;
+  --display: #FFFFFF;
+  --accent-text: #000000;
+  --dot: rgba(0, 0, 0, 0.16);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: var(--w); height: var(--h); overflow: hidden; background: var(--bg); }
+
+.slide {
+  position: relative;
+  width: var(--w);
+  height: var(--h);
+  padding: var(--pad);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--primary);
+  font-family: "Geist", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Nothing-style dot grid backdrop */
+.slide::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--dot) 1.6px, transparent 2px);
+  background-size: 24px 24px;
+  background-position: 12px 12px;
+  pointer-events: none;
+}
+.slide > * { position: relative; }
+
+/* Top bar: wordmark + slide counter */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: "GeistMono", monospace;
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+.topbar .mark { display: flex; align-items: center; gap: 14px; color: var(--primary); }
+.rec { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 18px rgba(215, 25, 33, 0.7); }
+.red .rec { background: #000; box-shadow: none; }
+
+/* Bottom bar: caption + carousel dots */
+.bottombar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-family: "GeistMono", monospace;
+  font-size: 22px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+.pager { display: flex; gap: 10px; align-items: center; }
+.pager i { width: 10px; height: 10px; border-radius: 50%; background: var(--line2); display: block; }
+.pager i.on { width: 34px; border-radius: 5px; background: var(--accent); }
+.red .pager i { background: rgba(255, 255, 255, 0.35); }
+.red .pager i.on { background: #000; }
+
+.grow { flex: 1; }
+
+.eyebrow {
+  font-family: "GeistMono", monospace;
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+.dotmatrix { font-family: "Doto", monospace; font-weight: 900; font-variation-settings: "wght" 900, "ROND" 0; line-height: 0.86; color: var(--display); letter-spacing: -0.02em; }
+.serif { font-family: "Newsreader", serif; font-style: italic; font-weight: 400; }
+.mono { font-family: "GeistMono", monospace; }
+/* Single square "pixel" used as a full stop (Doto's own period reads as a plus at display sizes) */
+.pix { display: inline-block; width: 0.1em; height: 0.1em; margin-left: 0.07em; background: var(--accent); }
