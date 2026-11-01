@@ -97,6 +97,11 @@ html, body { width: var(--w); height: var(--h); overflow: hidden; background: va
   color: var(--secondary);
 }
 .topbar .mark { display: flex; align-items: center; gap: 14px; color: var(--primary); }
+/* Signal D logo (marketing/brand) */
+.logo { width: 28px; height: 28px; display: block; color: var(--primary); }
+.logo .lens { fill: var(--accent); }
+.red .logo { color: #fff; }
+.red .logo .lens { fill: #000; }
 .rec { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 18px rgba(215, 25, 33, 0.7); }
 .red .rec { background: #000; box-shadow: none; }
 
