@@ -1,0 +1,51 @@
+name: lyro
+description: "Lyro - Modern offline music player inspired by Auxio and Nothing OS."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  just_audio: ^0.10.6
+  audio_service: ^0.18.19
+  on_audio_query: ^2.9.0
+  permission_handler: ^13.0.2
+  path_provider: ^2.1.6
+  provider: ^6.1.5+1
+  shared_preferences: ^2.5.6
+  audio_session: ^0.2.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  fonts:
+    - family: Doto
+      fonts:
+        - asset: assets/fonts/Doto-ROND-wght.ttf
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Geist-SemiBold.ttf
+          weight: 600
+    - family: GeistMono
+      fonts:
+        - asset: assets/fonts/GeistMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/GeistMono-Medium.ttf
+          weight: 500
+    - family: Newsreader
+      fonts:
+        - asset: assets/fonts/Newsreader-Italic.ttf
+          style: italic
