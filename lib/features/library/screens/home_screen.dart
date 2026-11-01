@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/constants/app_constants.dart';
 import '../../../core/permissions/permission_service.dart';
 import '../../../core/theme/nothing_colors.dart';
@@ -15,6 +16,12 @@ import '../../player/widgets/track_artwork.dart';
 import '../../search/screens/search_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../providers/library_provider.dart';
+import '../../../shared/widgets/dot_matrix.dart';
+import '../../player/widgets/artwork_tint.dart';
+import '../../profile/providers/profile_provider.dart';
+import '../../profile/widgets/edit_profile_sheet.dart';
+import '../widgets/home_sections.dart';
+import '../widgets/home_shortcuts.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/song_tile.dart';
 import 'album_detail_screen.dart';
@@ -26,15 +33,19 @@ import 'folders_screen.dart';
 class HomeScreen extends StatelessWidget {
   final bool isTab;
 
-  const HomeScreen({
-    super.key,
-    this.isTab = true,
-  });
+  const HomeScreen({super.key, this.isTab = true});
 
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
     final library = context.watch<LibraryProvider>();
+    final stats = library.playStats;
+    final recent = library.recentlyPlayedSongs;
+    final quickPicks = HomePicks.quickPicks(library.songs, recent, stats);
+    final speedDial = HomePicks.speedDial(library.songs, recent, stats);
+    final tintSongId =
+        context.select<PlayerProvider, int?>((p) => p.currentSong?.id) ??
+        (recent.isNotEmpty ? recent.first.id : null);
 
     return Scaffold(
       backgroundColor: isDark ? NothingColors.darkBg : NothingColors.lightBg,
@@ -51,12 +62,50 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (tintSongId != null)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 380,
+              child: IgnorePointer(
+                child: ArtworkTintBuilder(
+                  songId: tintSongId,
+                  builder: (context, tint) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          tint == null
+                              ? Colors.transparent
+                              : (isDark
+                                    ? ArtworkTint.background(
+                                        tint,
+                                        lift: 0.08,
+                                      ).withValues(alpha: 0.95)
+                                    : Color.lerp(
+                                        tint,
+                                        Colors.white,
+                                        0.72,
+                                      )!.withValues(alpha: 0.9)),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           SafeArea(
             child: Column(
               children: [
                 // Top Header / Branding & Search
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20.0,
+                    vertical: 12.0,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -72,7 +121,10 @@ class HomeScreen extends StatelessWidget {
                           const SizedBox(width: 10),
                           Text(
                             AppConstants.appName.toUpperCase(),
-                            style: NothingTypography.displayHero(isDark: isDark, fontSize: 36),
+                            style: NothingTypography.displayHero(
+                              isDark: isDark,
+                              fontSize: 36,
+                            ),
                           ),
                         ],
                       ),
@@ -82,11 +134,15 @@ class HomeScreen extends StatelessWidget {
                             icon: Icon(
                               Icons.search,
                               size: 22,
-                              color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                              color: isDark
+                                  ? NothingColors.darkDisplay
+                                  : NothingColors.lightDisplay,
                             ),
                             onPressed: () {
                               Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const SearchScreen()),
+                                MaterialPageRoute(
+                                  builder: (_) => const SearchScreen(),
+                                ),
                               );
                             },
                             tooltip: 'Search',
@@ -95,14 +151,34 @@ class HomeScreen extends StatelessWidget {
                             icon: Icon(
                               Icons.settings_outlined,
                               size: 22,
-                              color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                              color: isDark
+                                  ? NothingColors.darkDisplay
+                                  : NothingColors.lightDisplay,
                             ),
                             onPressed: () {
                               Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                                MaterialPageRoute(
+                                  builder: (_) => const SettingsScreen(),
+                                ),
                               );
                             },
                             tooltip: 'Settings',
+                          ),
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            key: const Key('home_avatar'),
+                            onTap: () => EditProfileSheet.show(context),
+                            child: Consumer<ProfileProvider>(
+                              builder: (context, profile, _) => Semantics(
+                                button: true,
+                                label: 'Profile, ${profile.name}',
+                                child: NothingAvatar(
+                                  avatarId: profile.avatarId,
+                                  name: profile.name,
+                                  size: 34,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -113,14 +189,30 @@ class HomeScreen extends StatelessWidget {
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: () => library.loadLibrary(isRescan: true),
-                    color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
-                    backgroundColor: isDark ? NothingColors.darkRaised : NothingColors.lightRaised,
+                    color: isDark
+                        ? NothingColors.darkDisplay
+                        : NothingColors.lightDisplay,
+                    backgroundColor: isDark
+                        ? NothingColors.darkRaised
+                        : NothingColors.lightRaised,
                     child: ListView(
-                      padding: EdgeInsets.fromLTRB(20.0, 0, 20.0, isTab ? 140.0 : 24.0),
+                      padding: EdgeInsets.fromLTRB(
+                        0,
+                        0,
+                        0,
+                        isTab ? 140.0 : 24.0,
+                      ),
                       children: [
                         // Permission Banner if needed
                         if (!library.isPermissionGranted)
-                          _buildPermissionBanner(context, isDark, library),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: _buildPermissionBanner(
+                              context,
+                              isDark,
+                              library,
+                            ),
+                          ),
 
                         // Loading state
                         if (library.isLoading)
@@ -133,175 +225,226 @@ class HomeScreen extends StatelessWidget {
                                   CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                      isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                                      isDark
+                                          ? NothingColors.darkDisplay
+                                          : NothingColors.lightDisplay,
                                     ),
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
                                     'SCANNING MUSIC STORAGE...',
-                                    style: NothingTypography.monoLabel(isDark: isDark),
+                                    style: NothingTypography.monoLabel(
+                                      isDark: isDark,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                           )
-                        else if (library.songs.isEmpty && library.isPermissionGranted)
-                          _buildEmptyState(context, isDark, library)
+                        else if (library.songs.isEmpty &&
+                            library.isPermissionGranted)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: _buildEmptyState(context, isDark, library),
+                          )
                         else ...[
-                          // Quick Categories Grid
-                          const SizedBox(height: 12),
-                          _buildCategoryGrid(context, isDark, library),
+                          // Quick picks: recent + most played + daily random
+                          const SizedBox(height: 8),
+                          QuickPicksSection(songs: quickPicks, stats: stats),
 
-                          // Recently Played Section
-                          if (library.recentlyPlayedSongs.isNotEmpty) ...[
-                            const SizedBox(height: 28),
-                            NothingSectionHeader(
-                              title: 'RECENTLY PLAYED',
-                              count: '${library.recentlyPlayedSongs.length}',
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              height: 160,
-                              child: ListView.separated(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: library.recentlyPlayedSongs.take(10).length,
-                                separatorBuilder: (_, _) => const SizedBox(width: 12),
-                                itemBuilder: (context, index) {
-                                  final song = library.recentlyPlayedSongs[index];
-                                  return _buildRecentCard(context, isDark, song, library.recentlyPlayedSongs);
-                                },
-                              ),
-                            ),
-                          ],
+                          // Speed dial: most played, 3x3 pages
+                          const SizedBox(height: 28),
+                          SpeedDialSection(songs: speedDial),
 
-                          // Favorites Section
-                          if (library.favoriteSongs.isNotEmpty) ...[
-                            const SizedBox(height: 28),
-                            NothingSectionHeader(
-                              title: 'FAVORITES',
-                              count: '${library.favoriteSongs.length}',
-                            ),
-                            ...library.favoriteSongs.take(5).map(
-                                  (s) => SongTile(
-                                    song: s,
-                                    playlist: library.favoriteSongs,
-                                    source: 'Favorites',
-                                  ),
+                          // Library and the rest, in the usual padded column
+                          const SizedBox(height: 28),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                NothingSectionHeader(
+                                  title: 'LIBRARY',
+                                  count: '${library.songs.length}',
                                 ),
-                          ],
+                                const SizedBox(height: 8),
+                                _buildCategoryGrid(context, isDark, library),
 
-                          // Top Discovered Albums
-                          if (library.albums.isNotEmpty) ...[
-                            const SizedBox(height: 28),
-                            NothingSectionHeader(
-                              title: 'DISCOVERED ALBUMS',
-                              count: '${library.albums.length}',
-                              trailing: TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(builder: (_) => const AlbumsScreen()),
-                                  );
-                                },
-                                child: Text(
-                                  'VIEW ALL',
-                                  style: NothingTypography.monoLabel(
-                                    isDark: isDark,
-                                    color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                                // Playlists + smart lists
+                                const SizedBox(height: 12),
+                                const HomeShortcuts(),
+
+                                // Recently Played Section
+                                if (library.recentlyPlayedSongs.isNotEmpty) ...[
+                                  const SizedBox(height: 28),
+                                  NothingSectionHeader(
+                                    title: 'RECENTLY PLAYED',
+                                    count:
+                                        '${library.recentlyPlayedSongs.length}',
                                   ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              height: 176,
-                              child: ListView.separated(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: library.albums.take(8).length,
-                                separatorBuilder: (_, _) => const SizedBox(width: 14),
-                                itemBuilder: (context, index) {
-                                  final album = library.albums[index];
-                                  final resolvedSongId = album.songId ??
-                                      library.getArtworkSongIdForAlbum(album.id, album.album, album.artist);
-                                  return GestureDetector(
-                                    onTap: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => AlbumDetailScreen(album: album),
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    height: 160,
+                                    child: ListView.separated(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: library.recentlyPlayedSongs
+                                          .take(10)
+                                          .length,
+                                      separatorBuilder: (_, _) =>
+                                          const SizedBox(width: 12),
+                                      itemBuilder: (context, index) {
+                                        final song =
+                                            library.recentlyPlayedSongs[index];
+                                        return _buildRecentCard(
+                                          context,
+                                          isDark,
+                                          song,
+                                          library.recentlyPlayedSongs,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+
+                                // Favorites Section
+                                if (library.favoriteSongs.isNotEmpty) ...[
+                                  const SizedBox(height: 28),
+                                  NothingSectionHeader(
+                                    title: 'FAVORITES',
+                                    count: '${library.favoriteSongs.length}',
+                                  ),
+                                  ...library.favoriteSongs
+                                      .take(5)
+                                      .map(
+                                        (s) => SongTile(
+                                          song: s,
+                                          playlist: library.favoriteSongs,
+                                          source: 'Favorites',
                                         ),
-                                      );
-                                    },
-                                    child: SizedBox(
-                                      width: 110,
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          TrackArtwork(
-                                            songId: resolvedSongId ?? album.id,
-                                            title: album.album,
-                                            type: resolvedSongId != null ? ArtworkType.AUDIO : ArtworkType.ALBUM,
-                                            size: 110,
-                                            radius: NothingColors.radiusSm,
+                                      ),
+                                ],
+
+                                // Top Discovered Albums
+                                if (library.albums.isNotEmpty) ...[
+                                  const SizedBox(height: 28),
+                                  NothingSectionHeader(
+                                    title: 'DISCOVERED ALBUMS',
+                                    count: '${library.albums.length}',
+                                    trailing: TextButton(
+                                      onPressed: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const AlbumsScreen(),
                                           ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            album.album,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontFamily: NothingTypography.fontUi,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            album.artist,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontFamily: NothingTypography.fontUi,
-                                              fontSize: 10,
-                                              color: isDark ? NothingColors.darkSecondary : NothingColors.lightSecondary,
-                                            ),
-                                          ),
-                                        ],
+                                        );
+                                      },
+                                      child: Text(
+                                        'VIEW ALL',
+                                        style: NothingTypography.monoLabel(
+                                          isDark: isDark,
+                                          color: isDark
+                                              ? NothingColors.darkDisplay
+                                              : NothingColors.lightDisplay,
+                                        ),
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-
-                          // All Songs Preview
-                          const SizedBox(height: 28),
-                          NothingSectionHeader(
-                            title: 'SONGS',
-                            count: '${library.songs.length}',
-                            trailing: TextButton(
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const AllSongsScreen()),
-                                );
-                              },
-                              child: Text(
-                                'VIEW ALL',
-                                style: NothingTypography.monoLabel(
-                                  isDark: isDark,
-                                  color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
-                                ),
-                              ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    height: 176,
+                                    child: ListView.separated(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: library.albums.take(8).length,
+                                      separatorBuilder: (_, _) =>
+                                          const SizedBox(width: 14),
+                                      itemBuilder: (context, index) {
+                                        final album = library.albums[index];
+                                        final resolvedSongId =
+                                            album.songId ??
+                                            library.getArtworkSongIdForAlbum(
+                                              album.id,
+                                              album.album,
+                                              album.artist,
+                                            );
+                                        return GestureDetector(
+                                          onTap: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    AlbumDetailScreen(
+                                                      album: album,
+                                                    ),
+                                              ),
+                                            );
+                                          },
+                                          child: SizedBox(
+                                            width: 110,
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                TrackArtwork(
+                                                  songId:
+                                                      resolvedSongId ??
+                                                      album.id,
+                                                  title: album.album,
+                                                  type: resolvedSongId != null
+                                                      ? ArtworkType.AUDIO
+                                                      : ArtworkType.ALBUM,
+                                                  size: 110,
+                                                  radius:
+                                                      NothingColors.radiusSm,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  album.album,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontFamily:
+                                                        NothingTypography
+                                                            .fontUi,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: isDark
+                                                        ? NothingColors
+                                                              .darkDisplay
+                                                        : NothingColors
+                                                              .lightDisplay,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  album.artist,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontFamily:
+                                                        NothingTypography
+                                                            .fontUi,
+                                                    fontSize: 10,
+                                                    color: isDark
+                                                        ? NothingColors
+                                                              .darkSecondary
+                                                        : NothingColors
+                                                              .lightSecondary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                          ...library.songs.take(10).map(
-                                (song) => SongTile(
-                                  song: song,
-                                  playlist: library.songs,
-                                  source: 'All songs',
-                                ),
-                              ),
                           const SizedBox(height: 24),
                         ],
                       ],
@@ -317,7 +460,11 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCategoryGrid(BuildContext context, bool isDark, LibraryProvider library) {
+  Widget _buildCategoryGrid(
+    BuildContext context,
+    bool isDark,
+    LibraryProvider library,
+  ) {
     return Column(
       children: [
         Row(
@@ -407,7 +554,9 @@ class HomeScreen extends StatelessWidget {
           Icon(
             icon,
             size: 20,
-            color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+            color: isDark
+                ? NothingColors.darkDisplay
+                : NothingColors.lightDisplay,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -422,7 +571,9 @@ class HomeScreen extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.0,
-                    color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                    color: isDark
+                        ? NothingColors.darkDisplay
+                        : NothingColors.lightDisplay,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -432,7 +583,9 @@ class HomeScreen extends StatelessWidget {
                     isDark: isDark,
                     fontSize: 20,
                     letterSpacing: 0.8,
-                    color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                    color: isDark
+                        ? NothingColors.darkDisplay
+                        : NothingColors.lightDisplay,
                   ),
                 ),
               ],
@@ -441,7 +594,9 @@ class HomeScreen extends StatelessWidget {
           Icon(
             Icons.chevron_right,
             size: 16,
-            color: isDark ? NothingColors.darkSecondary : NothingColors.lightSecondary,
+            color: isDark
+                ? NothingColors.darkSecondary
+                : NothingColors.lightSecondary,
           ),
         ],
       ),
@@ -455,7 +610,11 @@ class HomeScreen extends StatelessWidget {
     List<dynamic> list,
   ) {
     return GestureDetector(
-      onTap: () => context.read<PlayerProvider>().playSong(song, list.cast(), source: 'Recently played'),
+      onTap: () => context.read<PlayerProvider>().playSong(
+        song,
+        list.cast(),
+        source: 'Recently played',
+      ),
       child: Container(
         width: 108,
         decoration: BoxDecoration(
@@ -486,7 +645,9 @@ class HomeScreen extends StatelessWidget {
                 fontFamily: NothingTypography.fontUi,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                color: isDark
+                    ? NothingColors.darkDisplay
+                    : NothingColors.lightDisplay,
               ),
             ),
             const SizedBox(height: 2),
@@ -497,7 +658,9 @@ class HomeScreen extends StatelessWidget {
               style: TextStyle(
                 fontFamily: NothingTypography.fontUi,
                 fontSize: 9,
-                color: isDark ? NothingColors.darkSecondary : NothingColors.lightSecondary,
+                color: isDark
+                    ? NothingColors.darkSecondary
+                    : NothingColors.lightSecondary,
               ),
             ),
           ],
@@ -506,8 +669,13 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPermissionBanner(BuildContext context, bool isDark, LibraryProvider library) {
-    final isPermDenied = library.permissionStatus == AudioPermissionStatus.permanentlyDenied;
+  Widget _buildPermissionBanner(
+    BuildContext context,
+    bool isDark,
+    LibraryProvider library,
+  ) {
+    final isPermDenied =
+        library.permissionStatus == AudioPermissionStatus.permanentlyDenied;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
@@ -531,7 +699,9 @@ class HomeScreen extends StatelessWidget {
                   'AUDIO STORAGE PERMISSION REQUIRED',
                   style: NothingTypography.monoLabel(
                     isDark: isDark,
-                    color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                    color: isDark
+                        ? NothingColors.darkDisplay
+                        : NothingColors.lightDisplay,
                   ),
                 ),
               ],
@@ -559,7 +729,11 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, bool isDark, LibraryProvider library) {
+  Widget _buildEmptyState(
+    BuildContext context,
+    bool isDark,
+    LibraryProvider library,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 40.0),
       child: Center(
@@ -569,7 +743,9 @@ class HomeScreen extends StatelessWidget {
             Icon(
               Icons.music_off_outlined,
               size: 54,
-              color: isDark ? NothingColors.darkLine2 : NothingColors.lightLine2,
+              color: isDark
+                  ? NothingColors.darkLine2
+                  : NothingColors.lightLine2,
             ),
             const SizedBox(height: 16),
             Text(

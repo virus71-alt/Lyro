@@ -8,8 +8,12 @@ import 'data/repositories/preferences_repository.dart';
 import 'data/services/audio_handler.dart';
 import 'features/library/providers/library_provider.dart';
 import 'features/navigation/screens/main_navigation_screen.dart';
+import 'features/onboarding/onboarding_screen.dart';
+import 'features/navigation/widgets/widget_action_listener.dart';
 import 'features/player/providers/player_provider.dart';
 import 'features/profile/providers/profile_provider.dart';
+import 'core/settings/app_settings_provider.dart';
+import 'features/playlists/providers/playlist_provider.dart';
 
 class LyroApp extends StatelessWidget {
   final PreferencesRepository prefsRepo;
@@ -34,6 +38,12 @@ class LyroApp extends StatelessWidget {
           create: (_) => ProfileProvider(prefsRepo),
         ),
         ChangeNotifierProvider(
+          create: (_) => AppSettingsProvider(prefsRepo: prefsRepo, audioHandler: audioHandler),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => PlaylistProvider(prefsRepo),
+        ),
+        ChangeNotifierProvider(
           create: (_) => LibraryProvider(
             musicRepo: musicRepo,
             prefsRepo: prefsRepo,
@@ -54,7 +64,21 @@ class LyroApp extends StatelessWidget {
             theme: NothingTheme.lightTheme,
             darkTheme: NothingTheme.darkTheme,
             themeMode: themeProvider.themeMode,
-            home: const MainNavigationScreen(),
+            // First launch explains permissions before Android asks;
+            // anyone who already granted music access goes straight in.
+            home: Builder(
+              builder: (context) {
+                final onboarded = context.select<AppSettingsProvider, bool>((s) => s.onboarded);
+                final granted = context.select<LibraryProvider, bool>((l) => l.isPermissionGranted);
+                final checked = context.select<LibraryProvider, bool>((l) => l.permissionChecked);
+                if (onboarded || granted) {
+                  // Quick-mix taps from the home-screen widget start playback
+                  return const WidgetActionListener(child: MainNavigationScreen());
+                }
+                if (!checked) return const ColoredBox(color: Colors.black);
+                return const OnboardingScreen();
+              },
+            ),
           );
         },
       ),

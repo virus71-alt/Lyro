@@ -23,6 +23,7 @@ class PlayerProvider extends ChangeNotifier {
   AudioServiceRepeatMode _repeatMode = AudioServiceRepeatMode.none;
   Set<int> _favorites = {};
   String _queueSource = 'Library';
+  String? _lastRecordedPath;
 
   /// Supplies the whole library, used to keep the queue topped up after the
   /// songs of the folder/album/artist being played.
@@ -88,8 +89,11 @@ class PlayerProvider extends ChangeNotifier {
           );
         }
 
-        if (_currentSong != null) {
-          prefsRepo.addRecentlyPlayed(_currentSong!.id);
+        final song = _currentSong;
+        if (song != null && song.path != _lastRecordedPath) {
+          _lastRecordedPath = song.path;
+          prefsRepo.addRecentlyPlayed(song.id);
+          prefsRepo.recordPlay(song.id);
         }
       }
       notifyListeners();
@@ -138,19 +142,16 @@ class PlayerProvider extends ChangeNotifier {
   /// The queue is the source songs in their order, followed by the rest of the
   /// library, so it never runs empty while the source keeps priority.
   Future<void> playSong(Song song, List<Song> playlist, {String? source}) async {
-    final context = List<Song>.from(playlist);
-    var index = context.indexOf(song);
-    if (index < 0) {
-      context.insert(0, song);
-      index = 0;
-    }
-    final inContext = {for (final s in context) s.path};
+    final ordered = queueOrder(song, playlist, source: source);
+    final inContext = {for (final s in ordered) s.path};
     final rest = (librarySongs?.call() ?? const <Song>[])
-        .where((s) => !inContext.contains(s.path));
-    final full = [...context, ...rest];
+        .where((s) => !inContext.contains(s.path))
+        .toList()
+      ..shuffle();
+    final full = [...ordered, ...rest];
 
     _queue = full;
-    _queueIndex = index;
+    _queueIndex = 0;
     _queueSource = source ?? 'Library';
     _currentSong = song;
     positionNotifier.value = Duration.zero;
@@ -158,9 +159,24 @@ class PlayerProvider extends ChangeNotifier {
 
     await audioHandler.loadQueue(
       full,
-      initialIndex: index,
-      priorityCount: context.length,
+      initialIndex: 0,
+      priorityCount: ordered.length,
     );
+  }
+
+  /// The chosen [song] always plays first. Albums and playlists then keep
+  /// their running order (wrapping round to the songs before it); any other
+  /// source (all songs, folders, search, favorites...) continues shuffled.
+  @visibleForTesting
+  static List<Song> queueOrder(Song song, List<Song> playlist, {String? source}) {
+    final keepOrder =
+        source != null && (source.startsWith('Album') || source.startsWith('Playlist'));
+    final index = playlist.indexOf(song);
+    if (keepOrder && index >= 0) {
+      return [song, ...playlist.sublist(index + 1), ...playlist.sublist(0, index)];
+    }
+    final others = [for (final s in playlist) if (s != song) s]..shuffle();
+    return [song, ...others];
   }
 
   /// Plays or pauses current playback
@@ -232,6 +248,38 @@ class PlayerProvider extends ChangeNotifier {
     _queue = audioHandler.playlist;
     notifyListeners();
   }
+
+  /// Queues [song] right after the current one; returns its queue position.
+  Future<int> playNext(Song song) async {
+    final at = await audioHandler.playNext(song);
+    _queue = audioHandler.playlist;
+    notifyListeners();
+    return at - _queueIndex;
+  }
+
+  /// Queues [song] after the songs of the current source; returns how many
+  /// songs come before it.
+  Future<int> addToQueue(Song song) async {
+    final at = await audioHandler.addToQueue(song);
+    _queue = audioHandler.playlist;
+    notifyListeners();
+    return at - _queueIndex;
+  }
+
+  /// Puts [song] back at [index] (undo of a removal).
+  Future<void> insertQueueItem(int index, Song song) async {
+    await audioHandler.insertSongs(index, [song]);
+    _queue = audioHandler.playlist;
+    notifyListeners();
+  }
+
+  // Sleep timer
+  ValueListenable<SleepTimer?> get sleepTimer => audioHandler.sleepTimer;
+
+  void setSleepTimer({Duration? duration, bool endOfTrack = false}) =>
+      audioHandler.setSleepTimer(duration: duration, endOfTrack: endOfTrack);
+
+  void cancelSleepTimer() => audioHandler.cancelSleepTimer();
 
   void clearQueue() {
     final current = _currentSong?.path;

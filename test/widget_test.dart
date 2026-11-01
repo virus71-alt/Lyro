@@ -186,7 +186,7 @@ void main() {
 
     testWidgets('LyroSpeakerPlayer renders CMF speaker and knob interactions', (tester) async {
       bool playPauseCalled = false;
-      bool shuffleCalled = false;
+      bool dialTapped = false;
 
       final testSong = Song(
         id: 101,
@@ -206,9 +206,9 @@ void main() {
               child: LyroSpeakerPlayer(
                 song: testSong,
                 isPlaying: true,
-                isShuffle: false,
+
                 onPlayPause: () => playPauseCalled = true,
-                onToggleShuffle: () => shuffleCalled = true,
+                onDialTap: () => dialTapped = true,
                 width: 280,
               ),
             ),
@@ -218,17 +218,17 @@ void main() {
 
       expect(find.byType(LyroSpeakerPlayer), findsOneWidget);
       expect(find.byKey(const Key('speaker_red_knob')), findsOneWidget);
-      expect(find.byKey(const Key('speaker_shuffle_dial')), findsOneWidget);
+      expect(find.byKey(const Key('speaker_sleep_dial')), findsOneWidget);
 
       // Tap red play/pause knob
       await tester.tap(find.byKey(const Key('speaker_red_knob')));
       await tester.pump(const Duration(milliseconds: 50));
       expect(playPauseCalled, isTrue);
 
-      // Tap secondary dial (shuffle control)
-      await tester.tap(find.byKey(const Key('speaker_shuffle_dial')));
+      // Tap secondary dial (sleep timer control)
+      await tester.tap(find.byKey(const Key('speaker_sleep_dial')));
       await tester.pump(const Duration(milliseconds: 50));
-      expect(shuffleCalled, isTrue);
+      expect(dialTapped, isTrue);
     });
 
     testWidgets('NothingNavigationBar renders 3 tabs: Home, Folders, Profile and handles tap', (tester) async {

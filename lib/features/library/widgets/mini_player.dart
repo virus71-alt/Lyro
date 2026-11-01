@@ -7,6 +7,7 @@ import '../../../core/theme/nothing_typography.dart';
 import '../../player/providers/player_provider.dart';
 import '../../player/screens/now_playing_screen.dart';
 import '../../player/widgets/track_artwork.dart';
+import '../../../shared/widgets/dot_matrix.dart';
 
 class MiniPlayer extends StatelessWidget {
   final bool hasBottomNav;
@@ -68,14 +69,8 @@ class MiniPlayer extends StatelessWidget {
                       final progress = (duration.inMilliseconds > 0)
                           ? (pos.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
                           : 0.0;
-                      return LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 2.0,
-                        backgroundColor: Colors.transparent,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
-                        ),
-                      );
+                      // Dotted progress, matching the Now Playing timeline
+                      return DotProgressLine(fraction: progress);
                     },
                   ),
                   Expanded(

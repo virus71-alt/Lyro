@@ -51,6 +51,55 @@
             </intent-filter>
         </receiver>
 
+        <!-- Home-screen widget (now playing + controls) -->
+        <receiver
+            android:name=".LyroWidgetProvider"
+            android:exported="false"
+            android:label="Lyro · Now playing">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lyro_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".LyroDiscWidget"
+            android:exported="false"
+            android:label="Lyro · Disc">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lyro_widget_disc_info" />
+        </receiver>
+
+        <receiver
+            android:name=".LyroBarWidget"
+            android:exported="false"
+            android:label="Lyro · Bar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lyro_widget_bar_info" />
+        </receiver>
+
+        <receiver
+            android:name=".LyroMixesWidget"
+            android:exported="false"
+            android:label="Lyro · Quick mixes">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/lyro_widget_mixes_info" />
+        </receiver>
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

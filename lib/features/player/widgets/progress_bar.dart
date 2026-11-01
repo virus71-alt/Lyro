@@ -32,6 +32,24 @@ class LyroProgressBar extends StatefulWidget {
 
 class _LyroProgressBarState extends State<LyroProgressBar> {
   double? _dragValue;
+  int _lastDecile = -1;
+
+  /// Haptic detents while scrubbing: a tick every 10 %, firmer at the ends.
+  void _scrub(double ms, double maxMs) {
+    if (maxMs > 0) {
+      final f = ms / maxMs;
+      final decile = (f * 10).floor().clamp(0, 10);
+      if (decile != _lastDecile) {
+        if (_lastDecile != -1) {
+          (decile == 0 || decile == 10)
+              ? HapticFeedback.mediumImpact()
+              : HapticFeedback.selectionClick();
+        }
+        _lastDecile = decile;
+      }
+    }
+    setState(() => _dragValue = ms);
+  }
 
   void _commitSeek() {
     final value = _dragValue;
@@ -78,10 +96,11 @@ class _LyroProgressBarState extends State<LyroProgressBar> {
               onTapDown: (d) => setState(() => _dragValue = toMs(d.localPosition.dx)),
               onTapUp: (_) => _commitSeek(),
               onTapCancel: () => setState(() => _dragValue = null),
-              onHorizontalDragStart: (d) =>
-                  setState(() => _dragValue = toMs(d.localPosition.dx)),
-              onHorizontalDragUpdate: (d) =>
-                  setState(() => _dragValue = toMs(d.localPosition.dx)),
+              onHorizontalDragStart: (d) {
+                _lastDecile = -1;
+                _scrub(toMs(d.localPosition.dx), maxMs);
+              },
+              onHorizontalDragUpdate: (d) => _scrub(toMs(d.localPosition.dx), maxMs),
               onHorizontalDragEnd: (_) => _commitSeek(),
               child: SizedBox(
                 height: 32,

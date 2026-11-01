@@ -48,12 +48,17 @@ class AlbumCard extends StatelessWidget {
                 child: Center(
                   child: AspectRatio(
                     aspectRatio: 1.0,
-                    child: TrackArtwork(
-                      songId: resolvedSongId ?? album.id,
-                      title: album.album,
-                      type: resolvedSongId != null ? ArtworkType.AUDIO : ArtworkType.ALBUM,
-                      size: double.infinity,
-                      radius: NothingColors.radiusSm,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final size = constraints.maxWidth;
+                        return TrackArtwork(
+                          songId: resolvedSongId ?? album.id,
+                          title: album.album,
+                          type: resolvedSongId != null ? ArtworkType.AUDIO : ArtworkType.ALBUM,
+                          size: size,
+                          radius: NothingColors.radiusSm,
+                        );
+                      },
                     ),
                   ),
                 ),

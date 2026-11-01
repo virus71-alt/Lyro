@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#0E0E11</color>
-</resources>
 
+    <!-- Home-screen widgets (light; dark overrides in values-night) -->
+    <color name="widget_bg">#F7F7F7F7</color>
+    <color name="widget_bg_solid">#FFFFFF</color>
+    <color name="widget_stroke">#E2E2E2</color>
+    <color name="widget_fg">#000000</color>
+    <color name="widget_fg2">#585A5A</color>
+    <color name="widget_tile">#EDEDED</color>
+    <color name="widget_dot_rest">#26000000</color>
+    <color name="widget_red">#D71921</color>
+</resources>

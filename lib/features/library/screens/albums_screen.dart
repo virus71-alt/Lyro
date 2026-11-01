@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/dot_matrix.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/nothing_colors.dart';
 import '../../../core/theme/nothing_dot_painter.dart';
@@ -42,12 +43,7 @@ class AlbumsScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: albums.isEmpty
-                    ? Center(
-                        child: Text(
-                          'NO ALBUMS FOUND',
-                          style: NothingTypography.monoLabel(isDark: isDark),
-                        ),
-                      )
+                    ? DotEmptyState(artId: DotEmptyState.vinyl, title: 'No albums found', hint: null)
                     : GridView.builder(
                         padding: const EdgeInsets.all(16.0),
                         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

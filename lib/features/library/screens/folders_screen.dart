@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/dot_matrix.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/nothing_colors.dart';
 import '../../../core/theme/nothing_dot_painter.dart';
@@ -67,12 +68,7 @@ class FoldersScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: folders.isEmpty
-                    ? Center(
-                        child: Text(
-                          'NO FOLDERS FOUND',
-                          style: NothingTypography.monoLabel(isDark: isDark),
-                        ),
-                      )
+                    ? DotEmptyState(artId: DotEmptyState.vinyl, title: 'No folders found', hint: 'Music in your storage will appear here after a scan.')
                     : ListView.builder(
                         padding: EdgeInsets.fromLTRB(20.0, 0, 20.0, isTab ? 140.0 : 16.0),
                         itemCount: folders.length + 1,

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
@@ -95,4 +97,56 @@ class PreferencesRepository {
 
   Future<void> setAskedImagePermission() =>
       _prefs.setBool(AppConstants.prefAskedImagePermission, true);
+
+  // Play statistics: songId -> (play count, last played ms since epoch)
+  Map<int, ({int count, int lastPlayed})> getPlayStats() {
+    final raw = _prefs.getString(AppConstants.prefPlayStats);
+    if (raw == null) return {};
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      return {
+        for (final e in map.entries)
+          int.parse(e.key): (
+            count: (e.value as List)[0] as int,
+            lastPlayed: (e.value as List)[1] as int,
+          ),
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> recordPlay(int songId) async {
+    final stats = getPlayStats();
+    final prev = stats[songId];
+    stats[songId] = (
+      count: (prev?.count ?? 0) + 1,
+      lastPlayed: DateTime.now().millisecondsSinceEpoch,
+    );
+    await _prefs.setString(
+      AppConstants.prefPlayStats,
+      jsonEncode({
+        for (final e in stats.entries) '${e.key}': [e.value.count, e.value.lastPlayed],
+      }),
+    );
+  }
+
+  // Playlists (JSON list of {id, name, songs: [ids], created})
+  String? getPlaylistsJson() => _prefs.getString(AppConstants.prefPlaylists);
+
+  Future<void> setPlaylistsJson(String json) =>
+      _prefs.setString(AppConstants.prefPlaylists, json);
+
+  // App settings
+  bool getReduceMotion() => _prefs.getBool(AppConstants.prefReduceMotion) ?? false;
+  Future<void> setReduceMotion(bool v) => _prefs.setBool(AppConstants.prefReduceMotion, v);
+
+  int getSpeakerColor() => _prefs.getInt(AppConstants.prefSpeakerColor) ?? 0;
+  Future<void> setSpeakerColor(int v) => _prefs.setInt(AppConstants.prefSpeakerColor, v);
+
+  int getFadeSeconds() => _prefs.getInt(AppConstants.prefFadeSeconds) ?? 0;
+  Future<void> setFadeSeconds(int v) => _prefs.setInt(AppConstants.prefFadeSeconds, v);
+
+  bool getOnboarded() => _prefs.getBool(AppConstants.prefOnboarded) ?? false;
+  Future<void> setOnboarded() => _prefs.setBool(AppConstants.prefOnboarded, true);
 }

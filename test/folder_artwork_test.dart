@@ -38,4 +38,13 @@ void main() {
     put('Cover.PNG', [3]);
     expect(await FolderArtwork.read(song.path), [3]);
   });
+
+  test('mixed-album folder: folder.jpg is ignored, song-named image still used', () async {
+    final song = put('Raazi - 01 - Ae Watan.flac', [0]);
+    final other = put('01 - Yeh Aaina - .flac', [0]);
+    put('folder.jpg', [1]); // belongs to some other album in this folder
+    put('01 - Yeh Aaina - .flac.png', [2]);
+    expect(await FolderArtwork.read(song.path, singleAlbumFolder: false), isNull);
+    expect(await FolderArtwork.read(other.path, singleAlbumFolder: false), [2]);
+  });
 }

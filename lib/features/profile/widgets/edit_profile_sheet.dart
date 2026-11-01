@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/nothing_palette.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -44,21 +45,22 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final c = NothingPalette.of(context);
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     final label = TextStyle(
       fontFamily: NothingTypography.fontMono,
       fontSize: 10,
       letterSpacing: 1.4,
-      color: NothingColors.darkMuted,
+      color: c.muted,
     );
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
       child: Container(
-        decoration: const BoxDecoration(
-          color: NothingColors.darkSurface,
+        decoration: BoxDecoration(
+          color: c.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-          border: Border(top: BorderSide(color: NothingColors.darkLine)),
+          border: Border(top: BorderSide(color: c.line)),
         ),
         child: SafeArea(
           top: false,
@@ -72,7 +74,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: NothingColors.darkLine2,
+                      color: c.line2,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -100,23 +102,23 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                   maxLength: 24,
                   textCapitalization: TextCapitalization.words,
                   cursorColor: NothingColors.signalRed,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: NothingTypography.fontUi,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: NothingColors.darkDisplay,
+                    color: c.display,
                   ),
                   decoration: InputDecoration(
                     counterStyle: label,
                     filled: true,
-                    fillColor: NothingColors.darkRaised,
+                    fillColor: c.raised,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 12,
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: NothingColors.darkLine),
+                      borderSide: BorderSide(color: c.line),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -164,8 +166,8 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                     key: const Key('profile_save'),
                     onPressed: _save,
                     style: FilledButton.styleFrom(
-                      backgroundColor: NothingColors.darkDisplay,
-                      foregroundColor: Colors.black,
+                      backgroundColor: c.display,
+                      foregroundColor: c.onDisplay,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(NothingColors.radiusPill),

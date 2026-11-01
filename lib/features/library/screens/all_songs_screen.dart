@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/dot_matrix.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/nothing_colors.dart';
 import '../../../core/theme/nothing_dot_painter.dart';
 import '../../../core/theme/nothing_theme.dart';
 import '../../../core/theme/nothing_typography.dart';
+import '../../../data/models/song_model.dart';
 import '../../../data/repositories/music_repository.dart';
+import '../../../shared/widgets/alphabet_scroll_list.dart';
 import '../../../shared/widgets/nothing_button.dart';
 import '../../../shared/widgets/nothing_text_field.dart';
 import '../../player/providers/player_provider.dart';
@@ -130,14 +133,16 @@ class _AllSongsScreenState extends State<AllSongsScreen> {
               // Songs List
               Expanded(
                 child: songs.isEmpty
-                    ? Center(
-                        child: Text(
-                          _filterQuery.isNotEmpty ? 'NO MATCHING TRACKS' : 'NO SONGS FOUND',
-                          style: NothingTypography.monoLabel(isDark: isDark),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: songs.length,
+                    ? DotEmptyState(artId: DotEmptyState.note, title: _filterQuery.isNotEmpty ? 'No matching tracks' : 'No songs found', hint: _filterQuery.isNotEmpty ? 'Try a different word.' : null)
+                    : AlphabetScrollList<Song>(
+                        items: songs,
+                        // A–Z rail only for alphabetical sorts
+                        letterOf: switch (library.currentSort) {
+                          SongSort.titleAsc => (Song s) => AlphabetScrollList.initialOf(s.title),
+                          SongSort.artistAsc => (Song s) => AlphabetScrollList.initialOf(s.artist),
+                          SongSort.albumAsc => (Song s) => AlphabetScrollList.initialOf(s.album),
+                          _ => null,
+                        },
                         itemBuilder: (context, index) {
                           return SongTile(
                             song: songs[index],

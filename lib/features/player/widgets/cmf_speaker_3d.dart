@@ -174,7 +174,8 @@ class _Mesh {
     return c * (1 / ids.length) - center;
   }
 
-  void draw(Canvas canvas, SpeakerCamera cam) {
+  void draw(Canvas canvas, SpeakerCamera cam, {Color? tint}) {
+    final color = tint ?? this.color;
     final n = positions.length;
     final view = List<V3>.generate(n, (i) => cam.toView(positions[i]));
     final scr = List<Offset>.generate(n, (i) => cam.project(view[i]));
@@ -483,15 +484,27 @@ class SpeakerPose {
   final SpeakerCamera camera;
   final double knobPress; // 0..1 depression
   final double knobTurn; // 0..1 (paused → playing)
-  final double dialTurn; // 0..1 (shuffle off → on)
-  final bool shuffle;
+  final double dialTurn; // 0..1 (sleep timer step)
+  final bool dialLit; // dial indicator in red (sleep timer active)
+
+  /// Sleep timer remaining as 0..1 for the dot ring around the dial; null = off.
+  final double? sleepFraction;
+
+  // Colourway
+  final Color body;
+  final Color knob;
+  final Color dial;
 
   const SpeakerPose({
     required this.camera,
     required this.knobPress,
     required this.knobTurn,
     required this.dialTurn,
-    required this.shuffle,
+    required this.dialLit,
+    this.sleepFraction,
+    this.body = SpeakerGeometry.bodyColor,
+    this.knob = SpeakerGeometry.knobColor,
+    this.dial = SpeakerGeometry.dialColor,
   });
 
   bool get roofVisible =>
@@ -522,7 +535,7 @@ class SpeakerPose {
         radius: 0.105,
         height: h,
         chamfer: 0.014,
-        color: SpeakerGeometry.knobColor,
+        color: knob,
         spec: 0.32,
         gloss: 36,
       ),
@@ -531,7 +544,7 @@ class SpeakerPose {
         barDir * 0.098,
         across * 0.03,
         axis * 0.04,
-        SpeakerGeometry.knobColor,
+        knob,
         spec: 0.32,
         gloss: 36,
       ),
@@ -545,7 +558,7 @@ class SpeakerPose {
         radius: 0.07,
         height: 0.03,
         chamfer: 0.01,
-        color: SpeakerGeometry.dialColor,
+        color: dial,
         spec: 0.25,
         gloss: 40,
       );
@@ -594,8 +607,11 @@ Color _scaleColor(Color c, double k) => Color.fromARGB(
       (c.b * 255 * k).round().clamp(0, 255),
     );
 
+/// Body colour of the pose currently being painted (set by the painters).
+Color _paintBody = SpeakerGeometry.bodyColor;
+
 Color _faceColor(SpeakerCamera cam, V3 point, V3 normal) => shadeColor(
-    SpeakerGeometry.bodyColor, cam.rotate(normal), cam.toView(point),
+    _paintBody, cam.rotate(normal), cam.toView(point),
     spec: 0.14, gloss: 18);
 
 /// Draws a recessed feature (groove + darker inset) on a body face.
@@ -626,6 +642,7 @@ class SpeakerBackPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _paintBody = pose.body;
     final cam = pose.camera;
 
     // Soft contact shadow on the floor
@@ -650,7 +667,7 @@ class SpeakerBackPainter extends CustomPainter {
     // Controls on a roof slope facing away are hidden behind the body.
     if (!pose.roofVisible) _paintControls(canvas, pose);
 
-    _bodyMesh.draw(canvas, cam);
+    _bodyMesh.draw(canvas, cam, tint: pose.body);
 
     // Passive radiators on both sides
     for (final sgn in [-1.0, 1.0]) {
@@ -709,6 +726,7 @@ class SpeakerFrontPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _paintBody = pose.body;
     final cam = pose.camera;
     final finZ = cam.toView(V3(0, SpeakerGeometry.ridgeTop + 0.15, 0)).z;
     final ctrlZ = cam.toView(SpeakerGeometry.roofMid).z;
@@ -723,7 +741,7 @@ class SpeakerFrontPainter extends CustomPainter {
 }
 
 void _paintFin(Canvas canvas, SpeakerCamera cam) {
-  _finEdgeMesh.draw(canvas, cam);
+  _finEdgeMesh.draw(canvas, cam, tint: _paintBody);
 
   final front = cam.facing(V3(0, _G.ridgeTop + 0.15, 0), V3.zAxis) > 0;
   final z = (front ? 1 : -1) * _G.finThickness / 2;
@@ -765,12 +783,30 @@ void _paintControls(Canvas canvas, SpeakerPose pose) {
       cam.screen(c + (tip - c) * 0.15),
       cam.screen(tip),
       Paint()
-        ..color = pose.shuffle
+        ..color = pose.dialLit
             ? const Color(0xFFFF3B41)
             : Colors.white.withValues(alpha: 0.9)
         ..strokeWidth = math.max(1.2, cam.scale * 0.011)
         ..strokeCap = StrokeCap.round,
     );
+
+    // Sleep timer: ring of dots around the dial, lit for the time remaining
+    final frac = pose.sleepFraction;
+    if (frac != null) {
+      const n = 12;
+      final lit = (frac * n).ceil().clamp(0, n);
+      final base = _G.knobBase(_G.dialX) + _G.roofNormal * 0.004;
+      final r = math.max(1.0, cam.scale * 0.007);
+      for (var i = 0; i < n; i++) {
+        final a = -math.pi / 2 + i * 2 * math.pi / n;
+        final p = base + (V3.xAxis * math.cos(a) + _G.roofUp * -math.sin(a)) * 0.112;
+        canvas.drawCircle(
+          cam.screen(p),
+          r,
+          Paint()..color = i < lit ? const Color(0xFFFF3B41) : const Color(0x33FFFFFF),
+        );
+      }
+    }
   }
 
   void knob() {
@@ -800,12 +836,14 @@ class SpeakerFrontFace extends StatelessWidget {
   final SpeakerCamera camera;
   final Widget Function(double diameter) artwork;
   final Widget grille;
+  final Color logoColor;
 
   const SpeakerFrontFace({
     super.key,
     required this.camera,
     required this.artwork,
     required this.grille,
+    this.logoColor = const Color(0xB8FFFFFF),
   });
 
   static double visibility(SpeakerCamera cam) => cam.facing(
@@ -905,7 +943,7 @@ class SpeakerFrontFace extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   fontSize: 0.085 * ppu,
                   letterSpacing: 0.012 * ppu,
-                  color: Colors.white.withValues(alpha: 0.72),
+                  color: logoColor,
                   height: 1,
                 ),
               ),
@@ -976,6 +1014,7 @@ class SpeakerSoundWavePainter extends CustomPainter {
   final Animation<double> phase; // 0..1 repeating
   final Animation<double> level; // 0 silent .. 1 playing
   final bool nearSides;
+  final Color color;
 
   static const int _rings = 3;
 
@@ -984,6 +1023,7 @@ class SpeakerSoundWavePainter extends CustomPainter {
     required this.phase,
     required this.level,
     required this.nearSides,
+    this.color = const Color(0xFFEDEDED),
   }) : super(repaint: Listenable.merge([phase, level]));
 
   @override
@@ -1003,7 +1043,7 @@ class SpeakerSoundWavePainter extends CustomPainter {
         canvas.drawPath(
           _planePath(camera, c + n * (0.012 * thump), V3.zAxis, V3.yAxis,
               _stadium(0.23 * (1 + 0.05 * thump), 0.56 * (1 + 0.03 * thump))),
-          Paint()..color = Colors.white.withValues(alpha: 0.07 * thump),
+          Paint()..color = color.withValues(alpha: 0.07 * thump),
         );
       }
 
@@ -1018,7 +1058,7 @@ class SpeakerSoundWavePainter extends CustomPainter {
           Paint()
             ..style = PaintingStyle.stroke
             ..strokeWidth = camera.scale * (0.008 + 0.012 * (1 - t))
-            ..color = const Color(0xFFEDEDED).withValues(alpha: 0.45 * fade),
+            ..color = color.withValues(alpha: 0.45 * fade),
         );
       }
     }
@@ -1026,5 +1066,5 @@ class SpeakerSoundWavePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(SpeakerSoundWavePainter old) =>
-      old.camera != camera || old.nearSides != nearSides;
+      old.camera != camera || old.nearSides != nearSides || old.color != color;
 }

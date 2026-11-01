@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/dot_matrix.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/nothing_colors.dart';
 import '../../../core/theme/nothing_dot_painter.dart';
@@ -116,12 +117,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         ),
                       )
                     : !hasResults
-                        ? Center(
-                            child: Text(
-                              'NO RESULTS FOUND',
-                              style: NothingTypography.monoLabel(isDark: isDark),
-                            ),
-                          )
+                        ? DotEmptyState(artId: DotEmptyState.ghost, title: 'No results', hint: 'Nothing in your library matches that.')
                         : ListView(
                             padding: const EdgeInsets.symmetric(vertical: 8.0),
                             children: [

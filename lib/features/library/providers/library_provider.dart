@@ -9,6 +9,7 @@ import '../../../data/models/song_model.dart';
 import '../../../data/repositories/music_repository.dart';
 import '../../../data/repositories/preferences_repository.dart';
 import '../../player/widgets/artwork_cache.dart';
+import '../../../data/services/lyrics_service.dart';
 
 class LibraryProvider extends ChangeNotifier {
   final MusicRepository musicRepo;
@@ -29,6 +30,7 @@ class LibraryProvider extends ChangeNotifier {
     required this.prefsRepo,
   }) {
     ArtworkCache.onlineEnabled = prefsRepo.getOnlineArtwork();
+    LyricsService.onlineEnabled = prefsRepo.getOnlineArtwork();
     init();
   }
 
@@ -38,7 +40,11 @@ class LibraryProvider extends ChangeNotifier {
   Future<void> setOnlineArtwork(bool enabled) async {
     await prefsRepo.setOnlineArtwork(enabled);
     ArtworkCache.onlineEnabled = enabled;
-    if (enabled) ArtworkCache.forgetMisses();
+    LyricsService.onlineEnabled = enabled;
+    if (enabled) {
+      ArtworkCache.forgetMisses();
+      LyricsService.forget();
+    }
     notifyListeners();
   }
 
@@ -75,13 +81,22 @@ class LibraryProvider extends ChangeNotifier {
     return recentIds.map((id) => songMap[id]).whereType<Song>().toList();
   }
 
+  /// Play count and last-played time per song id (for smart lists).
+  Map<int, ({int count, int lastPlayed})> get playStats => prefsRepo.getPlayStats();
+
   List<Song> get favoriteSongs {
     final favIds = prefsRepo.getFavorites();
     return _songs.where((s) => favIds.contains(s.id)).toList();
   }
 
+  /// False until the first permission check has finished.
+  bool get permissionChecked => _permissionChecked;
+  bool _permissionChecked = false;
+
   Future<void> init() async {
     _permissionStatus = await PermissionService.instance.checkAudioPermission();
+    _permissionChecked = true;
+    notifyListeners();
     if (_permissionStatus == AudioPermissionStatus.granted) {
       await loadLibrary();
       await _askImagePermissionOnce();

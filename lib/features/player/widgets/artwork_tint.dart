@@ -60,14 +60,18 @@ class ArtworkTint {
   }
 
   /// Deep, muted background shade of [color] (keeps text readable).
-  static Color background(Color? color, {double lift = 0}) {
+  /// With [dark] false this is a pale wash of the colour instead (light
+  /// theme), and [lift] darkens it slightly rather than brightening.
+  static Color background(Color? color, {double lift = 0, bool dark = true}) {
     if (color == null) {
-      return Color.lerp(fallback, Colors.white, lift * 1.5)!;
+      return dark
+          ? Color.lerp(fallback, Colors.white, lift * 1.5)!
+          : Color.lerp(const Color(0xFFF2F2F2), Colors.black, lift * 0.6)!;
     }
     final hsl = HSLColor.fromColor(color);
     return hsl
-        .withSaturation(math.min(hsl.saturation, 0.42))
-        .withLightness(0.12 + lift)
+        .withSaturation(math.min(hsl.saturation, dark ? 0.42 : 0.36))
+        .withLightness(dark ? 0.12 + lift : 0.92 - lift * 0.6)
         .toColor();
   }
 }

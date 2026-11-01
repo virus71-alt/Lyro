@@ -80,10 +80,14 @@ class DotMatrixLogo extends StatefulWidget {
   final double dotPitch;
   final Color color;
 
+  /// Reduce motion: draw the wordmark steady, without wave or sweep.
+  final bool still;
+
   const DotMatrixLogo({
     super.key,
     this.text = 'LYRO',
     required this.isPlaying,
+    this.still = false,
     this.dotPitch = 3.4,
     this.color = NothingColors.darkDisplay,
   });
@@ -97,7 +101,7 @@ class _DotMatrixLogoState extends State<DotMatrixLogo>
   late final AnimationController _clock = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 60),
-  )..repeat();
+  );
 
   // Cross-fade between the two effects
   late final AnimationController _mode = AnimationController(
@@ -107,8 +111,17 @@ class _DotMatrixLogoState extends State<DotMatrixLogo>
   );
 
   @override
+  void initState() {
+    super.initState();
+    if (!widget.still) _clock.repeat();
+  }
+
+  @override
   void didUpdateWidget(covariant DotMatrixLogo oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.still != oldWidget.still) {
+      widget.still ? _clock.stop() : _clock.repeat();
+    }
     if (widget.isPlaying != oldWidget.isPlaying) {
       widget.isPlaying ? _mode.forward() : _mode.reverse();
     }
@@ -136,6 +149,7 @@ class _DotMatrixLogoState extends State<DotMatrixLogo>
           color: widget.color,
           clock: _clock,
           mode: _mode,
+          still: widget.still,
         ),
       ),
     );
@@ -149,8 +163,10 @@ class _DotLogoPainter extends CustomPainter {
   final Color color;
   final Animation<double> clock;
   final Animation<double> mode;
+  final bool still;
 
   _DotLogoPainter({
+    this.still = false,
     required this.dots,
     required this.columns,
     required this.pitch,
@@ -193,7 +209,8 @@ class _DotLogoPainter extends CustomPainter {
       final sparkle = _hash(d.x * 7 + d.y, tick) > 0.96 ? 0.6 : 0.0;
       final glyphLevel = 0.28 + 0.72 * math.max(sweep, sparkle);
 
-      final level = glyphLevel * (1 - m) + waveLevel * m;
+      if (still) y = top + d.y * pitch + pitch / 2;
+      final level = still ? 0.9 : glyphLevel * (1 - m) + waveLevel * m;
       final b = (level * (buckets - 1)).round().clamp(0, buckets - 1);
       pts[b]..add(x)..add(y);
     }
@@ -213,7 +230,7 @@ class _DotLogoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DotLogoPainter old) =>
-      old.dots != dots || old.color != color || old.pitch != pitch;
+      old.dots != dots || old.color != color || old.pitch != pitch || old.still != still;
 }
 
 // =============================================================================
@@ -481,4 +498,130 @@ class _AvatarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_AvatarPainter old) => old.grid != grid;
+}
+
+/// Borderless dot-matrix art from the avatar set (empty states etc.).
+class DotArt extends StatelessWidget {
+  final int artId;
+  final double size;
+  const DotArt({super.key, required this.artId, this.size = 88});
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(painter: _AvatarPainter(NothingAvatars.grid(artId, 'L'))),
+      );
+}
+
+/// Nothing-style empty state: dot art, a dot-matrix title and a hint.
+class DotEmptyState extends StatelessWidget {
+  final int artId;
+  final String title;
+  final String? hint;
+  final Widget? action;
+
+  const DotEmptyState({
+    super.key,
+    required this.artId,
+    required this.title,
+    this.hint,
+    this.action,
+  });
+
+  /// Art ids from [NothingAvatars]: 3 note, 4 vinyl, 7 heart, 8 spark, 10 ghost.
+  static const int note = 3, vinyl = 4, heart = 7, spark = 8, ghost = 10;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Opacity(opacity: 0.85, child: DotArt(artId: artId)),
+            const SizedBox(height: 18),
+            Text(
+              title.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Doto',
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+                color: dark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+              ),
+            ),
+            if (hint != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                hint!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Geist',
+                  fontSize: 13,
+                  color: dark ? NothingColors.darkSecondary : NothingColors.lightSecondary,
+                ),
+              ),
+            ],
+            if (action != null) ...[const SizedBox(height: 18), action!],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact dotted progress line (mini player): red dots for the played part.
+class DotProgressLine extends StatelessWidget {
+  final double fraction;
+  final double height;
+  const DotProgressLine({super.key, required this.fraction, this.height = 4});
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: CustomPaint(painter: _DotProgressPainter(fraction.clamp(0.0, 1.0), dark)),
+    );
+  }
+}
+
+class _DotProgressPainter extends CustomPainter {
+  final double fraction;
+  final bool dark;
+  _DotProgressPainter(this.fraction, this.dark);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const pitch = 5.0;
+    final n = (size.width / pitch).floor();
+    final playedUpTo = size.width * fraction;
+    final played = <double>[], rest = <double>[];
+    for (var i = 0; i < n; i++) {
+      final x = i * pitch + pitch / 2;
+      (x <= playedUpTo ? played : rest)..add(x)..add(size.height / 2);
+    }
+    void dots(List<double> pts, Color c) {
+      if (pts.isEmpty) return;
+      canvas.drawRawPoints(
+        PointMode.points,
+        Float32List.fromList(pts),
+        Paint()
+          ..color = c
+          ..strokeWidth = 1.8
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+
+    dots(rest, dark ? const Color(0x33FFFFFF) : const Color(0x26000000));
+    dots(played, NothingColors.signalRed);
+  }
+
+  @override
+  bool shouldRepaint(_DotProgressPainter old) => old.fraction != fraction || old.dark != dark;
 }

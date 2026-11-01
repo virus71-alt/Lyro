@@ -19,15 +19,28 @@ import 'track_artwork.dart';
 /// - While playing, sound waves pulse out of the side passive radiators.
 /// - Red bar knob: tap to play/pause; it depresses, twists, and turns a
 ///   quarter turn between the paused and playing positions.
-/// - Rotary dial: tap to toggle shuffle; the indicator turns and lights red.
+/// - Rotary dial: sleep timer. Each tap turns it one notch (15 / 30 / 60 min,
+///   end of track, off); a ring of red dots around it shows the time left.
+/// - Colourways and reduce-motion (no spinning art or sound waves).
 /// - Album artwork spins inside the recessed front aperture with parallax.
 class LyroSpeakerPlayer extends StatefulWidget {
   final Song song;
   final bool isPlaying;
-  final bool isShuffle;
   final VoidCallback onPlayPause;
-  final VoidCallback onToggleShuffle;
   final double width;
+
+  /// Sleep timer: dial notch (0 = off), remaining 0..1 for the dot ring
+  /// (null when off or "end of track"), and a spoken description.
+  final int sleepStep;
+  final double? sleepFraction;
+  final String sleepLabel;
+  final VoidCallback onDialTap;
+
+  final Color bodyColor;
+  final Color knobColor;
+  final Color dialColor;
+  final Color logoColor;
+  final bool reduceMotion;
 
   /// Box height; defaults to `width * 1.3`. The model is scaled to fit.
   final double? height;
@@ -36,9 +49,16 @@ class LyroSpeakerPlayer extends StatefulWidget {
     super.key,
     required this.song,
     required this.isPlaying,
-    required this.isShuffle,
     required this.onPlayPause,
-    required this.onToggleShuffle,
+    required this.onDialTap,
+    this.sleepStep = 0,
+    this.sleepFraction,
+    this.sleepLabel = 'Sleep timer off',
+    this.bodyColor = SpeakerGeometry.bodyColor,
+    this.knobColor = SpeakerGeometry.knobColor,
+    this.dialColor = SpeakerGeometry.dialColor,
+    this.logoColor = const Color(0xB8FFFFFF),
+    this.reduceMotion = false,
     this.width = 280.0,
     this.height,
   });
@@ -64,7 +84,7 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
   late final AnimationController _yawController;
   late final AnimationController _pitchController;
 
-  // Knob press, knob play-position and shuffle dial
+  // Knob press, knob play-position and sleep-timer dial
   late final AnimationController _knobPressController;
   late final Animation<double> _knobPressAnimation;
   late final AnimationController _knobTurnController;
@@ -95,7 +115,6 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
       vsync: this,
       duration: const Duration(seconds: 15),
     );
-    if (widget.isPlaying) _artworkRotationController.repeat();
 
     _yawController = AnimationController.unbounded(vsync: this, value: _restYaw)
       ..addStatusListener((status) {
@@ -134,7 +153,7 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
     _dialRotationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
-      value: widget.isShuffle ? 1.0 : 0.0,
+      value: widget.sleepStep / 4,
     );
 
     _wavePhaseController = AnimationController(
@@ -148,9 +167,30 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
         )..addStatusListener((status) {
           if (status == AnimationStatus.dismissed) _wavePhaseController.stop();
         });
-    if (widget.isPlaying) {
-      _waveLevelController.value = 1.0;
-      _wavePhaseController.repeat();
+    _syncMotion(initial: true);
+  }
+
+  /// Spinning art and sound waves run only while playing, unless motion is
+  /// reduced.
+  void _syncMotion({bool initial = false}) {
+    final animate = widget.isPlaying && !widget.reduceMotion;
+    if (animate) {
+      if (!_artworkRotationController.isAnimating) {
+        _artworkRotationController.repeat();
+      }
+      if (!_wavePhaseController.isAnimating) _wavePhaseController.repeat();
+      if (initial) {
+        _waveLevelController.value = 1.0;
+      } else {
+        _waveLevelController.forward();
+      }
+    } else {
+      _artworkRotationController.stop(canceled: false);
+      if (initial) {
+        _waveLevelController.value = 0.0;
+      } else {
+        _waveLevelController.reverse();
+      }
     }
   }
 
@@ -159,24 +199,21 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
     super.didUpdateWidget(oldWidget);
 
     if (widget.isPlaying != oldWidget.isPlaying) {
-      if (widget.isPlaying) {
-        if (!_artworkRotationController.isAnimating) {
-          _artworkRotationController.repeat();
-        }
-        _knobTurnController.animateTo(1.0, curve: Curves.easeOutBack);
-        if (!_wavePhaseController.isAnimating) _wavePhaseController.repeat();
-        _waveLevelController.forward();
-      } else {
-        _artworkRotationController.stop(canceled: false);
-        _knobTurnController.animateTo(0.0, curve: Curves.easeOutBack);
-        _waveLevelController.reverse();
-      }
+      _knobTurnController.animateTo(
+        widget.isPlaying ? 1.0 : 0.0,
+        curve: Curves.easeOutBack,
+      );
+    }
+    if (widget.isPlaying != oldWidget.isPlaying ||
+        widget.reduceMotion != oldWidget.reduceMotion) {
+      _syncMotion();
     }
 
-    if (widget.isShuffle != oldWidget.isShuffle) {
-      widget.isShuffle
-          ? _dialRotationController.forward()
-          : _dialRotationController.reverse();
+    if (widget.sleepStep != oldWidget.sleepStep) {
+      _dialRotationController.animateTo(
+        widget.sleepStep / 4,
+        curve: Curves.easeOutBack,
+      );
     }
   }
 
@@ -312,7 +349,11 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
       knobPress: _knobPressAnimation.value,
       knobTurn: _knobTurnController.value,
       dialTurn: _dialRotationController.value,
-      shuffle: widget.isShuffle,
+      dialLit: widget.sleepStep > 0,
+      sleepFraction: widget.sleepFraction,
+      body: widget.bodyColor,
+      knob: widget.knobColor,
+      dial: widget.dialColor,
     );
 
     final knobCenter = camera.screen(pose.knobTop);
@@ -337,17 +378,32 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
           phase: _wavePhaseController,
           level: _waveLevelController,
           nearSides: near,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFFEDEDED)
+              : const Color(0xFF3A3A3A),
         );
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Positioned.fill(
-          child: IgnorePointer(child: RepaintBoundary(child: CustomPaint(painter: waves(near: false)))),
+          child: IgnorePointer(
+            child: RepaintBoundary(
+              child: CustomPaint(painter: waves(near: false)),
+            ),
+          ),
         ),
-        Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: SpeakerBackPainter(pose)))),
         Positioned.fill(
-          child: IgnorePointer(child: RepaintBoundary(child: CustomPaint(painter: waves(near: true)))),
+          child: RepaintBoundary(
+            child: CustomPaint(painter: SpeakerBackPainter(pose)),
+          ),
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: RepaintBoundary(
+              child: CustomPaint(painter: waves(near: true)),
+            ),
+          ),
         ),
         if (SpeakerFrontFace.visibility(camera) > 0.02)
           Positioned(
@@ -367,12 +423,15 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
                   ),
                 ),
                 grille: _grille,
+                logoColor: widget.logoColor,
               ),
             ),
           ),
         Positioned.fill(
           child: IgnorePointer(
-            child: RepaintBoundary(child: CustomPaint(painter: SpeakerFrontPainter(pose))),
+            child: RepaintBoundary(
+              child: CustomPaint(painter: SpeakerFrontPainter(pose)),
+            ),
           ),
         ),
 
@@ -384,13 +443,19 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
           height: dialSize,
           child: IgnorePointer(
             ignoring: !controlsLive,
-            child: GestureDetector(
-              key: const Key('speaker_shuffle_dial'),
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                HapticFeedback.lightImpact();
-                widget.onToggleShuffle();
-              },
+            child: Semantics(
+              button: true,
+              label: 'Sleep timer dial',
+              value: widget.sleepLabel,
+              hint: 'Turns to the next sleep time',
+              child: GestureDetector(
+                key: const Key('speaker_sleep_dial'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  widget.onDialTap();
+                },
+              ),
             ),
           ),
         ),
@@ -401,18 +466,22 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
           height: knobSize,
           child: IgnorePointer(
             ignoring: !controlsLive,
-            child: GestureDetector(
-              key: const Key('speaker_red_knob'),
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (_) {
-                HapticFeedback.mediumImpact();
-                _knobPressController.forward();
-              },
-              onTapUp: (_) {
-                _knobPressController.reverse();
-                widget.onPlayPause();
-              },
-              onTapCancel: () => _knobPressController.reverse(),
+            child: Semantics(
+              button: true,
+              label: widget.isPlaying ? 'Pause' : 'Play',
+              child: GestureDetector(
+                key: const Key('speaker_red_knob'),
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (_) {
+                  HapticFeedback.mediumImpact();
+                  _knobPressController.forward();
+                },
+                onTapUp: (_) {
+                  _knobPressController.reverse();
+                  widget.onPlayPause();
+                },
+                onTapCancel: () => _knobPressController.reverse(),
+              ),
             ),
           ),
         ),

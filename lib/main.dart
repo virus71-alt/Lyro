@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'app.dart';
 import 'data/repositories/music_repository.dart';
 import 'data/repositories/preferences_repository.dart';
+import 'data/services/home_widget_bridge.dart';
 import 'data/services/playback_service.dart';
 
 void main() async {
@@ -26,6 +27,9 @@ void main() async {
   final prefsRepo = await PreferencesRepository.init();
   final audioHandler = await PlaybackService.init();
   final musicRepo = MusicRepository();
+
+  // Keep the Android home-screen widget in sync with playback
+  HomeWidgetBridge.attach(audioHandler);
 
   runApp(
     LyroApp(

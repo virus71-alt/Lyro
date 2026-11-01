@@ -16,6 +16,7 @@ import '../../search/screens/search_screen.dart';
 import '../../../shared/widgets/dot_matrix.dart';
 import '../providers/profile_provider.dart';
 import '../widgets/edit_profile_sheet.dart';
+import '../widgets/player_settings_card.dart';
 
 class ProfileScreen extends StatelessWidget {
   final bool isTab;
@@ -371,6 +372,15 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 24),
 
+                      // Player look & behaviour
+                      Text(
+                        'PLAYER',
+                        style: NothingTypography.monoLabel(isDark: isDark),
+                      ),
+                      const SizedBox(height: 8),
+                      const PlayerSettingsCard(),
+                      const SizedBox(height: 24),
+
                       // 4. Storage & Rescan
                       Text(
                         'STORAGE & PERMISSIONS',
@@ -423,7 +433,7 @@ class ProfileScreen extends StatelessWidget {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'ONLINE ARTWORK',
+                                        'ONLINE ARTWORK & LYRICS',
                                         style: TextStyle(
                                           fontFamily: NothingTypography.fontMono,
                                           fontSize: 12,
@@ -434,7 +444,7 @@ class ProfileScreen extends StatelessWidget {
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        'Find missing covers in the iTunes catalogue (sends title & artist)',
+                                        'Missing covers from iTunes, lyrics from LRCLIB (sends title & artist)',
                                         style: TextStyle(
                                           fontFamily: NothingTypography.fontUi,
                                           fontSize: 11,

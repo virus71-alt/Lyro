@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../shared/widgets/dot_matrix.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -6,7 +7,10 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/nothing_colors.dart';
 import '../../../core/theme/nothing_typography.dart';
 import '../../../data/models/song_model.dart';
+import '../../../shared/widgets/dot_toast.dart';
 import '../../../shared/widgets/nothing_dialog.dart';
+import '../../playlists/providers/playlist_provider.dart';
+import '../../playlists/widgets/add_to_playlist_sheet.dart';
 import '../providers/player_provider.dart';
 import 'track_artwork.dart';
 
@@ -90,6 +94,7 @@ class _QueueSheetState extends State<QueueSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final fg = _fgOf(context);
     final player = context.watch<PlayerProvider>();
     final queue = player.queue;
     final current = player.queueIndex;
@@ -125,7 +130,7 @@ class _QueueSheetState extends State<QueueSheet> {
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.28),
+                      color: fg.withValues(alpha: 0.28),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -143,7 +148,7 @@ class _QueueSheetState extends State<QueueSheet> {
                               style: TextStyle(
                                 fontFamily: NothingTypography.fontUi,
                                 fontSize: 13,
-                                color: Colors.white.withValues(alpha: 0.6),
+                                color: fg.withValues(alpha: 0.6),
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -151,11 +156,11 @@ class _QueueSheetState extends State<QueueSheet> {
                               player.queueSource,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: NothingTypography.fontUi,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                                color: fg,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -165,18 +170,29 @@ class _QueueSheetState extends State<QueueSheet> {
                                 fontFamily: NothingTypography.fontMono,
                                 fontSize: 11,
                                 letterSpacing: 0.6,
-                                color: Colors.white.withValues(alpha: 0.5),
+                                color: fg.withValues(alpha: 0.5),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      if (queue.isNotEmpty)
-                        _PillButton(
-                          icon: Icons.playlist_remove,
-                          label: 'Clear',
-                          onTap: () => _confirmClear(context, player),
+                      if (queue.isNotEmpty) ...[
+                        IconButton(
+                          key: const Key('queue_clear'),
+                          tooltip: 'Clear upcoming',
+                          icon: Icon(
+                            Icons.playlist_remove,
+                            color: fg.withValues(alpha: 0.7),
+                          ),
+                          onPressed: () => _confirmClear(context, player),
                         ),
+                        _PillButton(
+                          key: const Key('queue_save'),
+                          icon: Icons.playlist_add,
+                          label: 'Save',
+                          onTap: () => _saveAsPlaylist(context, player),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -217,12 +233,7 @@ class _QueueSheetState extends State<QueueSheet> {
                     ),
                     children: [
                       const SizedBox(height: 48),
-                      Center(
-                        child: Text(
-                          queue.isEmpty ? 'QUEUE IS EMPTY' : 'NOTHING HERE',
-                          style: NothingTypography.monoLabel(isDark: true),
-                        ),
-                      ),
+                      DotEmptyState(artId: DotEmptyState.vinyl, title: queue.isEmpty ? 'Queue is empty' : 'Nothing here', hint: null),
                     ],
                   )
                 : ReorderableListView.builder(
@@ -239,7 +250,7 @@ class _QueueSheetState extends State<QueueSheet> {
                       player.reorderQueue(oldIndex, newIndex);
                     },
                     proxyDecorator: (child, _, _) => Material(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: fg.withValues(alpha: 0.1),
                       elevation: 6,
                       child: child,
                     ),
@@ -264,7 +275,15 @@ class _QueueSheetState extends State<QueueSheet> {
                           HapticFeedback.selectionClick();
                           player.skipToQueueItem(index);
                         },
-                        onRemove: () => player.removeQueueItem(index),
+                        onRemove: () {
+                          player.removeQueueItem(index);
+                          showDotToast(
+                            context,
+                            'Removed · ${song.title}',
+                            actionLabel: 'Undo',
+                            onAction: () => player.insertQueueItem(index, song),
+                          );
+                        },
                       );
                     },
                   ),
@@ -272,6 +291,21 @@ class _QueueSheetState extends State<QueueSheet> {
         ],
       ),
     );
+  }
+
+  /// Saves the whole queue as a new playlist.
+  Future<void> _saveAsPlaylist(BuildContext context, PlayerProvider player) async {
+    final name = await askPlaylistName(
+      context,
+      title: 'Save queue as playlist',
+      initial: player.queueSource.contains('·')
+          ? player.queueSource.split('·').last.trim()
+          : 'My queue',
+    );
+    if (name == null || !context.mounted) return;
+    final playlists = context.read<PlaylistProvider>();
+    final p = await playlists.create(name, songs: player.queue);
+    if (context.mounted) showDotToast(context, 'Saved · ${p.name}');
   }
 
   Future<void> _confirmClear(
@@ -314,9 +348,10 @@ class _QueueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fg = _fgOf(context);
     final row = Material(
       color: isCurrent
-          ? Colors.white.withValues(alpha: 0.08)
+          ? fg.withValues(alpha: 0.08)
           : Colors.transparent,
       child: InkWell(
         onTap: onTap,
@@ -369,7 +404,7 @@ class _QueueRow extends StatelessWidget {
                           fontWeight: isCurrent
                               ? FontWeight.w600
                               : FontWeight.w400,
-                          color: Colors.white,
+                          color: fg,
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -380,7 +415,7 @@ class _QueueRow extends StatelessWidget {
                         style: TextStyle(
                           fontFamily: NothingTypography.fontUi,
                           fontSize: 13,
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: fg.withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -394,7 +429,7 @@ class _QueueRow extends StatelessWidget {
                       child: Icon(
                         Icons.drag_handle,
                         size: 24,
-                        color: Colors.white.withValues(alpha: 0.75),
+                        color: fg.withValues(alpha: 0.75),
                       ),
                     ),
                   )
@@ -423,7 +458,7 @@ class _QueueRow extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                     letterSpacing: 1.4,
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: fg.withValues(alpha: 0.5),
                   ),
                 ),
               ),
@@ -486,6 +521,8 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fg = _fgOf(context);
+    final onFg = _onFgOf(context);
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -496,7 +533,7 @@ class _Chip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.white.withValues(alpha: 0.1),
+          color: selected ? fg : fg.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
@@ -505,7 +542,7 @@ class _Chip extends StatelessWidget {
             fontFamily: NothingTypography.fontUi,
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: selected ? Colors.black : Colors.white,
+            color: selected ? onFg : fg,
           ),
         ),
       ),
@@ -519,6 +556,7 @@ class _PillButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const _PillButton({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
@@ -526,8 +564,9 @@ class _PillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fg = _fgOf(context);
     return Material(
-      color: Colors.white.withValues(alpha: 0.1),
+      color: fg.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(NothingColors.radiusPill),
       child: InkWell(
         borderRadius: BorderRadius.circular(NothingColors.radiusPill),
@@ -537,15 +576,15 @@ class _PillButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: Colors.white),
+              Icon(icon, size: 18, color: fg),
               const SizedBox(width: 6),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: NothingTypography.fontUi,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: fg,
                 ),
               ),
             ],
@@ -577,13 +616,14 @@ class QueueMiniPlayerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fg = _fgOf(context);
     Widget control(
       IconData icon,
       double size,
       VoidCallback action,
       String tip,
     ) => IconButton(
-      icon: Icon(icon, size: size, color: Colors.white),
+      icon: Icon(icon, size: size, color: fg),
       tooltip: tip,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -619,11 +659,11 @@ class QueueMiniPlayerBar extends StatelessWidget {
                     song.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: NothingTypography.fontUi,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: fg,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -634,7 +674,7 @@ class QueueMiniPlayerBar extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: NothingTypography.fontUi,
                       fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.6),
+                      color: fg.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -654,3 +694,12 @@ class QueueMiniPlayerBar extends StatelessWidget {
     );
   }
 }
+
+
+/// Foreground for the queue panel: white on the dark tint, black on the
+/// light one.
+Color _fgOf(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black;
+
+Color _onFgOf(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white;

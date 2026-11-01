@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Now playing, with play/pause and skip</string>
+    <string name="widget_disc_description">Album art in a dot ring that fills as the song plays</string>
+    <string name="widget_bar_description">Slim now-playing bar with controls</string>
+    <string name="widget_mixes_description">One tap: shuffle all, favorites or most played</string>
+</resources>

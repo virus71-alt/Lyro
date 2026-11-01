@@ -28,5 +28,11 @@ class AppConstants {
   static const String prefProfileAvatar = 'lyro_profile_avatar';
   static const String prefOnlineArtwork = 'lyro_online_artwork';
   static const String prefAskedImagePermission = 'lyro_asked_image_permission';
+  static const String prefPlayStats = 'lyro_play_stats';
+  static const String prefPlaylists = 'lyro_playlists';
+  static const String prefReduceMotion = 'lyro_reduce_motion';
+  static const String prefSpeakerColor = 'lyro_speaker_color';
+  static const String prefFadeSeconds = 'lyro_fade_seconds';
+  static const String prefOnboarded = 'lyro_onboarded';
 }
 

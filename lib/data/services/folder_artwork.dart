@@ -20,7 +20,10 @@ class FolderArtwork {
   /// Directory → its image files (lower-case name → path), listed once.
   static final Map<String, Map<String, String>> _dirImages = {};
 
-  static Future<Uint8List?> read(String songPath) async {
+  /// [singleAlbumFolder] must be true for `folder.jpg`-style images to be
+  /// used: in a folder mixing several albums such an image belongs to only
+  /// one of them, so only images named after the song itself count there.
+  static Future<Uint8List?> read(String songPath, {bool singleAlbumFolder = true}) async {
     if (songPath.isEmpty) return null;
     try {
       final file = File(songPath);
@@ -42,8 +45,8 @@ class FolderArtwork {
           break;
         }
       }
-      // 2. Conventional album-art names, in priority order
-      if (pick == null) {
+      // 2. Conventional album-art names, in priority order (one-album folders)
+      if (pick == null && singleAlbumFolder) {
         for (final name in _albumNames) {
           final hit = images.entries
               .where((e) => _base(e.key) == name || _base(e.key).startsWith('$name '))

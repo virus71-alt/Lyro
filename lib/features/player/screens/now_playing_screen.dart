@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +14,11 @@ import '../widgets/equalizer_sheet.dart';
 import '../widgets/lyro_speaker_player.dart';
 import '../widgets/progress_bar.dart';
 import '../../../data/models/song_model.dart';
+import '../../../core/settings/app_settings_provider.dart';
+import '../../../data/services/audio_handler.dart';
 import '../../../shared/widgets/dot_matrix.dart';
+import '../../../shared/widgets/dot_toast.dart';
+import '../widgets/lyrics_view.dart';
 import '../widgets/artwork_tint.dart';
 import '../widgets/queue_sheet.dart';
 
@@ -79,6 +84,45 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
 
   void _closeQueue() => _queue.animateTo(0, curve: Curves.easeOutCubic);
 
+  static const _sleepSteps = <int?>[null, 15, 30, 60, -1]; // -1 = end of track
+
+  static int _sleepStep(SleepTimer? t) {
+    if (t == null) return 0;
+    if (t.endOfTrack) return 4;
+    return switch (t.total.inMinutes) {
+      15 => 1,
+      30 => 2,
+      60 => 3,
+      _ => 1,
+    };
+  }
+
+  static String _sleepLabel(SleepTimer? t) {
+    if (t == null) return 'Sleep timer off';
+    if (t.endOfTrack) return 'Stops at the end of this track';
+    return 'Stops in ${t.remaining.inMinutes + 1} minutes';
+  }
+
+  /// Dial tap: off → 15 → 30 → 60 min → end of track → off.
+  void _cycleSleep(
+    BuildContext context,
+    PlayerProvider player,
+    SleepTimer? timer,
+  ) {
+    final next = _sleepSteps[(_sleepStep(timer) + 1) % _sleepSteps.length];
+    switch (next) {
+      case null:
+        player.cancelSleepTimer();
+        showDotToast(context, 'Sleep timer off');
+      case -1:
+        player.setSleepTimer(endOfTrack: true);
+        showDotToast(context, 'Sleep · end of track');
+      default:
+        player.setSleepTimer(duration: Duration(minutes: next));
+        showDotToast(context, 'Sleep · $next min');
+    }
+  }
+
   /// Queue sheet's own drags only move the sheet.
   void _dragQueue(double dy) {
     _queue.value = (_queue.value - dy / _sheetTravel).clamp(0.0, 1.0);
@@ -120,6 +164,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final p = _NpPalette.of(context);
     final song = context.select<PlayerProvider, dynamic>((p) => p.currentSong);
     final duration = context.select<PlayerProvider, Duration>(
       (p) => p.duration,
@@ -135,11 +180,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
 
     if (song == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFF0B0B0D),
+        backgroundColor: p.bg,
         body: Center(
           child: Text(
             'NO TRACK PLAYING',
-            style: NothingTypography.monoLabel(isDark: true),
+            style: NothingTypography.monoLabel(isDark: p.dark),
           ),
         ),
       );
@@ -149,6 +194,9 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
       (p) => p.isFavorite(song.id),
     );
     final player = context.read<PlayerProvider>();
+    final settings = context.watch<AppSettingsProvider>();
+    final colorway = settings.colorway(Theme.of(context).brightness);
+    final reduceMotion = settings.motionReduced(context);
 
     final playerView = Stack(
       fit: StackFit.expand,
@@ -157,7 +205,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
         Positioned.fill(
           child: CustomPaint(
             painter: NothingDotPainter(
-              isDark: true,
+              isDark: p.dark,
               spacing: 24.0,
               dotRadius: 0.8,
             ),
@@ -173,30 +221,62 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
               GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onVerticalDragUpdate: (d) => _dragPlayer(d.delta.dy),
-                onVerticalDragEnd: (d) => _endDragPlayer(d.primaryVelocity ?? 0),
-                child: _buildHeader(context, song, isPlaying),
+                onVerticalDragEnd: (d) =>
+                    _endDragPlayer(d.primaryVelocity ?? 0),
+                child: _buildHeader(
+                  context,
+                  song,
+                  isPlaying,
+                  player,
+                  reduceMotion,
+                ),
               ),
 
               // Centerpiece: interactive 3D CMF speaker takes every spare pixel
               Expanded(
                 child: LayoutBuilder(
-                  builder: (context, constraints) => LyroSpeakerPlayer(
-                    song: song,
-                    isPlaying: isPlaying,
-                    isShuffle: isShuffle,
-                    onPlayPause: () => player.playOrPause(),
-                    onToggleShuffle: () => player.toggleShuffle(),
-                    width: constraints.maxWidth,
-                    height: constraints.maxHeight,
-                  ),
+                  builder: (context, constraints) =>
+                      ValueListenableBuilder<SleepTimer?>(
+                        valueListenable: player.sleepTimer,
+                        builder: (context, timer, _) => LyroSpeakerPlayer(
+                          song: song,
+                          isPlaying: isPlaying,
+                          onPlayPause: () => player.playOrPause(),
+                          sleepStep: _sleepStep(timer),
+                          sleepFraction: timer?.endsAt == null
+                              ? null
+                              : (timer!.remaining.inMilliseconds /
+                                        timer.total.inMilliseconds)
+                                    .clamp(0.0, 1.0),
+                          sleepLabel: _sleepLabel(timer),
+                          onDialTap: () => _cycleSleep(context, player, timer),
+                          bodyColor: colorway.body,
+                          knobColor: colorway.knob,
+                          dialColor: colorway.dial,
+                          logoColor: colorway.body.computeLuminance() > 0.3
+                              ? const Color(0x99000000)
+                              : const Color(0xB8FFFFFF),
+                          reduceMotion: reduceMotion,
+                          width: constraints.maxWidth,
+                          height: constraints.maxHeight,
+                        ),
+                      ),
                 ),
+              ),
+
+              // Current lyric line (tap for the full synced lyrics)
+              NowPlayingLyricLine(
+                song: song as Song,
+                position: player.positionListenable,
+                onSeek: player.seek,
               ),
 
               // Swipe up anywhere below the speaker to pull up the queue
               GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onVerticalDragUpdate: (d) => _dragPlayer(d.delta.dy),
-                onVerticalDragEnd: (d) => _endDragPlayer(d.primaryVelocity ?? 0),
+                onVerticalDragEnd: (d) =>
+                    _endDragPlayer(d.primaryVelocity ?? 0),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   child: Column(
@@ -251,109 +331,120 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
         },
         child: child!,
       ),
-      child: AnimatedBuilder(
-        animation: _dismiss,
-        builder: (context, child) => Transform.translate(
-          offset: Offset(0, _dismiss.value),
-          child: child,
-        ),
-        child: Scaffold(
-          backgroundColor: const Color(0xFF0B0B0D),
-          body: ArtworkTintBuilder(
-            songId: song.id as int,
-            builder: (context, tint) => LayoutBuilder(
-              builder: (context, constraints) {
-                final height = constraints.maxHeight;
-                final topInset = MediaQuery.paddingOf(context).top;
-                final sheetTop = topInset + _miniBarHeight;
-                _sheetTravel = height - sheetTop;
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        // Status-bar icons readable on this screen's own background
+        value: p.dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+        child: AnimatedBuilder(
+          animation: _dismiss,
+          builder: (context, child) => Transform.translate(
+            offset: Offset(0, _dismiss.value),
+            child: child,
+          ),
+          child: Scaffold(
+            backgroundColor: p.bg,
+            body: ArtworkTintBuilder(
+              songId: song.id,
+              builder: (context, tint) => LayoutBuilder(
+                builder: (context, constraints) {
+                  final height = constraints.maxHeight;
+                  final topInset = MediaQuery.paddingOf(context).top;
+                  final sheetTop = topInset + _miniBarHeight;
+                  _sheetTravel = height - sheetTop;
 
-                // Built once per layout, not per animation frame. The sheet
-                // stays mounted (offstage while closed) so opening it never
-                // has to build the list from scratch.
-                final miniBar = RepaintBoundary(
-                  child: QueueMiniPlayerBar(
-                    song: song as Song,
-                    isPlaying: isPlaying,
-                    onTap: _closeQueue,
-                    onPrevious: player.skipToPrevious,
-                    onPlayPause: player.playOrPause,
-                    onNext: player.skipToNext,
-                  ),
-                );
-                final sheet = RepaintBoundary(
-                  child: QueueSheet(
-                    background: ArtworkTint.background(tint, lift: 0.035),
-                    onDragUpdate: _dragQueue,
-                    onDragEnd: _settleQueue,
-                    openSignal: _queueOpened,
-                  ),
-                );
-                final backdrop = ArtworkTint.background(tint);
+                  // Built once per layout, not per animation frame. The sheet
+                  // stays mounted (offstage while closed) so opening it never
+                  // has to build the list from scratch.
+                  final miniBar = RepaintBoundary(
+                    child: QueueMiniPlayerBar(
+                      song: song,
+                      isPlaying: isPlaying,
+                      onTap: _closeQueue,
+                      onPrevious: player.skipToPrevious,
+                      onPlayPause: player.playOrPause,
+                      onNext: player.skipToNext,
+                    ),
+                  );
+                  final sheet = RepaintBoundary(
+                    child: QueueSheet(
+                      background: ArtworkTint.background(
+                        tint,
+                        lift: 0.035,
+                        dark: p.dark,
+                      ),
+                      onDragUpdate: _dragQueue,
+                      onDragEnd: _settleQueue,
+                      openSignal: _queueOpened,
+                    ),
+                  );
+                  final backdrop = ArtworkTint.background(tint, dark: p.dark);
 
-                return AnimatedBuilder(
-                  animation: _queue,
-                  child: RepaintBoundary(child: playerView),
-                  builder: (context, child) {
-                    final v = _queue.value;
-                    final t = Curves.easeOut.transform(v);
-                    final barOpacity = ((v - 0.55) / 0.45).clamp(0.0, 1.0);
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // Player recedes as the queue rises; once fully covered
-                        // it pauses and is not drawn (its state is kept).
-                        TickerMode(
-                          enabled: v < 1,
-                          child: Offstage(
-                            // Fully covered: skip drawing it at all.
-                            offstage: v >= 1,
-                            child: IgnorePointer(
-                              ignoring: v > 0.5,
-                              child: Transform.translate(
-                                offset: Offset(0, -48 * t),
-                                child: child,
+                  return AnimatedBuilder(
+                    animation: _queue,
+                    child: RepaintBoundary(child: playerView),
+                    builder: (context, child) {
+                      final v = _queue.value;
+                      final t = Curves.easeOut.transform(v);
+                      final barOpacity = ((v - 0.55) / 0.45).clamp(0.0, 1.0);
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // Player recedes as the queue rises; once fully covered
+                          // it pauses and is not drawn (its state is kept).
+                          TickerMode(
+                            enabled: v < 1,
+                            child: Offstage(
+                              // Fully covered: skip drawing it at all.
+                              offstage: v >= 1,
+                              child: IgnorePointer(
+                                ignoring: v > 0.5,
+                                child: Transform.translate(
+                                  offset: Offset(0, -48 * t),
+                                  child: child,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        // Artwork-tinted backdrop fading over the player
-                        if (v > 0)
-                          IgnorePointer(
-                            child: ColoredBox(
-                              color: backdrop.withValues(alpha: t),
+                          // Artwork-tinted backdrop fading over the player
+                          if (v > 0)
+                            IgnorePointer(
+                              child: ColoredBox(
+                                color: backdrop.withValues(alpha: t),
+                              ),
+                            ),
+                          // Compact player bar
+                          Positioned(
+                            top: topInset,
+                            left: 0,
+                            right: 0,
+                            height: _miniBarHeight,
+                            child: Offstage(
+                              offstage: barOpacity == 0,
+                              child: IgnorePointer(
+                                ignoring: barOpacity < 0.9,
+                                child: Opacity(
+                                  opacity: barOpacity,
+                                  child: miniBar,
+                                ),
+                              ),
                             ),
                           ),
-                        // Compact player bar
-                        Positioned(
-                          top: topInset,
-                          left: 0,
-                          right: 0,
-                          height: _miniBarHeight,
-                          child: Offstage(
-                            offstage: barOpacity == 0,
-                            child: IgnorePointer(
-                              ignoring: barOpacity < 0.9,
-                              child: Opacity(opacity: barOpacity, child: miniBar),
+                          // The queue sheet itself
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: sheetTop + (1 - v) * _sheetTravel,
+                            height: _sheetTravel,
+                            child: Offstage(
+                              offstage: v == 0,
+                              child: TickerMode(enabled: v > 0, child: sheet),
                             ),
                           ),
-                        ),
-                        // The queue sheet itself
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          top: sheetTop + (1 - v) * _sheetTravel,
-                          height: _sheetTravel,
-                          child: Offstage(
-                            offstage: v == 0,
-                            child: TickerMode(enabled: v > 0, child: sheet),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -362,7 +453,14 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   }
 
   /// Header with minimize down-chevron, centered LYRO logo + ● LOSSLESS badge, and options menu
-  Widget _buildHeader(BuildContext context, dynamic song, bool isPlaying) {
+  Widget _buildHeader(
+    BuildContext context,
+    dynamic song,
+    bool isPlaying,
+    PlayerProvider player,
+    bool reduceMotion,
+  ) {
+    final p = _NpPalette.of(context);
     // Quality badge label based on audio format
     final isFlac = song.isFlac as bool? ?? false;
     final qualityLabel = isFlac
@@ -376,11 +474,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
         children: [
           // Minimize Button (Down Arrow)
           IconButton(
-            icon: const Icon(
-              Icons.keyboard_arrow_down,
-              size: 28,
-              color: NothingColors.darkDisplay,
-            ),
+            icon: Icon(Icons.keyboard_arrow_down, size: 28, color: p.display),
             onPressed: () => Navigator.of(context).pop(),
             tooltip: 'Minimize',
           ),
@@ -390,42 +484,70 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               // Wave while playing, Glyph light sweep while paused
-              DotMatrixLogo(isPlaying: isPlaying),
+              DotMatrixLogo(
+                isPlaying: isPlaying,
+                still: reduceMotion,
+                color: p.display,
+              ),
               const SizedBox(height: 1),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 5,
-                    height: 5,
-                    margin: const EdgeInsets.only(right: 5),
-                    decoration: const BoxDecoration(
-                      color: NothingColors.signalRed,
-                      shape: BoxShape.circle,
+              ValueListenableBuilder<SleepTimer?>(
+                valueListenable: player.sleepTimer,
+                builder: (context, timer, formatRow) => timer == null
+                    ? formatRow!
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.bedtime_outlined,
+                            size: 11,
+                            color: NothingColors.signalRedBright,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            timer.endOfTrack
+                                ? 'END OF TRACK'
+                                : Formatters.formatDuration(timer.remaining),
+                            style: TextStyle(
+                              fontFamily: NothingTypography.fontMono,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.4,
+                              color: NothingColors.signalRedBright,
+                            ),
+                          ),
+                        ],
+                      ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 5,
+                      height: 5,
+                      margin: const EdgeInsets.only(right: 5),
+                      decoration: BoxDecoration(
+                        color: NothingColors.signalRed,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  Text(
-                    qualityLabel,
-                    style: TextStyle(
-                      fontFamily: NothingTypography.fontMono,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.4,
-                      color: NothingColors.darkSecondary,
+                    Text(
+                      qualityLabel,
+                      style: TextStyle(
+                        fontFamily: NothingTypography.fontMono,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.4,
+                        color: p.secondary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
 
           // Options Menu Button
           IconButton(
-            icon: const Icon(
-              Icons.more_horiz,
-              size: 26,
-              color: NothingColors.darkDisplay,
-            ),
+            icon: Icon(Icons.more_horiz, size: 26, color: p.display),
             onPressed: () => _showTrackOptions(context, song),
             tooltip: 'Options',
           ),
@@ -441,6 +563,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     bool isFav,
     PlayerProvider player,
   ) {
+    final p = _NpPalette.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0),
       child: Row(
@@ -454,12 +577,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                   song.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: NothingTypography.fontUi,
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.4,
-                    color: Colors.white,
+                    color: p.display,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -471,7 +594,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                     fontFamily: NothingTypography.fontMono,
                     fontSize: 12,
                     letterSpacing: 1.5,
-                    color: NothingColors.darkSecondary,
+                    color: p.secondary,
                   ),
                 ),
               ],
@@ -482,9 +605,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             icon: Icon(
               isFav ? Icons.favorite : Icons.favorite_border,
               size: 26,
-              color: isFav
-                  ? NothingColors.signalRed
-                  : NothingColors.darkDisplay,
+              color: isFav ? NothingColors.signalRed : p.display,
             ),
             onPressed: () {
               HapticFeedback.lightImpact();
@@ -506,6 +627,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     bool isShuffle,
     AudioServiceRepeatMode repeatMode,
   ) {
+    final p = _NpPalette.of(context);
     final isRepeatOne = repeatMode == AudioServiceRepeatMode.one;
     final isRepeatAll = repeatMode == AudioServiceRepeatMode.all;
 
@@ -517,9 +639,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
           icon: Icon(
             Icons.shuffle,
             size: 22,
-            color: isShuffle
-                ? NothingColors.signalRed
-                : NothingColors.darkSecondary,
+            color: isShuffle ? NothingColors.signalRed : p.secondary,
           ),
           onPressed: () {
             HapticFeedback.lightImpact();
@@ -530,11 +650,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
 
         // Skip Previous
         IconButton(
-          icon: const Icon(
-            Icons.skip_previous,
-            size: 32,
-            color: NothingColors.darkDisplay,
-          ),
+          icon: Icon(Icons.skip_previous, size: 32, color: p.display),
           onPressed: () {
             HapticFeedback.lightImpact();
             player.skipToPrevious();
@@ -553,10 +669,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             height: 68,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white,
+              color: p.display,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.18),
+                  color: p.display.withValues(alpha: 0.18),
                   blurRadius: 18,
                   spreadRadius: 2,
                 ),
@@ -564,18 +680,18 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             ),
             child: Center(
               child: isBuffering
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                        valueColor: AlwaysStoppedAnimation<Color>(p.onDisplay),
                       ),
                     )
                   : Icon(
                       isPlaying ? Icons.pause : Icons.play_arrow,
                       size: 36,
-                      color: Colors.black,
+                      color: p.onDisplay,
                     ),
             ),
           ),
@@ -583,11 +699,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
 
         // Skip Next
         IconButton(
-          icon: const Icon(
-            Icons.skip_next,
-            size: 32,
-            color: NothingColors.darkDisplay,
-          ),
+          icon: Icon(Icons.skip_next, size: 32, color: p.display),
           onPressed: () {
             HapticFeedback.lightImpact();
             player.skipToNext();
@@ -602,7 +714,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             size: 22,
             color: (isRepeatOne || isRepeatAll)
                 ? NothingColors.signalRed
-                : NothingColors.darkSecondary,
+                : p.secondary,
           ),
           onPressed: () {
             HapticFeedback.lightImpact();
@@ -616,6 +728,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
 
   /// Small chevron + QUEUE label hinting at the swipe-up gesture (also tappable).
   Widget _buildQueueHandle(BuildContext context) {
+    final p = _NpPalette.of(context);
     return GestureDetector(
       key: const Key('now_playing_queue_handle'),
       behavior: HitTestBehavior.opaque,
@@ -628,7 +741,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
             Icon(
               Icons.keyboard_arrow_up_rounded,
               size: 20,
-              color: Colors.white.withValues(alpha: 0.55),
+              color: p.display.withValues(alpha: 0.55),
             ),
             Text(
               'QUEUE',
@@ -637,7 +750,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 1.6,
-                color: Colors.white.withValues(alpha: 0.55),
+                color: p.display.withValues(alpha: 0.55),
               ),
             ),
           ],
@@ -648,16 +761,15 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
 
   /// Track context options bottom sheet
   void _showTrackOptions(BuildContext context, dynamic song) {
+    final p = _NpPalette.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: NothingColors.darkSurface,
+        decoration: BoxDecoration(
+          color: p.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          border: Border(
-            top: BorderSide(color: NothingColors.darkLine, width: 1.0),
-          ),
+          border: Border(top: BorderSide(color: p.line, width: 1.0)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Column(
@@ -668,34 +780,34 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
               song.title.toUpperCase(),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: NothingTypography.displayTitle(isDark: true, fontSize: 16),
+              style: NothingTypography.displayTitle(
+                isDark: p.dark,
+                fontSize: 16,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               '${song.artist} • ${song.album}',
-              style: NothingTypography.monoLabel(isDark: true),
+              style: NothingTypography.monoLabel(isDark: p.dark),
             ),
-            const Divider(color: NothingColors.darkLine, height: 28),
+            Divider(color: p.line, height: 28),
             ListTile(
-              leading: const Icon(
-                Icons.info_outline,
-                color: NothingColors.darkDisplay,
-              ),
+              leading: Icon(Icons.info_outline, color: p.display),
               title: Text(
                 'Track Details',
-                style: NothingTypography.bodyMedium(isDark: true),
+                style: NothingTypography.bodyMedium(isDark: p.dark),
               ),
               subtitle: Text(
                 'Format: ${song.format} • Size: ${Formatters.formatFileSize(song.size ?? 0)}',
-                style: NothingTypography.monoLabel(isDark: true),
+                style: NothingTypography.monoLabel(isDark: p.dark),
               ),
               dense: true,
             ),
             ListTile(
-              leading: const Icon(Icons.tune, color: NothingColors.darkDisplay),
+              leading: Icon(Icons.tune, color: p.display),
               title: Text(
                 'Equalizer',
-                style: NothingTypography.bodyMedium(isDark: true),
+                style: NothingTypography.bodyMedium(isDark: p.dark),
               ),
               onTap: () {
                 Navigator.of(context).pop();
@@ -704,13 +816,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
               dense: true,
             ),
             ListTile(
-              leading: const Icon(
-                Icons.playlist_play,
-                color: NothingColors.darkDisplay,
-              ),
+              leading: Icon(Icons.playlist_play, color: p.display),
               title: Text(
                 'Open Current Queue',
-                style: NothingTypography.bodyMedium(isDark: true),
+                style: NothingTypography.bodyMedium(isDark: p.dark),
               ),
               onTap: () {
                 Navigator.of(context).pop();
@@ -723,4 +832,42 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
       ),
     );
   }
+}
+
+/// Now Playing colours for the current theme (the screen used to be
+/// dark-only).
+class _NpPalette {
+  final bool dark;
+  final Color bg, surface, line, display, secondary, onDisplay;
+
+  const _NpPalette._(
+    this.dark,
+    this.bg,
+    this.surface,
+    this.line,
+    this.display,
+    this.secondary,
+    this.onDisplay,
+  );
+
+  static _NpPalette of(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+      ? const _NpPalette._(
+          true,
+          Color(0xFF0B0B0D),
+          NothingColors.darkSurface,
+          NothingColors.darkLine,
+          NothingColors.darkDisplay,
+          NothingColors.darkSecondary,
+          Colors.black,
+        )
+      : const _NpPalette._(
+          false,
+          Color(0xFFF2F2F2),
+          NothingColors.lightSurface,
+          NothingColors.lightLine,
+          NothingColors.lightDisplay,
+          NothingColors.lightSecondary,
+          Colors.white,
+        );
 }

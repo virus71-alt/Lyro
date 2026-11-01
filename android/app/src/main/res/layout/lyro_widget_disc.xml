@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Glyph Disc (2x2): round art inside a dot ring that fills with progress. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:padding="10dp">
+
+    <ImageView
+        android:id="@+id/widget_disc"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:contentDescription="Now playing"
+        android:scaleType="fitCenter" />
+
+    <ImageView
+        android:id="@+id/widget_play"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="bottom|end"
+        android:background="@drawable/widget_play_background"
+        android:contentDescription="Play"
+        android:padding="9dp"
+        android:src="@drawable/widget_play" />
+</FrameLayout>

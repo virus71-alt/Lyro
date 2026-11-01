@@ -11,6 +11,7 @@ import '../../../shared/widgets/nothing_button.dart';
 import '../../player/providers/player_provider.dart';
 import '../../player/widgets/track_artwork.dart';
 import '../providers/library_provider.dart';
+import '../../../shared/widgets/collection_header.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/song_tile.dart';
 
@@ -54,9 +55,11 @@ class AlbumDetailScreen extends StatelessWidget {
               Expanded(
                 child: CustomScrollView(
                   slivers: [
-                    // Album Header Info
+                    // Album Header Info (tinted from the cover)
                     SliverToBoxAdapter(
-                      child: Padding(
+                      child: ArtworkTintBackdrop(
+                        songId: album.songId ?? (albumSongs.isNotEmpty ? albumSongs.first.id : null),
+                        child: Padding(
                         padding: const EdgeInsets.all(20.0),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,6 +141,7 @@ class AlbumDetailScreen extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ),
                       ),
                     ),
                     const SliverToBoxAdapter(

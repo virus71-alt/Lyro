@@ -50,8 +50,8 @@ class TrackArtwork extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: Container(
-        width: size,
-        height: size,
+        width: size.isFinite ? size : null,
+        height: size.isFinite ? size : null,
         decoration: BoxDecoration(
           color: isDark ? NothingColors.darkRaised : NothingColors.lightRaised,
           borderRadius: BorderRadius.circular(radius),
@@ -67,11 +67,12 @@ class TrackArtwork extends StatelessWidget {
 
   Widget _buildFallback(bool isDark) {
     final initial = title.trim().isNotEmpty ? title.trim()[0].toUpperCase() : 'L';
-    final isLarge = size > 100;
+    final safeSize = (size.isFinite && size > 0) ? size : 48.0;
+    final isLarge = safeSize > 100;
 
     return Container(
-      width: size,
-      height: size,
+      width: size.isFinite ? size : null,
+      height: size.isFinite ? size : null,
       color: isDark ? NothingColors.darkRaised : NothingColors.lightRaised,
       child: Stack(
         alignment: Alignment.center,
@@ -79,7 +80,7 @@ class TrackArtwork extends StatelessWidget {
           // Subtle concentric rings / vinyl groove effect
           if (isLarge)
             CustomPaint(
-              size: Size(size, size),
+              size: Size(safeSize, safeSize),
               painter: _VinylGroovePainter(isDark: isDark),
             ),
           Center(
@@ -87,7 +88,7 @@ class TrackArtwork extends StatelessWidget {
               initial,
               style: NothingTypography.dottedBold(
                 isDark: isDark,
-                fontSize: size * 0.40,
+                fontSize: safeSize * 0.40,
                 color: isDark ? NothingColors.darkPrimary : NothingColors.lightPrimary,
               ),
             ),
@@ -174,7 +175,8 @@ class _CachedArtworkState extends State<_CachedArtwork> {
   }
 
   void _resolve() {
-    final bucket = ArtworkCache.bucket(widget.size * _dpr);
+    final safeSize = (widget.size.isFinite && widget.size > 0) ? widget.size : 48.0;
+    final bucket = ArtworkCache.bucket(safeSize * _dpr);
     if (bucket == _bucket) return;
     _bucket = bucket;
     final cached = ArtworkCache.peek(widget.id, widget.type, bucket);
@@ -198,13 +200,14 @@ class _CachedArtworkState extends State<_CachedArtwork> {
     if (bytes == null) {
       return _resolved ? widget.fallback : const SizedBox.expand();
     }
-    final px = (widget.size * MediaQuery.devicePixelRatioOf(context)).round();
+    final safeSize = (widget.size.isFinite && widget.size > 0) ? widget.size : 48.0;
+    final px = (safeSize * MediaQuery.devicePixelRatioOf(context)).round();
     return Image.memory(
       bytes,
-      width: widget.size,
-      height: widget.size,
+      width: widget.size.isFinite ? widget.size : null,
+      height: widget.size.isFinite ? widget.size : null,
       fit: BoxFit.cover,
-      cacheWidth: px,
+      cacheWidth: px > 0 ? px : null,
       gaplessPlayback: true,
       filterQuality: FilterQuality.medium,
       errorBuilder: (_, _, _) => widget.fallback,

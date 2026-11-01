@@ -7,6 +7,8 @@ import '../../../data/models/song_model.dart';
 import '../../player/providers/player_provider.dart';
 import '../../player/widgets/track_artwork.dart';
 import '../../../shared/widgets/nothing_status_badge.dart';
+import '../../../shared/widgets/dot_toast.dart';
+import '../../playlists/widgets/add_to_playlist_sheet.dart';
 
 class SongTile extends StatelessWidget {
   final Song song;
@@ -42,7 +44,7 @@ class SongTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap ?? () => context.read<PlayerProvider>().playSong(song, playlist, source: source),
-        onLongPress: () => _showTrackOptions(context),
+        onLongPress: () => showOptions(context),
         splashColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.06),
         highlightColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
         child: Container(
@@ -168,7 +170,7 @@ class SongTile extends StatelessWidget {
                   size: 18,
                   color: isDark ? NothingColors.darkSecondary : NothingColors.lightSecondary,
                 ),
-                onPressed: () => _showTrackOptions(context),
+                onPressed: () => showOptions(context),
               ),
             ],
           ),
@@ -177,7 +179,9 @@ class SongTile extends StatelessWidget {
     );
   }
 
-  void _showTrackOptions(BuildContext context) {
+  /// Song menu (favorite, play now / next, queue, playlist, info); also used
+  /// by Home's Quick picks.
+  void showOptions(BuildContext context) {
     final player = context.read<PlayerProvider>();
     final isDark = context.isDark;
     final isFav = player.isFavorite(song.id);
@@ -248,6 +252,46 @@ class SongTile extends StatelessWidget {
                   onTap: () {
                     Navigator.pop(ctx);
                     player.playSong(song, playlist, source: source);
+                  },
+                ),
+                ListTile(
+                  key: const Key('song_play_next'),
+                  leading: Icon(
+                    Icons.playlist_play,
+                    color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                  ),
+                  title: Text('PLAY NEXT', style: NothingTypography.monoLabel(isDark: isDark)),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await player.playNext(song);
+                    if (context.mounted) showDotToast(context, 'Queued · next');
+                  },
+                ),
+                ListTile(
+                  key: const Key('song_add_to_queue'),
+                  leading: Icon(
+                    Icons.queue_music,
+                    color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                  ),
+                  title: Text('ADD TO QUEUE', style: NothingTypography.monoLabel(isDark: isDark)),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final ahead = await player.addToQueue(song);
+                    if (context.mounted) {
+                      showDotToast(context, ahead <= 1 ? 'Queued · next' : 'Queued · ${ordinal(ahead)}');
+                    }
+                  },
+                ),
+                ListTile(
+                  key: const Key('song_add_to_playlist'),
+                  leading: Icon(
+                    Icons.playlist_add,
+                    color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                  ),
+                  title: Text('ADD TO PLAYLIST', style: NothingTypography.monoLabel(isDark: isDark)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    AddToPlaylistSheet.show(context, [song]);
                   },
                 ),
                 ListTile(

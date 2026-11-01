@@ -9,6 +9,7 @@ import '../../../data/models/artist_model.dart';
 import '../../../shared/widgets/nothing_button.dart';
 import '../../player/providers/player_provider.dart';
 import '../providers/library_provider.dart';
+import '../../../shared/widgets/collection_header.dart';
 import '../widgets/mini_player.dart';
 import '../widgets/song_tile.dart';
 
@@ -51,7 +52,9 @@ class ArtistDetailScreen extends StatelessWidget {
                 child: CustomScrollView(
                   slivers: [
                     SliverToBoxAdapter(
-                      child: Padding(
+                      child: ArtworkTintBackdrop(
+                        songId: artistSongs.isNotEmpty ? artistSongs.first.id : null,
+                        child: Padding(
                         padding: const EdgeInsets.all(20.0),
                         child: Row(
                           children: [
@@ -134,6 +137,7 @@ class ArtistDetailScreen extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ),
                       ),
                     ),
                     const SliverToBoxAdapter(child: Divider(height: 1)),

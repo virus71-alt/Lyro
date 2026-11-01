@@ -36,6 +36,17 @@ class ArtworkCache {
   static final Map<String, Future<Uint8List?>> _pending = {};
   static final Map<int, Song> _songs = {};
 
+  /// Folder path → distinct album names of the songs in it.
+  static final Map<String, Set<String>> _albumsByDir = {};
+
+  static String _dirOf(String path) {
+    final i = path.lastIndexOf('/');
+    return i > 0 ? path.substring(0, i) : path;
+  }
+
+  static bool _singleAlbumFolder(Song song) =>
+      (_albumsByDir[_dirOf(song.path)]?.length ?? 0) <= 1;
+
   /// Whether missing covers may be looked up online (user setting).
   static bool onlineEnabled = true;
 
@@ -47,8 +58,13 @@ class ArtworkCache {
 
   /// Lets the cache find each song's file and tags for the fallbacks.
   static void registerSongs(Iterable<Song> songs) {
+    _albumsByDir.clear();
     for (final s in songs) {
       _songs[s.id] = s;
+      final album = s.album.trim().toLowerCase();
+      if (s.path.isNotEmpty && album.isNotEmpty && !album.startsWith('unknown')) {
+        (_albumsByDir[_dirOf(s.path)] ??= {}).add(album);
+      }
     }
     FolderArtwork.clear();
   }
@@ -63,7 +79,10 @@ class ArtworkCache {
   }
 
   /// Requested pixel sizes are bucketed so nearby sizes share one entry.
-  static int bucket(double pixels) => pixels <= 160 ? 160 : (pixels <= 360 ? 360 : 720);
+  static int bucket(double pixels) {
+    if (!pixels.isFinite || pixels <= 0) return 160;
+    return pixels <= 160 ? 160 : (pixels <= 360 ? 360 : 720);
+  }
 
   static String _key(int id, ArtworkType type, int size) => '${type.name}_${id}_$size';
 
@@ -148,7 +167,7 @@ class ArtworkCache {
     final song = type == ArtworkType.AUDIO ? _songs[id] : null;
     if (song == null) return null;
     final raw = await EmbeddedArtwork.read(song.path) ??
-        await FolderArtwork.read(song.path);
+        await FolderArtwork.read(song.path, singleAlbumFolder: _singleAlbumFolder(song));
     if (raw == null || raw.isEmpty) return null;
     return _downscale(raw, size);
   }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/dot_matrix.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/nothing_colors.dart';
 import '../../../core/theme/nothing_dot_painter.dart';
 import '../../../core/theme/nothing_theme.dart';
 import '../../../core/theme/nothing_typography.dart';
+import '../../../shared/widgets/alphabet_scroll_list.dart';
 import '../providers/library_provider.dart';
 import '../widgets/artist_tile.dart';
 import '../widgets/mini_player.dart';
@@ -16,7 +18,9 @@ class ArtistsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = context.isDark;
     final library = context.watch<LibraryProvider>();
-    final artists = library.artists;
+    // Alphabetical so the A–Z rail jumps to the right place
+    final artists = [...library.artists]
+      ..sort((a, b) => a.artist.toLowerCase().compareTo(b.artist.toLowerCase()));
 
     return Scaffold(
       backgroundColor: isDark ? NothingColors.darkBg : NothingColors.lightBg,
@@ -42,14 +46,10 @@ class ArtistsScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: artists.isEmpty
-                    ? Center(
-                        child: Text(
-                          'NO ARTISTS FOUND',
-                          style: NothingTypography.monoLabel(isDark: isDark),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: artists.length,
+                    ? DotEmptyState(artId: DotEmptyState.ghost, title: 'No artists found', hint: null)
+                    : AlphabetScrollList(
+                        items: artists,
+                        letterOf: (a) => AlphabetScrollList.initialOf(a.artist),
                         itemBuilder: (context, index) {
                           final artist = artists[index];
                           return ArtistTile(

@@ -36,6 +36,7 @@ class NothingStatusBadge extends StatelessWidget {
         bg = isDark ? NothingColors.darkRaised : NothingColors.lightRaised;
         fg = isDark ? NothingColors.darkSecondary : NothingColors.lightSecondary;
         dotColor = fg;
+        border = const BorderSide(color: Colors.transparent, width: 1);
         break;
       case BadgeType.signalRed:
         bg = NothingColors.darkAccent.withValues(alpha: 0.15);
@@ -50,6 +51,7 @@ class NothingStatusBadge extends StatelessWidget {
         bg = (isDark ? NothingColors.darkSuccess : NothingColors.lightSuccess).withValues(alpha: 0.15);
         fg = isDark ? NothingColors.darkSuccess : NothingColors.lightSuccess;
         dotColor = fg;
+        border = const BorderSide(color: Colors.transparent, width: 1);
         break;
       case BadgeType.flacHiRes:
         bg = isDark ? NothingColors.darkRaised : NothingColors.lightRaised;
@@ -63,7 +65,7 @@ class NothingStatusBadge extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(NothingColors.radiusSm),
