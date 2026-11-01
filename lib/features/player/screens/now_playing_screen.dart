@@ -59,79 +59,68 @@ class NowPlayingScreen extends StatelessWidget {
             ),
           ),
 
-          // 2. Safe Area & Main Scrollable Viewport
+          // 2. Safe Area: header, speaker filling the free space, controls
           SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Responsive speaker width matching approved CMF Speaker proportions (350 x 475)
-                final maxSpeakerW = (constraints.maxWidth * 0.72).clamp(240.0, 300.0);
-                final maxSpeakerH = constraints.maxHeight * 0.45;
-                final speakerWidth = math.min(maxSpeakerW, maxSpeakerH / (475.0 / 350.0));
+            child: Column(
+              children: [
+                // Header with back chevron, centered LYRO + ● LOSSLESS, and menu button
+                _buildHeader(context, song),
 
-                return Column(
-                  children: [
-                    // Header with back chevron, centered LYRO + ● LOSSLESS, and menu button
-                    _buildHeader(context, song),
-
-                    // Scrollable & Flexible Main Body (prevents RenderFlex overflow and eliminates layout recursion)
-                    Expanded(
-                      child: SingleChildScrollView(
-                        physics: const ClampingScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 4.0),
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 2),
-
-                            // Centerpiece: Photorealistic CMF 3D Speaker
-                            LyroSpeakerPlayer(
-                              song: song,
-                              isPlaying: isPlaying,
-                              isShuffle: isShuffle,
-                              onPlayPause: () => player.playOrPause(),
-                              onToggleShuffle: () => player.toggleShuffle(),
-                              width: speakerWidth,
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            // Track Information (Title, Artist, and Favorite Heart)
-                            _buildTrackInfo(context, song, isFav, player),
-
-                            const SizedBox(height: 8),
-
-                            // Playback Progress Slider (Scrubbable timeline)
-                            LyroProgressBar(
-                              duration: duration,
-                              positionListenable: player.positionListenable,
-                              bufferedPositionListenable: player.bufferedPositionListenable,
-                              onSeek: (pos) => player.seek(pos),
-                            ),
-
-                            const SizedBox(height: 4),
-
-                            // Playback Controls Row (Shuffle, Prev, large Play/Pause, Next, Repeat)
-                            _buildPlaybackControls(
-                              context,
-                              player,
-                              isPlaying,
-                              isBuffering,
-                              isShuffle,
-                              repeatMode,
-                            ),
-
-                            const SizedBox(height: 14),
-
-                            // Bottom Navigation Capsule Panel (Queue, Equalizer, Library)
-                            _buildBottomNavigationPanel(context),
-
-                            const SizedBox(height: 12),
-                          ],
-                        ),
-                      ),
+                // Centerpiece: interactive 3D CMF speaker takes every spare pixel
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => LyroSpeakerPlayer(
+                      song: song,
+                      isPlaying: isPlaying,
+                      isShuffle: isShuffle,
+                      onPlayPause: () => player.playOrPause(),
+                      onToggleShuffle: () => player.toggleShuffle(),
+                      width: constraints.maxWidth,
+                      height: constraints.maxHeight,
                     ),
-                  ],
-                );
-              },
+                  ),
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Track Information (Title, Artist, and Favorite Heart)
+                      _buildTrackInfo(context, song, isFav, player),
+
+                      const SizedBox(height: 8),
+
+                      // Playback Progress Slider (Scrubbable timeline)
+                      LyroProgressBar(
+                        duration: duration,
+                        positionListenable: player.positionListenable,
+                        bufferedPositionListenable: player.bufferedPositionListenable,
+                        onSeek: (pos) => player.seek(pos),
+                      ),
+
+                      const SizedBox(height: 4),
+
+                      // Playback Controls Row (Shuffle, Prev, large Play/Pause, Next, Repeat)
+                      _buildPlaybackControls(
+                        context,
+                        player,
+                        isPlaying,
+                        isBuffering,
+                        isShuffle,
+                        repeatMode,
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      // Bottom Navigation Capsule Panel (Queue, Equalizer, Library)
+                      _buildBottomNavigationPanel(context),
+
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],

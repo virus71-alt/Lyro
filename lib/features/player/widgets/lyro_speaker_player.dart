@@ -1,7 +1,9 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
+
 import '../../../data/models/song_model.dart';
 import 'cmf_speaker_3d.dart';
 import 'speaker_grille_painter.dart';
@@ -11,8 +13,10 @@ import 'track_artwork.dart';
 ///
 /// - Procedural 3D model (see [cmf_speaker_3d.dart]) rendered every frame with
 ///   perspective projection, back-face culling and per-vertex studio lighting.
-/// - Drag to orbit the speaker a full 360°; a fling keeps spinning and springs
-///   back to the resting three-quarter view.
+/// - Free-hand orbit: drag to turn it any way you like; a fling keeps it
+///   spinning with friction and it stays where it stops. Double-tap the
+///   speaker to glide back to the resting three-quarter view.
+/// - While playing, sound waves pulse out of the side passive radiators.
 /// - Red bar knob: tap to play/pause; it depresses, twists, and turns a
 ///   quarter turn between the paused and playing positions.
 /// - Rotary dial: tap to toggle shuffle; the indicator turns and lights red.
@@ -25,6 +29,9 @@ class LyroSpeakerPlayer extends StatefulWidget {
   final VoidCallback onToggleShuffle;
   final double width;
 
+  /// Box height; defaults to `width * 1.3`. The model is scaled to fit.
+  final double? height;
+
   const LyroSpeakerPlayer({
     super.key,
     required this.song,
@@ -33,6 +40,7 @@ class LyroSpeakerPlayer extends StatefulWidget {
     required this.onPlayPause,
     required this.onToggleShuffle,
     this.width = 280.0,
+    this.height,
   });
 
   @override
@@ -43,7 +51,11 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
     with TickerProviderStateMixin {
   static const double _restYaw = 0.5;
   static const double _restPitch = 0.3;
-  static const _spring = SpringDescription(mass: 1, stiffness: 38, damping: 11);
+  static const double _minPitch = -0.15;
+  static const double _maxPitch = 1.2;
+  static const _spring = SpringDescription(mass: 1, stiffness: 60, damping: 14);
+  static const _tapSlop = 12.0;
+  static const _doubleTapWindow = Duration(milliseconds: 320);
 
   // Continuous spinning artwork animation (pauses/resumes at exact angle)
   late final AnimationController _artworkRotationController;
@@ -57,6 +69,18 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
   late final Animation<double> _knobPressAnimation;
   late final AnimationController _knobTurnController;
   late final AnimationController _dialRotationController;
+
+  // Sound waves from the side radiators
+  late final AnimationController _wavePhaseController;
+  late final AnimationController _waveLevelController;
+
+  // Double-tap detection (raw pointers, so knob taps stay instant)
+  Offset? _downPosition;
+  Duration? _downTime;
+  Offset? _lastTapPosition;
+  Duration? _lastTapTime;
+  Rect _knobRect = Rect.zero;
+  Rect _dialRect = Rect.zero;
 
   @override
   void initState() {
@@ -80,8 +104,10 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
           }
         }
       });
-    _pitchController =
-        AnimationController.unbounded(vsync: this, value: _restPitch);
+    _pitchController = AnimationController.unbounded(
+      vsync: this,
+      value: _restPitch,
+    );
 
     _knobPressController = AnimationController(
       vsync: this,
@@ -105,6 +131,22 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
       duration: const Duration(milliseconds: 250),
       value: widget.isShuffle ? 1.0 : 0.0,
     );
+
+    _wavePhaseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
+    _waveLevelController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 450),
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.dismissed) _wavePhaseController.stop();
+        });
+    if (widget.isPlaying) {
+      _waveLevelController.value = 1.0;
+      _wavePhaseController.repeat();
+    }
   }
 
   @override
@@ -117,9 +159,12 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
           _artworkRotationController.repeat();
         }
         _knobTurnController.animateTo(1.0, curve: Curves.easeOutBack);
+        if (!_wavePhaseController.isAnimating) _wavePhaseController.repeat();
+        _waveLevelController.forward();
       } else {
         _artworkRotationController.stop(canceled: false);
         _knobTurnController.animateTo(0.0, curve: Curves.easeOutBack);
+        _waveLevelController.reverse();
       }
     }
 
@@ -138,6 +183,8 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
     _knobPressController.dispose();
     _knobTurnController.dispose();
     _dialRotationController.dispose();
+    _wavePhaseController.dispose();
+    _waveLevelController.dispose();
     super.dispose();
   }
 
@@ -146,52 +193,101 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
     _pitchController.stop();
   }
 
+  double get _dragGain => 2.6 / widget.width;
+
   void _onPanUpdate(DragUpdateDetails details) {
-    final k = 2.6 / widget.width;
-    _yawController.value += details.delta.dx * k;
+    _yawController.value += details.delta.dx * _dragGain;
     _pitchController.value =
-        (_pitchController.value + details.delta.dy * k * 0.5).clamp(0.02, 0.62);
+        (_pitchController.value + details.delta.dy * _dragGain * 0.6).clamp(
+          _minPitch,
+          _maxPitch,
+        );
   }
 
   void _onPanEnd(DragEndDetails details) {
-    final k = 2.6 / widget.width;
-    final velocity = details.velocity.pixelsPerSecond.dx * k;
-    final yaw = _yawController.value;
-    final twoPi = math.pi * 2;
+    // Free-hand: a fling coasts to a stop and the speaker stays there.
+    final velocity = details.velocity.pixelsPerSecond.dx * _dragGain;
+    if (velocity.abs() < 0.05) return;
+    _yawController.animateWith(
+      FrictionSimulation(
+        0.12,
+        _yawController.value,
+        velocity,
+        tolerance: const Tolerance(velocity: 0.02),
+      ),
+    );
+  }
 
-    // Let the fling carry the spin, then settle on the nearest resting view.
-    final projected = yaw + velocity * 0.35;
-    final target =
-        _restYaw + ((projected - _restYaw) / twoPi).round() * twoPi;
-    _yawController.animateWith(SpringSimulation(_spring, yaw, target, velocity));
+  /// Glides back to the resting three-quarter view by the shortest turn.
+  void _resetView() {
+    HapticFeedback.selectionClick();
+    final twoPi = math.pi * 2;
+    final yaw = _yawController.value;
+    final target = _restYaw + ((yaw - _restYaw) / twoPi).round() * twoPi;
+    _yawController.animateWith(SpringSimulation(_spring, yaw, target, 0));
     _pitchController.animateWith(
-        SpringSimulation(_spring, _pitchController.value, _restPitch, 0));
+      SpringSimulation(_spring, _pitchController.value, _restPitch, 0),
+    );
+  }
+
+  void _onPointerDown(PointerDownEvent e) {
+    _downPosition = e.localPosition;
+    _downTime = e.timeStamp;
+  }
+
+  void _onPointerUp(PointerUpEvent e) {
+    final down = _downPosition, downTime = _downTime;
+    _downPosition = null;
+    if (down == null || downTime == null) return;
+    final isTap =
+        (e.localPosition - down).distance < _tapSlop &&
+        e.timeStamp - downTime < const Duration(milliseconds: 300);
+    if (!isTap ||
+        _knobRect.contains(e.localPosition) ||
+        _dialRect.contains(e.localPosition)) {
+      _lastTapTime = null;
+      return;
+    }
+    final last = _lastTapTime, lastPos = _lastTapPosition;
+    if (last != null &&
+        lastPos != null &&
+        e.timeStamp - last < _doubleTapWindow &&
+        (e.localPosition - lastPos).distance < 48) {
+      _lastTapTime = null;
+      _resetView();
+    } else {
+      _lastTapTime = e.timeStamp;
+      _lastTapPosition = e.localPosition;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final w = widget.width;
-    final h = w * 1.3;
+    final h = widget.height ?? w * 1.3;
 
     return Center(
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onPanStart: _onPanStart,
-        onPanUpdate: _onPanUpdate,
-        onPanEnd: _onPanEnd,
-        onPanCancel: () => _onPanEnd(DragEndDetails()),
-        child: SizedBox(
-          width: w,
-          height: h,
-          child: AnimatedBuilder(
-            animation: Listenable.merge([
-              _yawController,
-              _pitchController,
-              _knobPressAnimation,
-              _knobTurnController,
-              _dialRotationController,
-            ]),
-            builder: (context, _) => _buildScene(w, h),
+      child: Listener(
+        onPointerDown: _onPointerDown,
+        onPointerUp: _onPointerUp,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onPanStart: _onPanStart,
+          onPanUpdate: _onPanUpdate,
+          onPanEnd: _onPanEnd,
+          child: SizedBox(
+            width: w,
+            height: h,
+            child: AnimatedBuilder(
+              animation: Listenable.merge([
+                _yawController,
+                _pitchController,
+                _knobPressAnimation,
+                _knobTurnController,
+                _dialRotationController,
+              ]),
+              builder: (context, _) => _buildScene(w, h),
+            ),
           ),
         ),
       ),
@@ -202,7 +298,8 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
     final camera = SpeakerCamera(
       yaw: _yawController.value,
       pitch: _pitchController.value,
-      scale: w * 0.62,
+      // Fits the model plus room for the sound waves on either side.
+      scale: math.min(w / 1.75, h / 1.95),
       center: Offset(w / 2, h * 0.5),
     );
     final pose = SpeakerPose(
@@ -218,12 +315,34 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
     final dialCenter = camera.screen(pose.dialTop);
     final dialSize = camera.scaleAt(pose.dialTop) * 0.22;
     final controlsLive = pose.roofVisible;
+    _knobRect = Rect.fromCenter(
+      center: knobCenter,
+      width: knobSize,
+      height: knobSize,
+    );
+    _dialRect = Rect.fromCenter(
+      center: dialCenter,
+      width: dialSize,
+      height: dialSize,
+    );
+
+    SpeakerSoundWavePainter waves({required bool near}) =>
+        SpeakerSoundWavePainter(
+          camera: camera,
+          phase: _wavePhaseController,
+          level: _waveLevelController,
+          nearSides: near,
+        );
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Positioned.fill(
-          child: CustomPaint(painter: SpeakerBackPainter(pose)),
+          child: IgnorePointer(child: CustomPaint(painter: waves(near: false))),
+        ),
+        Positioned.fill(child: CustomPaint(painter: SpeakerBackPainter(pose))),
+        Positioned.fill(
+          child: IgnorePointer(child: CustomPaint(painter: waves(near: true))),
         ),
         if (SpeakerFrontFace.visibility(camera) > 0.02)
           Positioned(

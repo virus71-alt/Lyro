@@ -946,3 +946,71 @@ class _ApertureLipPainter extends CustomPainter {
   @override
   bool shouldRepaint(_ApertureLipPainter old) => false;
 }
+
+// =============================================================================
+// SOUND WAVES FROM THE SIDE PASSIVE RADIATORS
+// =============================================================================
+
+/// Pressure rings that leave the side radiators while music plays, and the
+/// radiator membrane pumping in time with them.
+///
+/// Paint once with [nearSides] = false underneath the body (rings leaving the
+/// far side are partly hidden by it) and once with true on top of the body.
+class SpeakerSoundWavePainter extends CustomPainter {
+  final SpeakerCamera camera;
+  final Animation<double> phase; // 0..1 repeating
+  final Animation<double> level; // 0 silent .. 1 playing
+  final bool nearSides;
+
+  static const int _rings = 3;
+
+  SpeakerSoundWavePainter({
+    required this.camera,
+    required this.phase,
+    required this.level,
+    required this.nearSides,
+  }) : super(repaint: Listenable.merge([phase, level]));
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final lv = level.value;
+    if (lv <= 0.001) return;
+    final p = phase.value;
+
+    for (final sgn in [-1.0, 1.0]) {
+      final n = V3(sgn, 0, 0);
+      final c = V3(sgn * (_G.width / 2 + 0.002), 0.46, 0);
+      if ((camera.facing(c, n) > 0) != nearSides) continue;
+
+      if (nearSides) {
+        // Membrane thump at each ring emission
+        final thump = math.pow(1 - (p * _rings) % 1.0, 4).toDouble() * lv;
+        canvas.drawPath(
+          _planePath(camera, c + n * (0.012 * thump), V3.zAxis, V3.yAxis,
+              _stadium(0.23 * (1 + 0.05 * thump), 0.56 * (1 + 0.03 * thump))),
+          Paint()..color = Colors.white.withValues(alpha: 0.07 * thump),
+        );
+      }
+
+      for (var i = 0; i < _rings; i++) {
+        final t = (p + i / _rings) % 1.0;
+        final fade = math.pow(1 - t, 1.6) * math.min(1.0, t * 6) * lv;
+        if (fade <= 0.002) continue;
+        final o = c + n * (0.04 + t * 0.55);
+        final ring = _stadium(0.27 * (1 + t * 1.5), 0.6 * (1 + t * 0.7));
+        canvas.drawPath(
+          _planePath(camera, o, V3.zAxis, V3.yAxis, ring),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = camera.scale * (0.008 + 0.012 * (1 - t))
+            ..color = const Color(0xFFEDEDED).withValues(alpha: 0.5 * fade)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, 0.8 + 3 * t),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(SpeakerSoundWavePainter old) =>
+      old.camera != camera || old.nearSides != nearSides;
+}
