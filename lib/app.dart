@@ -15,6 +15,7 @@ import 'features/profile/providers/profile_provider.dart';
 import 'core/settings/app_settings_provider.dart';
 import 'features/playlists/providers/playlist_provider.dart';
 import 'features/eq/eq_provider.dart';
+import 'data/services/web_stream_server.dart';
 
 class LyroApp extends StatelessWidget {
   final PreferencesRepository prefsRepo;
@@ -59,6 +60,10 @@ class LyroApp extends StatelessWidget {
             audioHandler: audioHandler,
             prefsRepo: prefsRepo,
           )..librarySongs = () => context.read<LibraryProvider>().songs,
+        ),
+        ChangeNotifierProvider(
+          create: (context) => WebStreamServer(prefsRepo: prefsRepo)
+            ..songs = () => context.read<LibraryProvider>().songs,
         ),
       ],
       child: Consumer<ThemeProvider>(

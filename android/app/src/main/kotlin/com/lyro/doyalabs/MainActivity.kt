@@ -59,6 +59,22 @@ class MainActivity : AudioServiceActivity() {
                 }
             }
 
+        // Web stream: keep the phone awake and on Wi-Fi while serving.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "lyro/stream")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "start" -> {
+                        LyroStreamService.start(appContext, call.argument<String>("address"))
+                        result.success(null)
+                    }
+                    "stop" -> {
+                        LyroStreamService.stop(appContext)
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
         // Widget quick mixes → Flutter ("shuffle_all", "favorites", "most_played").
         pendingAction = intent?.getStringExtra(WidgetRender.EXTRA_ACTION)
         actions = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "lyro/actions").apply {

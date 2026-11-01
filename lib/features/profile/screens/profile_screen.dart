@@ -17,6 +17,7 @@ import '../../../shared/widgets/dot_matrix.dart';
 import '../providers/profile_provider.dart';
 import '../widgets/edit_profile_sheet.dart';
 import '../widgets/player_settings_card.dart';
+import '../widgets/web_stream_card.dart';
 
 class ProfileScreen extends StatelessWidget {
   final bool isTab;
@@ -374,6 +375,15 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       const PlayerSettingsCard(),
+                      const SizedBox(height: 24),
+
+                      // Stream the library to a laptop on the same Wi-Fi
+                      Text(
+                        'WEB STREAM',
+                        style: NothingTypography.monoLabel(isDark: isDark),
+                      ),
+                      const SizedBox(height: 8),
+                      const WebStreamCard(),
                       const SizedBox(height: 24),
 
                       // 4. Storage & Rescan

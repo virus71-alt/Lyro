@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lyro · Web stream</title>
+<meta name="theme-color" content="#000000">
+<style>
+@font-face { font-family: Doto; src: url(/fonts/doto.ttf); font-weight: 100 900; }
+@font-face { font-family: Geist; src: url(/fonts/geist.ttf); font-weight: 400; }
+@font-face { font-family: Geist; src: url(/fonts/geist-semibold.ttf); font-weight: 600; }
+@font-face { font-family: GeistMono; src: url(/fonts/geistmono.ttf); }
+
+:root {
+  --bg: #000; --surface: #0c0c0c; --raised: #171717; --line: #262626;
+  --primary: #ededed; --secondary: #8c8c8c; --muted: #5a5a5a; --accent: #d71921;
+  --dot: rgba(255,255,255,.07);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f2f2f2; --surface: #fff; --raised: #ededed; --line: #e2e2e2;
+    --primary: #1c1c1c; --secondary: #585a5a; --muted: #9a9a9a; --dot: rgba(0,0,0,.07);
+    color-scheme: light;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.2px);
+  background-size: 18px 18px;
+  color: var(--primary);
+  font: 14px/1.4 Geist, system-ui, sans-serif;
+  display: grid;
+  grid-template: "side main" 1fr "player player" auto / 220px 1fr;
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.mono { font-family: GeistMono, ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; }
+.dot { color: var(--accent); }
+
+/* sidebar */
+aside { grid-area: side; padding: 28px 18px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 28px; }
+.logo { font: 800 34px Doto, monospace; letter-spacing: .04em; }
+nav { display: flex; flex-direction: column; gap: 2px; }
+nav button { text-align: left; padding: 9px 12px; border-radius: 10px; font-size: 11px; color: var(--secondary); display: flex; justify-content: space-between; }
+nav button:hover { color: var(--primary); }
+nav button.on { background: var(--raised); color: var(--primary); }
+nav button.on::after { content: "●"; color: var(--accent); font-size: 8px; }
+.status { margin-top: auto; font-size: 10px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.status i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: blink 2s infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+
+/* main */
+main { grid-area: main; overflow-y: auto; padding: 28px 32px 40px; }
+header { display: flex; align-items: end; gap: 20px; margin-bottom: 22px; }
+h1 { font: 800 44px/1 Doto, monospace; text-transform: uppercase; letter-spacing: .02em; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+h1 small { font: 12px GeistMono, monospace; color: var(--secondary); margin-left: 10px; letter-spacing: .1em; }
+.back { font-size: 11px; color: var(--secondary); margin-bottom: 8px; display: none; }
+.back.show { display: inline-block; }
+input[type=search] {
+  width: 260px; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--primary); font: 13px Geist, sans-serif; outline: none;
+}
+input[type=search]:focus { border-color: var(--secondary); }
+.pill { padding: 9px 14px; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; background: var(--surface); }
+.pill:hover { border-color: var(--secondary); }
+
+/* song rows */
+.row {
+  display: grid; grid-template-columns: 34px 44px 1fr 1fr 64px 52px; gap: 14px; align-items: center;
+  padding: 7px 10px; border-radius: 12px; cursor: pointer;
+}
+.row:hover { background: var(--raised); }
+.row.playing .t { color: var(--accent); }
+.row .i { font: 11px GeistMono, monospace; color: var(--muted); text-align: right; }
+.row.playing .i { color: var(--accent); }
+.row .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .a, .row .al { color: var(--secondary); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .f { font-size: 9px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 6px; text-align: center; color: var(--secondary); }
+.row .d { font: 12px GeistMono, monospace; color: var(--secondary); text-align: right; }
+.art { width: 44px; height: 44px; border-radius: 8px; background: var(--raised) center/cover; border: 1px solid var(--line); display: grid; place-items: center; font: 800 16px Doto, monospace; color: var(--muted); overflow: hidden; }
+.art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* album grid */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 22px; }
+.card { cursor: pointer; min-width: 0; }
+.card .art { width: 100%; height: auto; aspect-ratio: 1; border-radius: 14px; font-size: 40px; }
+.card b { display: block; margin-top: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card span { font-size: 12px; color: var(--secondary); }
+.card:hover .art { border-color: var(--secondary); }
+
+/* simple list (artists, folders) */
+.item { display: flex; justify-content: space-between; padding: 14px 10px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.item:hover b { color: var(--accent); }
+.item span { font-size: 11px; color: var(--secondary); }
+
+/* player */
+footer {
+  grid-area: player; border-top: 1px solid var(--line); background: var(--surface);
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; align-items: center; padding: 14px 24px;
+}
+.now { display: flex; gap: 14px; align-items: center; min-width: 0; }
+.now .art { width: 56px; height: 56px; flex: none; }
+.now b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.now span { color: var(--secondary); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.center { display: flex; flex-direction: column; gap: 8px; }
+.controls { display: flex; justify-content: center; align-items: center; gap: 18px; }
+.controls button { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--secondary); }
+.controls button:hover { color: var(--primary); }
+.controls button.on { color: var(--accent); }
+.controls .play { width: 46px; height: 46px; background: var(--primary); color: var(--bg); }
+.controls .play:hover { color: var(--bg); transform: scale(1.04); }
+svg { width: 18px; height: 18px; fill: currentColor; }
+.play svg { width: 20px; height: 20px; }
+.seek { display: flex; align-items: center; gap: 10px; font: 11px GeistMono, monospace; color: var(--secondary); }
+.seek span { width: 40px; text-align: center; }
+input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 2px; background: var(--line); border-radius: 2px; outline: none; cursor: pointer; background-image: linear-gradient(var(--accent), var(--accent)); background-repeat: no-repeat; background-size: 0 100%; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--primary); }
+input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: var(--primary); }
+.right { display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
+.right .vol { width: 110px; flex: none; }
+.badge { font-size: 9px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--secondary); display: none; }
+.badge.show { display: inline-block; }
+.badge i { color: var(--accent); font-style: normal; }
+
+/* lock / empty */
+.center-msg { display: grid; place-items: center; height: 100%; text-align: center; gap: 16px; }
+.center-msg h2 { font: 800 40px Doto, monospace; }
+.center-msg p { color: var(--secondary); max-width: 360px; }
+.center-msg input { width: 220px; text-align: center; font: 20px GeistMono, monospace; letter-spacing: .3em; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--primary); outline: none; }
+
+@media (max-width: 860px) {
+  body { grid-template: "main" 1fr "player" auto / 1fr; }
+  aside { display: none; }
+  main { padding: 20px 16px; }
+  h1 { font-size: 32px; }
+  header { flex-wrap: wrap; }
+  input[type=search] { width: 100%; }
+  .row { grid-template-columns: 44px 1fr 52px; }
+  .row .i, .row .al, .row .f { display: none; }
+  footer { grid-template-columns: 1fr; gap: 10px; padding: 12px 16px; }
+  .right { display: none; }
+}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo">LYRO<span class="dot">.</span></div>
+  <nav id="nav">
+    <button class="mono on" data-view="songs">Songs</button>
+    <button class="mono" data-view="albums">Albums</button>
+    <button class="mono" data-view="artists">Artists</button>
+    <button class="mono" data-view="folders">Folders</button>
+    <button class="mono" data-view="recent">Recently added</button>
+  </nav>
+  <div class="status mono"><i></i><span id="status">Streaming from phone</span></div>
+</aside>
+
+<main id="main"></main>
+
+<footer>
+  <div class="now">
+    <div class="art" id="nowArt">·</div>
+    <div style="min-width:0"><b id="nowTitle">Nothing playing</b><span id="nowArtist">Pick a song</span></div>
+  </div>
+  <div class="center">
+    <div class="controls">
+      <button id="shuffle" title="Shuffle (S)"><svg viewBox="0 0 24 24"><path d="M10.6 9.2 5.4 4 4 5.4l5.2 5.2 1.4-1.4ZM14.5 4l2 2L4 18.6 5.4 20 18 7.5l2 2V4h-5.5Zm.3 9.4-1.4 1.4 3.1 3.1-2 2.1H20v-5.5l-2 2-3.2-3.1Z"/></svg></button>
+      <button id="prev" title="Previous (Shift ←)"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
+      <button id="play" class="play" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
+      <button id="next" title="Next (Shift →)"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+      <button id="repeat" title="Repeat (R)"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></button>
+    </div>
+    <div class="seek"><span id="cur">0:00</span><input type="range" id="seek" min="0" max="1000" value="0"><span id="dur">0:00</span></div>
+  </div>
+  <div class="right">
+    <span class="badge mono" id="badge"></span>
+    <svg viewBox="0 0 24 24" style="color:var(--secondary)"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+    <input type="range" class="vol" id="vol" min="0" max="100" value="100">
+  </div>
+</footer>
+
+<audio id="audio" preload="auto"></audio>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const audio = $('audio');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const time = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const initial = (s) => esc((s || '?').trim().charAt(0).toUpperCase());
+const art = (song, big) => `<div class="art">${initial(big ? song.al : song.t)}<img loading="lazy" src="/api/art/${song.id}" onerror="this.remove()" alt=""></div>`;
+
+// The key arrives once in the link; after that the cookie carries it.
+if (new URLSearchParams(location.search).has('k')) history.replaceState(null, '', '/');
+
+let songs = [];
+let view = { name: 'songs' };
+let queue = [], order = [], pos = -1;
+let shuffle = false, repeat = false;
+let filter = '';
+
+const PLAY = '<path d="M8 5v14l11-7z"/>';
+const PAUSE = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+
+async function load() {
+  let res;
+  try { res = await fetch('/api/library'); } catch { return offline(); }
+  if (res.status === 401) return lock();
+  songs = (await res.json()).songs;
+  songs.sort((a, b) => a.t.localeCompare(b.t));
+  render();
+}
+
+function lock() {
+  document.body.style.gridTemplate = '"main" 1fr / 1fr';
+  document.querySelector('aside').style.display = 'none';
+  document.querySelector('footer').style.display = 'none';
+  $('main').innerHTML = `<div class="center-msg"><div>
+    <h2>LYRO<span class="dot">.</span></h2>
+    <p style="margin:12px auto 20px">Enter the key shown in Lyro → Profile → Web stream on your phone.</p>
+    <form onsubmit="location.href='/?k='+encodeURIComponent(this.k.value.trim().toLowerCase());return false">
+      <input name="k" maxlength="12" autocomplete="off" autofocus placeholder="······">
+    </form></div></div>`;
+}
+
+function offline() {
+  $('status').textContent = 'Phone not reachable';
+  $('main').innerHTML = `<div class="center-msg"><div><h2>OFFLINE<span class="dot">.</span></h2>
+    <p style="margin-top:12px">Check that web stream is on in Lyro and that both devices are on the same Wi-Fi.</p>
+    <button class="pill mono" style="margin-top:20px" onclick="load()">Retry</button></div></div>`;
+}
+
+// ------------------------------------------------------------ views
+
+const group = (key) => {
+  const m = new Map();
+  for (const s of songs) { const k = s[key] || 'Unknown'; (m.get(k) || m.set(k, []).get(k)).push(s); }
+  return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+};
+
+function header(title, count, back) {
+  return `${back ? `<button class="back show mono" onclick="go(${esc(JSON.stringify(back))})">← Back</button>` : ''}
+    <header><h1>${esc(title)}<small>${count}</small></h1>
+    <button class="pill mono" onclick="playList(current, 0, true)">Shuffle all</button>
+    <input type="search" id="q" placeholder="Search title, artist, album" value="${esc(filter)}"></header>`;
+}
+
+let current = [];
+
+function songRows(list) {
+  current = list;
+  const playingId = queue[order[pos]]?.id;
+  return list.map((s, i) => `<div class="row${s.id === playingId ? ' playing' : ''}" data-i="${i}">
+    <span class="i">${s.id === playingId ? '●' : i + 1}</span>${art(s)}
+    <span class="t">${esc(s.t)}</span><span class="a">${esc(s.a)}</span>
+    <span class="f mono">${esc(s.f)}</span><span class="d">${time(s.d / 1000)}</span></div>`).join('');
+}
+
+function matches(s) {
+  if (!filter) return true;
+  const q = filter.toLowerCase();
+  return s.t.toLowerCase().includes(q) || s.a.toLowerCase().includes(q) || s.al.toLowerCase().includes(q);
+}
+
+function render() {
+  const main = $('main');
+  const v = view;
+  document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.view === (v.parent || v.name)));
+  let html = '';
+  if (v.name === 'songs' || v.name === 'recent') {
+    let list = songs.filter(matches);
+    if (v.name === 'recent') list = [...list].sort((a, b) => (b.add || 0) - (a.add || 0)).slice(0, 100);
+    html = header(v.name === 'recent' ? 'Recent' : 'Songs', list.length) + songRows(list);
+  } else if (v.name === 'albums') {
+    const albums = group('al').filter(([name, l]) => !filter || name.toLowerCase().includes(filter.toLowerCase()) || l.some(matches));
+    current = albums.flatMap(([, l]) => l);
+    html = header('Albums', albums.length) + `<div class="grid">${albums.map(([name, l]) =>
+      `<div class="card" onclick='go({name:"album",key:${esc(JSON.stringify(name))},parent:"albums"})'>${art(l[0], true)}<b>${esc(name)}</b><span>${esc(l[0].a)} · ${l.length}</span></div>`).join('')}</div>`;
+  } else if (v.name === 'artists' || v.name === 'folders') {
+    const items = group(v.name === 'artists' ? 'a' : 'dir').filter(([name]) => !filter || name.toLowerCase().includes(filter.toLowerCase()));
+    current = items.flatMap(([, l]) => l);
+    const child = v.name === 'artists' ? 'artist' : 'folder';
+    html = header(v.name === 'artists' ? 'Artists' : 'Folders', items.length) + items.map(([name, l]) =>
+      `<div class="item" onclick='go({name:"${child}",key:${esc(JSON.stringify(name))},parent:"${v.name}"})'><b>${esc(name)}</b><span class="mono">${l.length} songs</span></div>`).join('');
+  } else {
+    const key = { album: 'al', artist: 'a', folder: 'dir' }[v.name];
+    let list = songs.filter((s) => (s[key] || 'Unknown') === v.key).filter(matches);
+    if (v.name === 'album') list.sort((a, b) => (a.n || 0) - (b.n || 0) || a.t.localeCompare(b.t));
+    html = header(v.key, list.length, { name: v.parent }) + songRows(list);
+  }
+  main.innerHTML = html;
+  const q = $('q');
+  if (q) {
+    q.oninput = () => { filter = q.value; const at = q.selectionStart; render(); const n = $('q'); n.focus(); n.setSelectionRange(at, at); };
+  }
+}
+
+function go(v) { view = v; filter = ''; render(); $('main').scrollTop = 0; }
+
+$('nav').onclick = (e) => { const b = e.target.closest('button'); if (b) go({ name: b.dataset.view }); };
+$('main').onclick = (e) => { const r = e.target.closest('.row'); if (r) playList(current, +r.dataset.i); };
+
+// ------------------------------------------------------------ playback
+
+function playList(list, index, shuffled) {
+  if (!list.length) return;
+  queue = list.slice();
+  if (shuffled) { shuffle = true; $('shuffle').classList.add('on'); index = Math.floor(Math.random() * queue.length); }
+  makeOrder(index);
+  start();
+}
+
+function makeOrder(first) {
+  order = queue.map((_, i) => i);
+  if (shuffle) {
+    order.splice(order.indexOf(first), 1);
+    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    order.unshift(first);
+    pos = 0;
+  } else {
+    pos = first;
+  }
+}
+
+function start() {
+  const s = queue[order[pos]];
+  if (!s) return;
+  audio.src = `/api/stream/${s.id}`;
+  audio.play().catch(() => {});
+  $('nowTitle').textContent = s.t;
+  $('nowArtist').textContent = `${s.a} — ${s.al}`;
+  $('nowArt').innerHTML = `${initial(s.t)}<img src="/api/art/${s.id}" onerror="this.remove()" alt="">`;
+  $('badge').innerHTML = `<i>●</i> ${esc(s.f)}`;
+  $('badge').classList.add('show');
+  document.title = `${s.t} · Lyro`;
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: s.t, artist: s.a, album: s.al,
+      artwork: [{ src: `/api/art/${s.id}`, sizes: '360x360' }],
+    });
+  }
+  document.querySelectorAll('.row').forEach((r) => {
+    const on = current[+r.dataset.i]?.id === s.id;
+    r.classList.toggle('playing', on);
+    r.querySelector('.i').textContent = on ? '●' : +r.dataset.i + 1;
+  });
+}
+
+function next(auto) {
+  if (!queue.length) return;
+  if (pos + 1 < order.length) pos++;
+  else if (repeat || !auto) pos = 0;
+  else { audio.pause(); return; }
+  start();
+}
+
+function prev() {
+  if (audio.currentTime > 3 || pos <= 0) { audio.currentTime = 0; return; }
+  pos--;
+  start();
+}
+
+function toggle() {
+  if (!audio.src) return songs.length && playList(current.length ? current : songs, 0);
+  audio.paused ? audio.play() : audio.pause();
+}
+
+$('play').onclick = toggle;
+$('next').onclick = () => next(false);
+$('prev').onclick = prev;
+$('shuffle').onclick = () => {
+  shuffle = !shuffle;
+  $('shuffle').classList.toggle('on', shuffle);
+  if (queue.length) makeOrder(order[pos]);
+};
+$('repeat').onclick = () => { repeat = !repeat; $('repeat').classList.toggle('on', repeat); };
+
+audio.onended = () => next(true);
+audio.onplay = audio.onpause = () => {
+  $('playIcon').innerHTML = audio.paused ? PLAY : PAUSE;
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = audio.paused ? 'paused' : 'playing';
+};
+// Skip unplayable files, but give up once the whole queue has failed.
+let failures = 0;
+audio.onplaying = () => { failures = 0; };
+audio.onerror = () => {
+  if (!audio.src) return;
+  if (++failures >= queue.length) { $('nowArtist').textContent = "Can't play this file in the browser"; return; }
+  setTimeout(() => next(true), 800);
+};
+
+const seek = $('seek');
+let dragging = false;
+const paint = (el) => { el.style.backgroundSize = `${(el.value - el.min) / (el.max - el.min) * 100}% 100%`; };
+audio.ontimeupdate = () => {
+  $('cur').textContent = time(audio.currentTime);
+  $('dur').textContent = time(audio.duration);
+  if (!dragging && audio.duration) { seek.value = audio.currentTime / audio.duration * 1000; paint(seek); }
+};
+seek.oninput = () => { dragging = true; paint(seek); $('cur').textContent = time(seek.value / 1000 * (audio.duration || 0)); };
+seek.onchange = () => { if (audio.duration) audio.currentTime = seek.value / 1000 * audio.duration; dragging = false; };
+
+const vol = $('vol');
+try { vol.value = localStorage.getItem('lyro-vol') ?? 100; } catch {}
+audio.volume = vol.value / 100; paint(vol);
+vol.oninput = () => { audio.volume = vol.value / 100; paint(vol); try { localStorage.setItem('lyro-vol', vol.value); } catch {} };
+
+// Earbud / keyboard media keys
+if ('mediaSession' in navigator) {
+  navigator.mediaSession.setActionHandler('play', () => audio.play());
+  navigator.mediaSession.setActionHandler('pause', () => audio.pause());
+  navigator.mediaSession.setActionHandler('nexttrack', () => next(false));
+  navigator.mediaSession.setActionHandler('previoustrack', prev);
+  navigator.mediaSession.setActionHandler('seekto', (d) => { audio.currentTime = d.seekTime; });
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+  if (e.code === 'Space') { e.preventDefault(); toggle(); }
+  else if (e.key === 'ArrowRight' && e.shiftKey) next(false);
+  else if (e.key === 'ArrowLeft' && e.shiftKey) prev();
+  else if (e.key === 'ArrowRight') audio.currentTime += 10;
+  else if (e.key === 'ArrowLeft') audio.currentTime -= 10;
+  else if (e.key === 's') $('shuffle').click();
+  else if (e.key === 'r') $('repeat').click();
+  else if (e.key === '/') { e.preventDefault(); $('q')?.focus(); }
+});
+
+load();
+</script>
+</body>
+</html>

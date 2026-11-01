@@ -153,4 +153,8 @@ class PreferencesRepository {
   // Equalizer state (JSON: enabled, selected profile, fine-tune, downloads)
   String? getEqualizerJson() => _prefs.getString(AppConstants.prefEqualizer);
   Future<void> setEqualizerJson(String json) => _prefs.setString(AppConstants.prefEqualizer, json);
+
+  // Web stream access key (kept so the laptop's bookmark keeps working)
+  String? getWebStreamKey() => _prefs.getString(AppConstants.prefWebStreamKey);
+  Future<void> setWebStreamKey(String key) => _prefs.setString(AppConstants.prefWebStreamKey, key);
 }

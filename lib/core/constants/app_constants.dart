@@ -35,5 +35,6 @@ class AppConstants {
   static const String prefFadeSeconds = 'lyro_fade_seconds';
   static const String prefOnboarded = 'lyro_onboarded';
   static const String prefEqualizer = 'lyro_equalizer';
+  static const String prefWebStreamKey = 'lyro_web_stream_key';
 }
 
