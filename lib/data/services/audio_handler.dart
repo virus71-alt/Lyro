@@ -25,8 +25,14 @@ class SleepTimer {
 /// time and albums play gaplessly. Optional fades soften track changes, and
 /// a sleep timer can pause after a delay or at the end of the current track.
 class LyroAudioHandler extends BaseAudioHandler with SeekHandler {
-  final AudioPlayer _player = AudioPlayer();
+  // Interruptions are handled below (just_audio's own handling would fight
+  // ours), and an unreadable file skips ahead instead of stopping playback.
+  final AudioPlayer _player = AudioPlayer(handleInterruptions: false, maxSkipsOnError: 5);
   List<Song> _playlist = [];
+
+  /// Set when an interruption (call, assistant, other app) paused playback,
+  /// so it resumes afterwards only if it was playing before.
+  bool _interrupted = false;
   int _currentIndex = -1;
 
   /// Songs before this index came from the source the user played from
@@ -68,7 +74,10 @@ class LyroAudioHandler extends BaseAudioHandler with SeekHandler {
               break;
             case AudioInterruptionType.pause:
             case AudioInterruptionType.unknown:
-              pause();
+              if (_player.playing) {
+                _interrupted = true;
+                _player.pause();
+              }
               break;
           }
         } else {
@@ -78,9 +87,11 @@ class LyroAudioHandler extends BaseAudioHandler with SeekHandler {
               _applyVolume();
               break;
             case AudioInterruptionType.pause:
-              play();
+              if (_interrupted) _player.play();
+              _interrupted = false;
               break;
             case AudioInterruptionType.unknown:
+              _interrupted = false;
               break;
           }
         }
@@ -101,6 +112,10 @@ class LyroAudioHandler extends BaseAudioHandler with SeekHandler {
         debugPrint('Playback error: $e');
       },
     );
+    _player.errorStream.listen((e) {
+      final song = (e.index != null && e.index! < _playlist.length) ? _playlist[e.index!] : null;
+      debugPrint('Playback error (${e.code}) on ${song?.path ?? 'track ${e.index}'}: ${e.message}');
+    });
 
     // 3. Track changes inside the playlist (gapless advance, seeks)
     _player.currentIndexStream.listen((index) {
@@ -231,10 +246,16 @@ class LyroAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() {
+    _interrupted = false;
+    return _player.play();
+  }
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() {
+    _interrupted = false;
+    return _player.pause();
+  }
 
   @override
   Future<void> stop() async {

@@ -36,6 +36,29 @@ class MainActivity : AudioServiceActivity() {
                 }
             }
 
+        // Equalizer engine on the player's audio session (see LyroEq).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "lyro/eq")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "attach" -> result.success(LyroEq.attach(call.argument<Int>("session") ?: 0))
+                    "apply" -> {
+                        LyroEq.apply(
+                            call.argument<Boolean>("enabled") ?: false,
+                            call.argument<Double>("inputGain") ?: 0.0,
+                            call.argument<List<Double>>("cutoffs") ?: emptyList(),
+                            call.argument<List<Double>>("centers") ?: emptyList(),
+                            call.argument<List<Double>>("gains") ?: emptyList(),
+                        )
+                        result.success(null)
+                    }
+                    "release" -> {
+                        LyroEq.release()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
         // Widget quick mixes → Flutter ("shuffle_all", "favorites", "most_played").
         pendingAction = intent?.getStringExtra(WidgetRender.EXTRA_ACTION)
         actions = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "lyro/actions").apply {

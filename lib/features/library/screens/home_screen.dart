@@ -14,7 +14,6 @@ import '../../../shared/widgets/nothing_section_header.dart';
 import '../../player/providers/player_provider.dart';
 import '../../player/widgets/track_artwork.dart';
 import '../../search/screens/search_screen.dart';
-import '../../settings/screens/settings_screen.dart';
 import '../providers/library_provider.dart';
 import '../../../shared/widgets/dot_matrix.dart';
 import '../../player/widgets/artwork_tint.dart';
@@ -146,23 +145,6 @@ class HomeScreen extends StatelessWidget {
                               );
                             },
                             tooltip: 'Search',
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.settings_outlined,
-                              size: 22,
-                              color: isDark
-                                  ? NothingColors.darkDisplay
-                                  : NothingColors.lightDisplay,
-                            ),
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const SettingsScreen(),
-                                ),
-                              );
-                            },
-                            tooltip: 'Settings',
                           ),
                           const SizedBox(width: 4),
                           GestureDetector(

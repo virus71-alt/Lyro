@@ -1,0 +1,971 @@
+{
+ "attribution": "AutoEq by Jaakko Pasanen (MIT), measurements by their credited sources",
+ "profiles": [
+  {
+   "brand": "TANGZU",
+   "name": "Wan'er S.G 2 (Red Lion)",
+   "source": "Jaytiss",
+   "note": "Same IEM; Red Lion is a colourway",
+   "preamp": -4.2,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": 5.7,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 6379.0,
+     "gain": 4.2,
+     "q": 1.73
+    },
+    {
+     "type": "PK",
+     "fc": 55.0,
+     "gain": -5.0,
+     "q": 0.4
+    },
+    {
+     "type": "PK",
+     "fc": 1998.0,
+     "gain": -3.6,
+     "q": 1.78
+    },
+    {
+     "type": "PK",
+     "fc": 3496.0,
+     "gain": 2.8,
+     "q": 2.49
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": -1.8,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 655.0,
+     "gain": 1.5,
+     "q": 0.95
+    },
+    {
+     "type": "PK",
+     "fc": 198.0,
+     "gain": -0.6,
+     "q": 1.23
+    },
+    {
+     "type": "PK",
+     "fc": 1276.0,
+     "gain": -1.1,
+     "q": 2.31
+    },
+    {
+     "type": "PK",
+     "fc": 8439.0,
+     "gain": 1.3,
+     "q": 5.97
+    }
+   ]
+  },
+  {
+   "brand": "TANGZU",
+   "name": "Wan'er S.G",
+   "source": "crinacle",
+   "note": null,
+   "preamp": -5.4,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": 1.8,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 6638.0,
+     "gain": 5.1,
+     "q": 1.36
+    },
+    {
+     "type": "PK",
+     "fc": 145.0,
+     "gain": -2.6,
+     "q": 0.76
+    },
+    {
+     "type": "PK",
+     "fc": 1930.0,
+     "gain": -2.9,
+     "q": 1.79
+    },
+    {
+     "type": "PK",
+     "fc": 9431.0,
+     "gain": 3.0,
+     "q": 2.56
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": -1.1,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 894.0,
+     "gain": 1.2,
+     "q": 1.34
+    },
+    {
+     "type": "PK",
+     "fc": 1321.0,
+     "gain": -1.2,
+     "q": 2.81
+    },
+    {
+     "type": "PK",
+     "fc": 275.0,
+     "gain": -0.4,
+     "q": 1.71
+    },
+    {
+     "type": "PK",
+     "fc": 570.0,
+     "gain": 0.5,
+     "q": 2.18
+    }
+   ]
+  },
+  {
+   "brand": "Moondrop",
+   "name": "Chu 2",
+   "source": "crinacle",
+   "note": null,
+   "preamp": -3.7,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": -0.2,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 166.0,
+     "gain": -2.6,
+     "q": 0.87
+    },
+    {
+     "type": "PK",
+     "fc": 5928.0,
+     "gain": 6.7,
+     "q": 0.95
+    },
+    {
+     "type": "PK",
+     "fc": 780.0,
+     "gain": 2.2,
+     "q": 1.24
+    },
+    {
+     "type": "PK",
+     "fc": 4221.0,
+     "gain": -4.4,
+     "q": 0.8
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": -3.1,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 9560.0,
+     "gain": 1.6,
+     "q": 2.29
+    },
+    {
+     "type": "PK",
+     "fc": 1418.0,
+     "gain": -0.7,
+     "q": 2.98
+    },
+    {
+     "type": "PK",
+     "fc": 1028.0,
+     "gain": 0.5,
+     "q": 3.66
+    },
+    {
+     "type": "PK",
+     "fc": 2167.0,
+     "gain": 0.4,
+     "q": 4.09
+    }
+   ]
+  },
+  {
+   "brand": "Moondrop",
+   "name": "Chu",
+   "source": "Super Review",
+   "note": null,
+   "preamp": -2.5,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": 2.4,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 173.0,
+     "gain": -1.2,
+     "q": 1.2
+    },
+    {
+     "type": "PK",
+     "fc": 109.0,
+     "gain": 1.2,
+     "q": 0.99
+    },
+    {
+     "type": "PK",
+     "fc": 720.0,
+     "gain": 1.2,
+     "q": 1.57
+    },
+    {
+     "type": "PK",
+     "fc": 149.0,
+     "gain": -0.8,
+     "q": 1.07
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": -3.3,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 2939.0,
+     "gain": 0.7,
+     "q": 1.1
+    },
+    {
+     "type": "PK",
+     "fc": 1474.0,
+     "gain": -0.8,
+     "q": 2.31
+    },
+    {
+     "type": "PK",
+     "fc": 8477.0,
+     "gain": 1.6,
+     "q": 4.76
+    },
+    {
+     "type": "PK",
+     "fc": 6744.0,
+     "gain": -0.8,
+     "q": 6.0
+    }
+   ]
+  },
+  {
+   "brand": "Simgot",
+   "name": "EW300 DSP",
+   "source": "Kazi",
+   "note": null,
+   "preamp": -4.0,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": -2.3,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 7531.0,
+     "gain": 4.3,
+     "q": 1.29
+    },
+    {
+     "type": "PK",
+     "fc": 188.0,
+     "gain": -1.9,
+     "q": 1.45
+    },
+    {
+     "type": "PK",
+     "fc": 1638.0,
+     "gain": -1.4,
+     "q": 0.84
+    },
+    {
+     "type": "PK",
+     "fc": 789.0,
+     "gain": 1.3,
+     "q": 1.54
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": -1.3,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 69.0,
+     "gain": 0.9,
+     "q": 1.88
+    },
+    {
+     "type": "PK",
+     "fc": 23.0,
+     "gain": -0.6,
+     "q": 2.96
+    },
+    {
+     "type": "PK",
+     "fc": 140.0,
+     "gain": -0.4,
+     "q": 3.03
+    },
+    {
+     "type": "PK",
+     "fc": 32.0,
+     "gain": -0.4,
+     "q": 2.48
+    }
+   ]
+  },
+  {
+   "brand": "Simgot",
+   "name": "EW300",
+   "source": "Kazi",
+   "note": "Closest for EW300 HBB",
+   "preamp": -2.0,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": -1.6,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 5135.0,
+     "gain": 2.1,
+     "q": 0.66
+    },
+    {
+     "type": "PK",
+     "fc": 183.0,
+     "gain": -2.6,
+     "q": 1.2
+    },
+    {
+     "type": "PK",
+     "fc": 753.0,
+     "gain": 1.7,
+     "q": 1.31
+    },
+    {
+     "type": "PK",
+     "fc": 1740.0,
+     "gain": -1.2,
+     "q": 1.12
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": 0.3,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 67.0,
+     "gain": 0.5,
+     "q": 1.85
+    },
+    {
+     "type": "PK",
+     "fc": 138.0,
+     "gain": -0.5,
+     "q": 4.22
+    },
+    {
+     "type": "PK",
+     "fc": 282.0,
+     "gain": -0.3,
+     "q": 2.75
+    },
+    {
+     "type": "PK",
+     "fc": 193.0,
+     "gain": 0.3,
+     "q": 3.03
+    }
+   ]
+  },
+  {
+   "brand": "KZ",
+   "name": "PRX",
+   "source": "Jaytiss",
+   "note": null,
+   "preamp": -3.2,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": -1.4,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 176.0,
+     "gain": -2.0,
+     "q": 1.18
+    },
+    {
+     "type": "PK",
+     "fc": 697.0,
+     "gain": 1.8,
+     "q": 1.21
+    },
+    {
+     "type": "PK",
+     "fc": 5611.0,
+     "gain": 2.6,
+     "q": 3.83
+    },
+    {
+     "type": "PK",
+     "fc": 3159.0,
+     "gain": 1.1,
+     "q": 1.83
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": -8.5,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 6277.0,
+     "gain": 1.5,
+     "q": 2.85
+    },
+    {
+     "type": "PK",
+     "fc": 875.0,
+     "gain": 0.4,
+     "q": 6.0
+    },
+    {
+     "type": "PK",
+     "fc": 64.0,
+     "gain": 0.4,
+     "q": 2.05
+    },
+    {
+     "type": "PK",
+     "fc": 34.0,
+     "gain": -0.4,
+     "q": 1.83
+    }
+   ]
+  },
+  {
+   "brand": "KZ",
+   "name": "EDX Pro",
+   "source": "crinacle",
+   "note": "Closest for EDX Pro 2",
+   "preamp": -5.1,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": -2.3,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 169.0,
+     "gain": -4.0,
+     "q": 0.82
+    },
+    {
+     "type": "PK",
+     "fc": 9836.0,
+     "gain": 2.9,
+     "q": 0.18
+    },
+    {
+     "type": "PK",
+     "fc": 783.0,
+     "gain": 3.2,
+     "q": 1.23
+    },
+    {
+     "type": "PK",
+     "fc": 2062.0,
+     "gain": -4.8,
+     "q": 2.53
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": -6.1,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 9508.0,
+     "gain": 3.3,
+     "q": 2.86
+    },
+    {
+     "type": "PK",
+     "fc": 4965.0,
+     "gain": -5.7,
+     "q": 5.27
+    },
+    {
+     "type": "PK",
+     "fc": 3516.0,
+     "gain": 2.7,
+     "q": 3.58
+    },
+    {
+     "type": "PK",
+     "fc": 6291.0,
+     "gain": 3.2,
+     "q": 5.44
+    }
+   ]
+  },
+  {
+   "brand": "KZ",
+   "name": "Castor (switches off)",
+   "source": "Super Review",
+   "note": "Closest for Castor Harman / Pro / Bass",
+   "preamp": -3.3,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": 0.5,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 528.0,
+     "gain": 5.3,
+     "q": 0.55
+    },
+    {
+     "type": "PK",
+     "fc": 144.0,
+     "gain": -8.0,
+     "q": 0.37
+    },
+    {
+     "type": "PK",
+     "fc": 324.0,
+     "gain": 3.7,
+     "q": 1.46
+    },
+    {
+     "type": "PK",
+     "fc": 1974.0,
+     "gain": 0.8,
+     "q": 2.19
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": -1.1,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 5224.0,
+     "gain": -1.7,
+     "q": 4.99
+    },
+    {
+     "type": "PK",
+     "fc": 38.0,
+     "gain": -0.3,
+     "q": 1.94
+    },
+    {
+     "type": "PK",
+     "fc": 70.0,
+     "gain": 0.3,
+     "q": 2.0
+    },
+    {
+     "type": "PK",
+     "fc": 6268.0,
+     "gain": 0.9,
+     "q": 6.0
+    }
+   ]
+  },
+  {
+   "brand": "KZ",
+   "name": "Vader (switches off)",
+   "source": "Harpo",
+   "note": "Closest for Vader Pro",
+   "preamp": -3.7,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": 3.0,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 93.0,
+     "gain": -5.4,
+     "q": 0.39
+    },
+    {
+     "type": "PK",
+     "fc": 5733.0,
+     "gain": 3.5,
+     "q": 2.47
+    },
+    {
+     "type": "PK",
+     "fc": 522.0,
+     "gain": 2.1,
+     "q": 0.29
+    },
+    {
+     "type": "PK",
+     "fc": 1393.0,
+     "gain": -1.6,
+     "q": 2.11
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": -3.1,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 4101.0,
+     "gain": 1.0,
+     "q": 3.23
+    },
+    {
+     "type": "PK",
+     "fc": 6531.0,
+     "gain": 1.5,
+     "q": 6.0
+    },
+    {
+     "type": "PK",
+     "fc": 5499.0,
+     "gain": -0.9,
+     "q": 5.99
+    },
+    {
+     "type": "PK",
+     "fc": 135.0,
+     "gain": -0.2,
+     "q": 2.2
+    }
+   ]
+  },
+  {
+   "brand": "Truthear",
+   "name": "Pure",
+   "source": "Super Review",
+   "note": null,
+   "preamp": -3.8,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": -3.0,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 218.0,
+     "gain": -4.1,
+     "q": 0.67
+    },
+    {
+     "type": "PK",
+     "fc": 6171.0,
+     "gain": 3.6,
+     "q": 1.04
+    },
+    {
+     "type": "PK",
+     "fc": 2077.0,
+     "gain": 2.5,
+     "q": 1.12
+    },
+    {
+     "type": "PK",
+     "fc": 62.0,
+     "gain": 3.0,
+     "q": 0.81
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": -2.2,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 9718.0,
+     "gain": 1.3,
+     "q": 2.27
+    },
+    {
+     "type": "PK",
+     "fc": 877.0,
+     "gain": 1.1,
+     "q": 2.24
+    },
+    {
+     "type": "PK",
+     "fc": 453.0,
+     "gain": -0.4,
+     "q": 1.79
+    },
+    {
+     "type": "PK",
+     "fc": 1332.0,
+     "gain": -0.6,
+     "q": 2.49
+    }
+   ]
+  },
+  {
+   "brand": "7Hz",
+   "name": "Zero:2",
+   "source": "ToneDeafMonk",
+   "note": null,
+   "preamp": -3.5,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": -3.3,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 163.0,
+     "gain": -2.1,
+     "q": 0.95
+    },
+    {
+     "type": "PK",
+     "fc": 665.0,
+     "gain": 1.2,
+     "q": 1.54
+    },
+    {
+     "type": "PK",
+     "fc": 6187.0,
+     "gain": 3.6,
+     "q": 4.59
+    },
+    {
+     "type": "PK",
+     "fc": 63.0,
+     "gain": 2.4,
+     "q": 0.78
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": 0.5,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 9972.0,
+     "gain": -1.6,
+     "q": 3.08
+    },
+    {
+     "type": "PK",
+     "fc": 2915.0,
+     "gain": 0.8,
+     "q": 1.4
+    },
+    {
+     "type": "PK",
+     "fc": 4203.0,
+     "gain": -1.5,
+     "q": 4.48
+    },
+    {
+     "type": "PK",
+     "fc": 1444.0,
+     "gain": -0.5,
+     "q": 2.31
+    }
+   ]
+  },
+  {
+   "brand": "Kiwi Ears",
+   "name": "Cadenza",
+   "source": "Super Review",
+   "note": "Closest for Cadenza II",
+   "preamp": -4.4,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": -1.9,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 184.0,
+     "gain": -2.5,
+     "q": 0.8
+    },
+    {
+     "type": "PK",
+     "fc": 5976.0,
+     "gain": 4.4,
+     "q": 2.3
+    },
+    {
+     "type": "PK",
+     "fc": 741.0,
+     "gain": 1.3,
+     "q": 1.45
+    },
+    {
+     "type": "PK",
+     "fc": 63.0,
+     "gain": 1.1,
+     "q": 1.46
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": -0.0,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 2378.0,
+     "gain": 1.0,
+     "q": 2.41
+    },
+    {
+     "type": "PK",
+     "fc": 1335.0,
+     "gain": -0.7,
+     "q": 2.37
+    },
+    {
+     "type": "PK",
+     "fc": 3672.0,
+     "gain": -0.7,
+     "q": 3.91
+    },
+    {
+     "type": "PK",
+     "fc": 931.0,
+     "gain": 0.5,
+     "q": 4.61
+    }
+   ]
+  },
+  {
+   "brand": "KEFINE",
+   "name": "Klean",
+   "source": "Jaytiss",
+   "note": "Closest for Klean SV",
+   "preamp": -1.6,
+   "filters": [
+    {
+     "type": "LS",
+     "fc": 105.0,
+     "gain": 0.1,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 165.0,
+     "gain": -1.8,
+     "q": 0.77
+    },
+    {
+     "type": "PK",
+     "fc": 687.0,
+     "gain": 1.5,
+     "q": 0.85
+    },
+    {
+     "type": "PK",
+     "fc": 6526.0,
+     "gain": 1.3,
+     "q": 0.49
+    },
+    {
+     "type": "PK",
+     "fc": 1535.0,
+     "gain": -1.6,
+     "q": 1.56
+    },
+    {
+     "type": "HS",
+     "fc": 10000.0,
+     "gain": -4.2,
+     "q": 0.7
+    },
+    {
+     "type": "PK",
+     "fc": 8835.0,
+     "gain": 1.7,
+     "q": 1.89
+    },
+    {
+     "type": "PK",
+     "fc": 40.0,
+     "gain": -0.3,
+     "q": 1.98
+    },
+    {
+     "type": "PK",
+     "fc": 4825.0,
+     "gain": -1.0,
+     "q": 5.06
+    },
+    {
+     "type": "PK",
+     "fc": 3602.0,
+     "gain": 0.6,
+     "q": 3.82
+    }
+   ]
+  }
+ ]
+}

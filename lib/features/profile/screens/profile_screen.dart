@@ -205,12 +205,7 @@ class ProfileScreen extends StatelessWidget {
                             InkWell(
                               onTap: () {
                                 HapticFeedback.lightImpact();
-                                showModalBottomSheet(
-                                  context: context,
-                                  isScrollControlled: true,
-                                  backgroundColor: Colors.transparent,
-                                  builder: (_) => const EqualizerSheet(),
-                                );
+                                EqualizerSheet.show(context);
                               },
                               borderRadius: BorderRadius.circular(NothingColors.radiusSm),
                               child: Padding(
@@ -239,7 +234,7 @@ class ProfileScreen extends StatelessWidget {
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
-                                            '5-Band CMF Studio EQ Tuner',
+                                            'Pick your IEM · measured correction',
                                             style: TextStyle(
                                               fontFamily: NothingTypography.fontUi,
                                               fontSize: 12,

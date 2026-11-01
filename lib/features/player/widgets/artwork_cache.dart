@@ -27,6 +27,8 @@ class ArtworkCache {
   ArtworkCache._();
 
   static const int _maxEntries = 400;
+  static const int _maxBytes = 48 * 1024 * 1024; // keeps big libraries from exhausting memory
+  static int _bytes = 0;
   static const int _maxConcurrent = 4;
   static const Duration _missRetry = Duration(minutes: 1);
 
@@ -107,16 +109,17 @@ class ArtworkCache {
     if (_isFresh(key)) return Future.value(_cache[key]);
     return _pending[key] ??= _fetch(id, type, size).then((bytes) {
       _pending.remove(key);
-      _cache.remove(key);
+      _bytes -= _cache.remove(key)?.lengthInBytes ?? 0;
       _cache[key] = bytes;
+      _bytes += bytes?.lengthInBytes ?? 0;
       if (bytes == null) {
         _missedAt[key] = DateTime.now();
       } else {
         _missedAt.remove(key);
       }
-      if (_cache.length > _maxEntries) {
+      while (_cache.length > 1 && (_cache.length > _maxEntries || _bytes > _maxBytes)) {
         final oldest = _cache.keys.first;
-        _cache.remove(oldest);
+        _bytes -= _cache.remove(oldest)?.lengthInBytes ?? 0;
         _missedAt.remove(oldest);
       }
       return bytes;

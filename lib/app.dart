@@ -14,6 +14,7 @@ import 'features/player/providers/player_provider.dart';
 import 'features/profile/providers/profile_provider.dart';
 import 'core/settings/app_settings_provider.dart';
 import 'features/playlists/providers/playlist_provider.dart';
+import 'features/eq/eq_provider.dart';
 
 class LyroApp extends StatelessWidget {
   final PreferencesRepository prefsRepo;
@@ -42,6 +43,10 @@ class LyroApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => PlaylistProvider(prefsRepo),
+        ),
+        ChangeNotifierProvider(
+          lazy: false, // apply the saved EQ as soon as playback starts
+          create: (_) => EqProvider(prefsRepo: prefsRepo, audioHandler: audioHandler),
         ),
         ChangeNotifierProvider(
           create: (_) => LibraryProvider(

@@ -149,4 +149,8 @@ class PreferencesRepository {
 
   bool getOnboarded() => _prefs.getBool(AppConstants.prefOnboarded) ?? false;
   Future<void> setOnboarded() => _prefs.setBool(AppConstants.prefOnboarded, true);
+
+  // Equalizer state (JSON: enabled, selected profile, fine-tune, downloads)
+  String? getEqualizerJson() => _prefs.getString(AppConstants.prefEqualizer);
+  Future<void> setEqualizerJson(String json) => _prefs.setString(AppConstants.prefEqualizer, json);
 }

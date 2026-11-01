@@ -34,5 +34,6 @@ class AppConstants {
   static const String prefSpeakerColor = 'lyro_speaker_color';
   static const String prefFadeSeconds = 'lyro_fade_seconds';
   static const String prefOnboarded = 'lyro_onboarded';
+  static const String prefEqualizer = 'lyro_equalizer';
 }
 

@@ -31,6 +31,7 @@ flutter:
 
   assets:
     - assets/icon/
+    - assets/eq/
     - assets/cmf_speaker_housing.png
     - assets/cmf_red_knob.png
 
