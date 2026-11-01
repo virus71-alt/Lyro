@@ -59,7 +59,7 @@ class HomeScreen extends StatelessWidget {
                         children: [
                           Text(
                             AppConstants.appName.toUpperCase(),
-                            style: NothingTypography.displayHero(isDark: isDark),
+                            style: NothingTypography.displayHero(isDark: isDark, fontSize: 36),
                           ),
                           const SizedBox(width: 8),
                           Container(
@@ -215,6 +215,8 @@ class HomeScreen extends StatelessWidget {
                                 separatorBuilder: (_, _) => const SizedBox(width: 14),
                                 itemBuilder: (context, index) {
                                   final album = library.albums[index];
+                                  final resolvedSongId = album.songId ??
+                                      library.getArtworkSongIdForAlbum(album.id, album.album, album.artist);
                                   return GestureDetector(
                                     onTap: () {
                                       Navigator.of(context).push(
@@ -230,9 +232,9 @@ class HomeScreen extends StatelessWidget {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           TrackArtwork(
-                                            songId: album.songId ?? album.id,
+                                            songId: resolvedSongId ?? album.id,
                                             title: album.album,
-                                            type: album.songId != null ? ArtworkType.AUDIO : ArtworkType.ALBUM,
+                                            type: resolvedSongId != null ? ArtworkType.AUDIO : ArtworkType.ALBUM,
                                             size: 110,
                                             radius: NothingColors.radiusSm,
                                           ),
@@ -422,8 +424,8 @@ class HomeScreen extends StatelessWidget {
                   count,
                   style: NothingTypography.dottedBold(
                     isDark: isDark,
-                    fontSize: 14,
-                    letterSpacing: 0.6,
+                    fontSize: 20,
+                    letterSpacing: 0.8,
                     color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
                   ),
                 ),

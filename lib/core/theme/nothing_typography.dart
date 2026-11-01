@@ -20,10 +20,10 @@ class NothingTypography {
       TextStyle(
         fontFamily: fontDisplay,
         fontSize: fontSize,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w900,
         fontVariations: const [
-          FontVariation('wght', 850.0),
-          FontVariation('ROND', 100.0),
+          FontVariation('wght', 900.0),
+          FontVariation('ROND', 0.0),
         ],
         letterSpacing: 2.0,
         color: color ?? (isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay),
@@ -37,10 +37,10 @@ class NothingTypography {
       TextStyle(
         fontFamily: fontDisplay,
         fontSize: fontSize,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w900,
         fontVariations: const [
-          FontVariation('wght', 750.0),
-          FontVariation('ROND', 100.0),
+          FontVariation('wght', 900.0),
+          FontVariation('ROND', 0.0),
         ],
         letterSpacing: 1.2,
         color: color ?? (isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay),
@@ -56,10 +56,10 @@ class NothingTypography {
       TextStyle(
         fontFamily: fontDisplay,
         fontSize: fontSize,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w900,
         fontVariations: const [
-          FontVariation('wght', 800.0),
-          FontVariation('ROND', 100.0),
+          FontVariation('wght', 900.0),
+          FontVariation('ROND', 0.0),
         ],
         letterSpacing: letterSpacing,
         color: color ?? (isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay),
@@ -73,10 +73,10 @@ class NothingTypography {
       TextStyle(
         fontFamily: fontDisplay,
         fontSize: size,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w900,
         fontVariations: const [
-          FontVariation('wght', 750.0),
-          FontVariation('ROND', 100.0),
+          FontVariation('wght', 900.0),
+          FontVariation('ROND', 0.0),
         ],
         letterSpacing: 0.8,
         color: color ?? (isDark ? NothingColors.darkPrimary : NothingColors.lightPrimary),

@@ -91,12 +91,7 @@ class _FolderSongsScreen extends StatelessWidget {
           folder.name.toUpperCase(),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontFamily: NothingTypography.fontDisplay,
-            fontSize: 16,
-            letterSpacing: 1.1,
-            color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
-          ),
+          style: NothingTypography.displayTitle(isDark: isDark, fontSize: 16),
         ),
       ),
       body: Stack(

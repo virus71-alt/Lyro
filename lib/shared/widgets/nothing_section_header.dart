@@ -43,9 +43,9 @@ class NothingSectionHeader extends StatelessWidget {
                     count!.toUpperCase(),
                     style: NothingTypography.dottedBold(
                       isDark: isDark,
-                      fontSize: 13,
-                      letterSpacing: 0.6,
-                      color: isDark ? NothingColors.darkPrimary : NothingColors.lightPrimary,
+                      fontSize: 16,
+                      letterSpacing: 0.8,
+                      color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
                     ),
                   ),
                 ],

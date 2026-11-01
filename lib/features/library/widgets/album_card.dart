@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:on_audio_query/on_audio_query.dart';
+import 'package:provider/provider.dart';
 import '../../../core/theme/nothing_colors.dart';
 import '../../../core/theme/nothing_theme.dart';
 import '../../../core/theme/nothing_typography.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/album_model.dart';
+import '../providers/library_provider.dart';
 import '../../player/widgets/track_artwork.dart';
 
 class AlbumCard extends StatelessWidget {
@@ -20,6 +22,8 @@ class AlbumCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDark;
+    final library = context.watch<LibraryProvider>();
+    final resolvedSongId = album.songId ?? library.getArtworkSongIdForAlbum(album.id, album.album, album.artist);
 
     return Material(
       color: Colors.transparent,
@@ -44,9 +48,9 @@ class AlbumCard extends StatelessWidget {
                   child: AspectRatio(
                     aspectRatio: 1.0,
                     child: TrackArtwork(
-                      songId: album.songId ?? album.id,
+                      songId: resolvedSongId ?? album.id,
                       title: album.album,
-                      type: album.songId != null ? ArtworkType.AUDIO : ArtworkType.ALBUM,
+                      type: resolvedSongId != null ? ArtworkType.AUDIO : ArtworkType.ALBUM,
                       size: double.infinity,
                       radius: NothingColors.radiusSm,
                     ),

@@ -76,11 +76,9 @@ class NothingDialog extends StatelessWidget {
               children: [
                 Text(
                   title.toUpperCase(),
-                  style: TextStyle(
-                    fontFamily: NothingTypography.fontDisplay,
+                  style: NothingTypography.displayTitle(
+                    isDark: isDark,
                     fontSize: 18,
-                    letterSpacing: 1.1,
-                    color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
                   ),
                 ),
                 const SizedBox(height: 12),

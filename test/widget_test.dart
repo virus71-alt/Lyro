@@ -6,6 +6,7 @@ import 'package:lyro/core/utils/formatters.dart';
 import 'package:lyro/data/models/album_model.dart';
 import 'package:lyro/data/models/artist_model.dart';
 import 'package:lyro/data/models/song_model.dart';
+import 'package:lyro/features/player/widgets/lyro_speaker_player.dart';
 import 'package:lyro/features/player/widgets/progress_bar.dart';
 import 'package:lyro/shared/widgets/nothing_button.dart';
 import 'package:lyro/shared/widgets/nothing_card.dart';
@@ -180,6 +181,53 @@ void main() {
       await tester.pump();
 
       expect(find.text('00:45'), findsOneWidget);
+    });
+
+    testWidgets('LyroSpeakerPlayer renders CMF speaker and knob interactions', (tester) async {
+      bool playPauseCalled = false;
+      bool shuffleCalled = false;
+
+      final testSong = Song(
+        id: 101,
+        title: '7 Years',
+        artist: 'Lukas Graham',
+        album: 'Lukas Graham (Blue Album)',
+        duration: 237000,
+        path: '/storage/emulated/0/Music/7years.mp3',
+        format: 'MP3',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NothingTheme.darkTheme,
+          home: Scaffold(
+            body: Center(
+              child: LyroSpeakerPlayer(
+                song: testSong,
+                isPlaying: true,
+                isShuffle: false,
+                onPlayPause: () => playPauseCalled = true,
+                onToggleShuffle: () => shuffleCalled = true,
+                width: 280,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(LyroSpeakerPlayer), findsOneWidget);
+      expect(find.byKey(const Key('speaker_red_knob')), findsOneWidget);
+      expect(find.byKey(const Key('speaker_shuffle_dial')), findsOneWidget);
+
+      // Tap red play/pause knob
+      await tester.tap(find.byKey(const Key('speaker_red_knob')));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(playPauseCalled, isTrue);
+
+      // Tap secondary dial (shuffle control)
+      await tester.tap(find.byKey(const Key('speaker_shuffle_dial')));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(shuffleCalled, isTrue);
     });
   });
 }

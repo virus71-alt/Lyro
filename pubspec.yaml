@@ -29,6 +29,11 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  assets:
+    - assets/icon/
+    - assets/cmf_speaker_housing.png
+    - assets/cmf_red_knob.png
+
   fonts:
     - family: Doto
       fonts:

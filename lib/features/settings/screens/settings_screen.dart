@@ -161,23 +161,44 @@ class SettingsScreen extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                AppConstants.appName.toUpperCase(),
-                                style: TextStyle(
-                                  fontFamily: NothingTypography.fontDisplay,
-                                  fontSize: 22,
-                                  letterSpacing: 1.5,
-                                  color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Image.asset(
+                                  'assets/icon/icon.png',
+                                  width: 44,
+                                  height: 44,
+                                  fit: BoxFit.cover,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                  color: NothingColors.darkAccent,
-                                  shape: BoxShape.circle,
-                                ),
+                              const SizedBox(width: 14),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        AppConstants.appName.toUpperCase(),
+                                        style: NothingTypography.displayTitle(
+                                          isDark: isDark,
+                                          fontSize: 22,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: const BoxDecoration(
+                                          color: NothingColors.darkAccent,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    'v${AppConstants.appVersion}',
+                                    style: NothingTypography.monoLabel(isDark: isDark),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

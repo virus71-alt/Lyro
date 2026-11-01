@@ -69,8 +69,8 @@ class ArtistDetailScreen extends StatelessWidget {
                               child: Center(
                                 child: Text(
                                   artist.artist.isNotEmpty ? artist.artist[0].toUpperCase() : 'A',
-                                  style: TextStyle(
-                                    fontFamily: NothingTypography.fontDisplay,
+                                  style: NothingTypography.dottedBold(
+                                    isDark: isDark,
                                     fontSize: 32,
                                     color: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
                                   ),

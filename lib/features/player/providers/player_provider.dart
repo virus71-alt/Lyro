@@ -143,6 +143,8 @@ class PlayerProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> playOrPause() => togglePlayPause();
+
   Future<void> seek(Duration position) async {
     positionNotifier.value = position;
     await audioHandler.seek(position);

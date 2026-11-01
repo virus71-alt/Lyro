@@ -56,12 +56,13 @@ class _LyroProgressBarState extends State<LyroProgressBar> {
       children: [
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            trackHeight: 2.0,
-            activeTrackColor: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
+            trackHeight: 2.5,
+            activeTrackColor: NothingColors.signalRed,
             inactiveTrackColor: isDark ? NothingColors.darkLine2 : NothingColors.lightLine2,
             secondaryActiveTrackColor: isDark ? NothingColors.darkLine : NothingColors.lightLine,
-            thumbColor: isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5.0),
+            thumbColor: Colors.white,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+            overlayColor: NothingColors.signalRed.withValues(alpha: 0.2),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
             trackShape: const RectangularSliderTrackShape(),
           ),
