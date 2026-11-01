@@ -46,3 +46,19 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local secrets and config (never commit)
+.env
+.env.*
+*.keystore
+*.jks
+key.properties
+local.properties
+google-services.json
+GoogleService-Info.plist
+.claude/settings.local.json
+
+# Build outputs
+*.apk
+*.aab
+__pycache__/
