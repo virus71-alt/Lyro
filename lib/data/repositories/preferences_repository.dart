@@ -92,11 +92,6 @@ class PreferencesRepository {
   Future<void> setOnlineArtwork(bool enabled) =>
       _prefs.setBool(AppConstants.prefOnlineArtwork, enabled);
 
-  bool getAskedImagePermission() =>
-      _prefs.getBool(AppConstants.prefAskedImagePermission) ?? false;
-
-  Future<void> setAskedImagePermission() =>
-      _prefs.setBool(AppConstants.prefAskedImagePermission, true);
 
   // Play statistics: songId -> (play count, last played ms since epoch)
   Map<int, ({int count, int lastPlayed})> getPlayStats() {

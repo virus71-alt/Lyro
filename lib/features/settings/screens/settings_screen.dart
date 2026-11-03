@@ -209,7 +209,7 @@ class SettingsScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Lyro is a modern, cross-platform offline music player inspired by Auxio and engineered around the Nothing OS design language. It natively plays lossless FLAC, MP3, WAV, AAC, and OGG formats with low latency and lockscreen background playback.',
+                            'Lyro is an offline music player for the songs on your phone, with a minimal dot-matrix design. It plays FLAC, MP3, WAV, AAC and OGG files, with background and lock-screen playback.',
                             style: NothingTypography.bodyMedium(isDark: isDark),
                           ),
                           const SizedBox(height: 16),

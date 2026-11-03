@@ -72,7 +72,7 @@ class ArtworkCache {
   }
 
   /// Retry everything that previously had no cover (e.g. after enabling
-  /// online artwork or granting the photos permission).
+  /// online artwork).
   static void forgetMisses() {
     _cache.removeWhere((_, bytes) => bytes == null);
     _missedAt.clear();

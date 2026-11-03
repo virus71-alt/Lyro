@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:on_audio_query/on_audio_query.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../features/player/widgets/artwork_cache.dart';
 import '../models/song_model.dart';
@@ -84,6 +85,12 @@ class WebStreamServer extends ChangeNotifier {
     _server!.listen(_handle, onError: (Object e) => debugPrint('Web stream: $e'));
     _clients = 0;
     _seen.clear();
+    try {
+      // Android 13+: without this the "Web stream on" notification is hidden.
+      if (Platform.isAndroid) await Permission.notification.request();
+    } catch (_) {
+      // tests / plugin unavailable
+    }
     try {
       await _channel.invokeMethod('start', {'address': address});
     } on MissingPluginException {

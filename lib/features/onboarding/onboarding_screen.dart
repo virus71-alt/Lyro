@@ -78,11 +78,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     text: 'Needed to find and play the songs stored on this device.',
                   ),
                   const _Reason(
-                    artId: 4,
-                    title: 'Photos · optional',
-                    text: 'Only to show album art saved next to your songs (folder.jpg). Skip it if you like.',
-                  ),
-                  const _Reason(
                     artId: DotEmptyState.spark,
                     title: 'Online · optional',
                     text: 'Missing covers and lyrics can be fetched by title & artist. Turn off any time in Profile.',

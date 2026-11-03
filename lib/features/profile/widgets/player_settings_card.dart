@@ -39,7 +39,7 @@ class PlayerSettingsCard extends StatelessWidget {
           // Speaker colourway
           Text('SPEAKER COLOUR', style: title()),
           const SizedBox(height: 2),
-          Text('CMF colourways for the Now Playing speaker', style: hint()),
+          Text('Colourways for the Now Playing speaker', style: hint()),
           const SizedBox(height: 12),
           Row(
             children: [

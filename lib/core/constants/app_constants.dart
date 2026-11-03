@@ -3,7 +3,7 @@ class AppConstants {
 
   static const String appName = 'Lyro';
   static const String appTagline = 'Pure sound. Minimal form.';
-  static const String appVersion = '1.0.0 (MVP Phase 1)';
+  static const String appVersion = '1.0.0';
   static const String bundleId = 'com.lyro.doyalabs';
 
   // Supported audio formats
@@ -27,7 +27,6 @@ class AppConstants {
   static const String prefProfileName = 'lyro_profile_name';
   static const String prefProfileAvatar = 'lyro_profile_avatar';
   static const String prefOnlineArtwork = 'lyro_online_artwork';
-  static const String prefAskedImagePermission = 'lyro_asked_image_permission';
   static const String prefPlayStats = 'lyro_play_stats';
   static const String prefPlaylists = 'lyro_playlists';
   static const String prefReduceMotion = 'lyro_reduce_motion';

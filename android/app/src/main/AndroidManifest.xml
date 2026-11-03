@@ -3,12 +3,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <!-- Album art saved next to songs (folder.jpg, cover.png, ...) -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <!-- Optional online lookup of missing covers -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Web stream: keep Wi-Fi awake while a laptop is listening -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
     <application
@@ -48,7 +49,7 @@
         <!-- Web stream to a browser on the same Wi-Fi (see LyroStreamService) -->
         <service
             android:name=".LyroStreamService"
-            android:foregroundServiceType="mediaPlayback"
+            android:foregroundServiceType="connectedDevice"
             android:exported="false" />
 
         <receiver

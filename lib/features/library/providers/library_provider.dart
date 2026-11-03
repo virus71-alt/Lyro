@@ -48,17 +48,6 @@ class LibraryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Asks once for the photos permission (album art saved next to songs),
-  /// right after music access is granted.
-  Future<void> _askImagePermissionOnce() async {
-    if (prefsRepo.getAskedImagePermission()) return;
-    await prefsRepo.setAskedImagePermission();
-    if (await PermissionService.instance.requestImagePermission()) {
-      ArtworkCache.forgetMisses();
-      notifyListeners();
-    }
-  }
-
   // Getters
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -99,7 +88,6 @@ class LibraryProvider extends ChangeNotifier {
     notifyListeners();
     if (_permissionStatus == AudioPermissionStatus.granted) {
       await loadLibrary();
-      await _askImagePermissionOnce();
     } else {
       _isLoading = false;
       notifyListeners();
@@ -113,7 +101,6 @@ class LibraryProvider extends ChangeNotifier {
     _permissionStatus = await PermissionService.instance.requestAudioPermission();
     if (_permissionStatus == AudioPermissionStatus.granted) {
       await loadLibrary();
-      await _askImagePermissionOnce();
     } else {
       _isLoading = false;
       notifyListeners();

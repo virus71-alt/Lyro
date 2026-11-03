@@ -6,8 +6,9 @@ import 'dart:typed_data';
 /// Only images that are clearly the song's or the album's are used: one
 /// named after the song file, or a conventional album-art name such as
 /// `folder.jpg` / `cover.png`. Arbitrary photos in the same folder (e.g. a
-/// camera image in Downloads) are never picked. Needs the photos permission
-/// on Android 13+; without it the lookup simply finds nothing.
+/// camera image in Downloads) are never picked. Lyro doesn't ask for photo
+/// access (Play policy), so on Android 13+ this only finds images the system
+/// lets it read; otherwise the lookup simply finds nothing.
 class FolderArtwork {
   FolderArtwork._();
 

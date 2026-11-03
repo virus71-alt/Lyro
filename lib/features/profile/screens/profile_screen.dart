@@ -153,7 +153,7 @@ class ProfileScreen extends StatelessWidget {
                             const SizedBox(height: 4),
 
                             Text(
-                              'CMF AUDIO · LOSSLESS HI-RES ENABLED',
+                              'OFFLINE · LOSSLESS PLAYBACK',
                               style: TextStyle(
                                 fontFamily: NothingTypography.fontMono,
                                 fontSize: 10,
@@ -512,9 +512,7 @@ class ProfileScreen extends StatelessWidget {
                           children: [
                             _aboutRow(isDark, label: 'APPLICATION', value: AppConstants.appName),
                             Divider(height: 16, color: isDark ? NothingColors.darkLine : NothingColors.lightLine),
-                            _aboutRow(isDark, label: 'VERSION', value: '1.0.0 (Nothing Edition)'),
-                            Divider(height: 16, color: isDark ? NothingColors.darkLine : NothingColors.lightLine),
-                            _aboutRow(isDark, label: 'HARDWARE THEME', value: 'CMF Speaker S'),
+                            _aboutRow(isDark, label: 'VERSION', value: AppConstants.appVersion),
                           ],
                         ),
                       ),
