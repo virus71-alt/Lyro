@@ -5,6 +5,7 @@ class AppConstants {
   static const String appTagline = 'Pure sound. Minimal form.';
   static const String appVersion = '1.0.0';
   static const String bundleId = 'com.lyro.doyalabs';
+  static const String privacyPolicyUrl = 'https://github.com/virus71-alt/Lyro/blob/main/PRIVACY.md';
 
   // Supported audio formats
   static const List<String> supportedExtensions = [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/nothing_colors.dart';
 import '../../../core/theme/nothing_dot_painter.dart';
@@ -513,6 +514,15 @@ class ProfileScreen extends StatelessWidget {
                             _aboutRow(isDark, label: 'APPLICATION', value: AppConstants.appName),
                             Divider(height: 16, color: isDark ? NothingColors.darkLine : NothingColors.lightLine),
                             _aboutRow(isDark, label: 'VERSION', value: AppConstants.appVersion),
+                            Divider(height: 16, color: isDark ? NothingColors.darkLine : NothingColors.lightLine),
+                            InkWell(
+                              key: const Key('privacy_policy_link'),
+                              onTap: () => launchUrl(
+                                Uri.parse(AppConstants.privacyPolicyUrl),
+                                mode: LaunchMode.externalApplication,
+                              ),
+                              child: _aboutRow(isDark, label: 'PRIVACY POLICY', value: 'OPEN ↗'),
+                            ),
                           ],
                         ),
                       ),
