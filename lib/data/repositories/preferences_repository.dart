@@ -139,6 +139,9 @@ class PreferencesRepository {
   int getSpeakerColor() => _prefs.getInt(AppConstants.prefSpeakerColor) ?? 0;
   Future<void> setSpeakerColor(int v) => _prefs.setInt(AppConstants.prefSpeakerColor, v);
 
+  int getSpeakerStyle() => _prefs.getInt(AppConstants.prefSpeakerStyle) ?? 0;
+  Future<void> setSpeakerStyle(int v) => _prefs.setInt(AppConstants.prefSpeakerStyle, v);
+
   int getFadeSeconds() => _prefs.getInt(AppConstants.prefFadeSeconds) ?? 0;
   Future<void> setFadeSeconds(int v) => _prefs.setInt(AppConstants.prefFadeSeconds, v);
 

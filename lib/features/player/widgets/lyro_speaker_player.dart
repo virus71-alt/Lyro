@@ -42,6 +42,9 @@ class LyroSpeakerPlayer extends StatefulWidget {
   final Color logoColor;
   final bool reduceMotion;
 
+  /// Which hardware design to show.
+  final SpeakerShape shape;
+
   /// Box height; defaults to `width * 1.3`. The model is scaled to fit.
   final double? height;
 
@@ -59,6 +62,7 @@ class LyroSpeakerPlayer extends StatefulWidget {
     this.dialColor = SpeakerGeometry.dialColor,
     this.logoColor = const Color(0xB8FFFFFF),
     this.reduceMotion = false,
+    this.shape = SpeakerShape.classic,
     this.width = 280.0,
     this.height,
   });
@@ -337,12 +341,15 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
   }
 
   Widget _buildScene(double w, double h) {
+    final shape = widget.shape;
+    SpeakerGeometry.active = shape;
     final camera = SpeakerCamera(
       yaw: _yawController.value,
       pitch: _pitchController.value,
       // Fits the model plus room for the sound waves on either side.
-      scale: math.min(w / 1.75, h / 1.95),
+      scale: math.min(w / shape.fitWidth, h / shape.fitHeight),
       center: Offset(w / 2, h * 0.5),
+      pivotY: shape.pivotY,
     );
     final pose = SpeakerPose(
       camera: camera,
@@ -354,6 +361,7 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
       body: widget.bodyColor,
       knob: widget.knobColor,
       dial: widget.dialColor,
+      shape: shape,
     );
 
     final knobCenter = camera.screen(pose.knobTop);
@@ -381,6 +389,7 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
           color: Theme.of(context).brightness == Brightness.dark
               ? const Color(0xFFEDEDED)
               : const Color(0xFF3A3A3A),
+          shape: shape,
         );
 
     return Stack(
@@ -405,7 +414,7 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
             ),
           ),
         ),
-        if (SpeakerFrontFace.visibility(camera) > 0.02)
+        if (SpeakerFrontFace.visibility(camera, shape) > 0.02)
           Positioned(
             left: 0,
             top: 0,
@@ -424,6 +433,7 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
                 ),
                 grille: _grille,
                 logoColor: widget.logoColor,
+                shape: shape,
               ),
             ),
           ),

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../data/repositories/preferences_repository.dart';
 import '../../data/services/audio_handler.dart';
+import '../../features/player/widgets/cmf_speaker_3d.dart';
 
-/// CMF-style speaker colourways for the Now Playing speaker.
+/// Colourways for the Now Playing speaker.
 enum SpeakerColorway {
   graphite('Graphite', Color(0xFF3B3D44), Color(0xFFE3262D), Color(0xFF26272C)),
   ash('Ash', Color(0xFFB9BBC0), Color(0xFFE3262D), Color(0xFF8E9096)),
@@ -24,6 +25,7 @@ class AppSettingsProvider extends ChangeNotifier {
 
   late bool _reduceMotion = prefsRepo.getReduceMotion();
   late int _speakerColor = prefsRepo.getSpeakerColor();
+  late int _speakerStyle = prefsRepo.getSpeakerStyle();
   late int _fadeSeconds = prefsRepo.getFadeSeconds();
   late bool _onboarded = prefsRepo.getOnboarded();
 
@@ -36,6 +38,10 @@ class AppSettingsProvider extends ChangeNotifier {
 
   /// -1 = follow the theme (graphite in dark, ash in light).
   int get speakerColorIndex => _speakerColor;
+
+  /// The 3D hardware model shown on Now Playing.
+  SpeakerShape get speakerShape =>
+      SpeakerShape.values[_speakerStyle.clamp(0, SpeakerShape.values.length - 1)];
   int get fadeSeconds => _fadeSeconds;
   bool get onboarded => _onboarded;
 
@@ -61,6 +67,12 @@ class AppSettingsProvider extends ChangeNotifier {
     _speakerColor = index;
     notifyListeners();
     await prefsRepo.setSpeakerColor(index);
+  }
+
+  Future<void> setSpeakerStyle(int index) async {
+    _speakerStyle = index;
+    notifyListeners();
+    await prefsRepo.setSpeakerStyle(index);
   }
 
   Future<void> setFadeSeconds(int seconds) async {

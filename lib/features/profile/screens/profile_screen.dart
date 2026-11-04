@@ -18,6 +18,7 @@ import '../../../shared/widgets/dot_matrix.dart';
 import '../providers/profile_provider.dart';
 import '../widgets/edit_profile_sheet.dart';
 import '../widgets/player_settings_card.dart';
+import '../widgets/speaker_style_card.dart';
 import '../widgets/web_stream_card.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -367,6 +368,15 @@ class ProfileScreen extends StatelessWidget {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 24),
+
+                      // Which 3D speaker Now Playing shows
+                      Text(
+                        'SPEAKER STYLE',
+                        style: NothingTypography.monoLabel(isDark: isDark),
+                      ),
+                      const SizedBox(height: 8),
+                      const SpeakerStyleCard(),
                       const SizedBox(height: 24),
 
                       // Player look & behaviour

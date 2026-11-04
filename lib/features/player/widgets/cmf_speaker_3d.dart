@@ -4,12 +4,12 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
-/// Real-time procedural 3D model of the CMF speaker, rendered with Canvas.
+/// Real-time procedural 3D speaker models, rendered with Canvas.
 ///
-/// World space: x → right, y → up, z → towards the front face. The body is a
-/// house-shaped prism (pentagon profile extruded along x) with rounded edges,
-/// a lanyard fin standing on the ridge, a red bar knob and a rotary dial on
-/// the front roof, oval passive radiators on both sides and ports on the back.
+/// World space: x → right, y → up, z → towards the front face. Every model is
+/// a convex profile extruded along x with rounded edges, a red bar knob and a
+/// rotary dial on the roof panel, oval passive radiators on both sides and
+/// ports on the back. [SpeakerShape] holds what differs between models.
 
 // =============================================================================
 // MATH
@@ -54,7 +54,7 @@ class SpeakerCamera {
     required this.scale,
     required this.center,
     this.distance = 5.0,
-    this.pivotY = SpeakerGeometry.pivotY,
+    this.pivotY = 0.74,
   });
 
   V3 rotate(V3 p) {
@@ -323,65 +323,275 @@ _Mesh _box(V3 center, V3 a, V3 b, V3 c, Color color,
 
 typedef _G = SpeakerGeometry;
 
-class SpeakerGeometry {
-  static const double width = 1.0;
-  static const double wallHeight = 0.98;
-  static const double depth = 0.74;
-  static const double rise = 0.23;
-  static const double cornerRadius = 0.075;
-  static const double bevel = 0.05;
-  static const double pivotY = 0.74;
+/// Front-face detail that sets a model apart.
+enum SpeakerDetail { none, slats, screws, woofer }
 
-  static const double finHeight = 0.36;
-  static const double finThickness = 0.055;
-  static const double finHalfWidth = 0.43;
-  static const double finCorner = 0.09;
-  static const double holeX = 0.27;
-  static const double holeRise = 0.2;
-  static const double holeRadius = 0.085;
+/// One hardware design: its profile, fittings and how it sits in the frame.
+class SpeakerShape {
+  final String label;
+
+  // Body. [profile] is a convex CCW polygon in (z, y); [wallHeight] is the
+  // height of the flat front wall.
+  final double width, wallHeight, depth;
+  final List<Offset> profile;
+  final double cornerRadius, bevel;
+
+  /// The roof panel carrying the controls, front to back in (z, y).
+  final Offset roofFront, roofBack;
+  final bool backRoofButton;
+
+  // Plate or handle standing on the top (none when [finHeight] is 0).
+  final double finHeight, finThickness, finHalfWidth, finCorner, finZ;
+  final double holeX, holeRise, holeWidth, holeHeight;
+
+  final bool antenna;
 
   // Front-face speaker aperture
-  static const double apertureX = 0.02;
-  static const double apertureY = 0.47;
-  static const double apertureRadius = 0.36;
+  final double apertureX, apertureY, apertureRadius;
+  final double logoX, logoY; // from the top-left of the front wall
+  final SpeakerDetail detail;
+
+  final double knobX, dialX;
+
+  // Side passive radiators
+  final double sideWidth, sideHeight, sideY;
+
+  // Framing: orbit pivot, and the world size that must fit the widget.
+  final double pivotY, fitWidth, fitHeight;
+
+  const SpeakerShape({
+    required this.label,
+    required this.width,
+    required this.wallHeight,
+    required this.depth,
+    required this.profile,
+    required this.cornerRadius,
+    required this.bevel,
+    required this.roofFront,
+    required this.roofBack,
+    this.backRoofButton = false,
+    this.finHeight = 0,
+    this.finThickness = 0,
+    this.finHalfWidth = 0,
+    this.finCorner = 0,
+    this.finZ = 0,
+    this.holeX = 0,
+    this.holeRise = 0,
+    this.holeWidth = 0,
+    this.holeHeight = 0,
+    this.antenna = false,
+    required this.apertureX,
+    required this.apertureY,
+    required this.apertureRadius,
+    this.logoX = 0.08,
+    this.logoY = 0.05,
+    this.detail = SpeakerDetail.none,
+    required this.knobX,
+    required this.dialX,
+    required this.sideWidth,
+    required this.sideHeight,
+    required this.sideY,
+    required this.pivotY,
+    required this.fitWidth,
+    required this.fitHeight,
+  });
+
+  /// House-shaped prism with a lanyard plate on the ridge.
+  static const classic = SpeakerShape(
+    label: 'Classic',
+    width: 1.0,
+    wallHeight: 0.98,
+    depth: 0.74,
+    profile: [Offset(-0.37, 0), Offset(0.37, 0), Offset(0.37, 0.98), Offset(0, 1.21), Offset(-0.37, 0.98)],
+    cornerRadius: 0.075,
+    bevel: 0.05,
+    roofFront: Offset(0.37, 0.98),
+    roofBack: Offset(0, 1.21),
+    backRoofButton: true,
+    finHeight: 0.36,
+    finThickness: 0.055,
+    finHalfWidth: 0.43,
+    finCorner: 0.09,
+    holeX: 0.27,
+    holeRise: 0.2,
+    holeWidth: 0.17,
+    holeHeight: 0.17,
+    apertureX: 0.02,
+    apertureY: 0.47,
+    apertureRadius: 0.36,
+    knobX: 0.27,
+    dialX: -0.28,
+    sideWidth: 0.27,
+    sideHeight: 0.6,
+    sideY: 0.46,
+    pivotY: 0.74,
+    fitWidth: 1.75,
+    fitHeight: 1.95,
+  );
+
+  /// Wide, shallow transistor radio with an antenna and side slats.
+  static const radio = SpeakerShape(
+    label: 'Radio',
+    width: 1.36,
+    wallHeight: 0.84,
+    depth: 0.44,
+    profile: [Offset(-0.22, 0), Offset(0.22, 0), Offset(0.22, 0.84), Offset(-0.22, 0.84)],
+    cornerRadius: 0.06,
+    bevel: 0.04,
+    roofFront: Offset(0.22, 0.84),
+    roofBack: Offset(-0.22, 0.84),
+    antenna: true,
+    apertureX: -0.29,
+    apertureY: 0.4,
+    apertureRadius: 0.32,
+    logoX: 0.82,
+    logoY: 0.08,
+    detail: SpeakerDetail.slats,
+    knobX: 0.44,
+    dialX: 0.14,
+    sideWidth: 0.2,
+    sideHeight: 0.5,
+    sideY: 0.4,
+    pivotY: 0.62,
+    fitWidth: 2.1,
+    fitHeight: 1.9,
+  );
+
+  /// Chunky soft cube with a carry handle.
+  static const cube = SpeakerShape(
+    label: 'Cube',
+    width: 1.02,
+    wallHeight: 1.0,
+    depth: 0.88,
+    profile: [Offset(-0.44, 0), Offset(0.44, 0), Offset(0.44, 1.0), Offset(-0.44, 1.0)],
+    cornerRadius: 0.15,
+    bevel: 0.1,
+    roofFront: Offset(0.44, 1.0),
+    roofBack: Offset(-0.1, 1.0),
+    finHeight: 0.3,
+    finThickness: 0.075,
+    finHalfWidth: 0.37,
+    finCorner: 0.13,
+    finZ: -0.24,
+    holeRise: 0.165,
+    holeWidth: 0.5,
+    holeHeight: 0.13,
+    apertureX: 0,
+    apertureY: 0.5,
+    apertureRadius: 0.38,
+    logoX: 0.39,
+    logoY: 0.025,
+    detail: SpeakerDetail.screws,
+    knobX: 0.26,
+    dialX: -0.26,
+    sideWidth: 0.34,
+    sideHeight: 0.58,
+    sideY: 0.5,
+    pivotY: 0.66,
+    fitWidth: 1.85,
+    fitHeight: 1.85,
+  );
+
+  /// Tall column with a sloped control panel, artwork over a woofer.
+  static const tower = SpeakerShape(
+    label: 'Tower',
+    width: 0.76,
+    wallHeight: 1.24,
+    depth: 0.62,
+    profile: [Offset(-0.31, 0), Offset(0.31, 0), Offset(0.31, 1.24), Offset(-0.31, 1.5)],
+    cornerRadius: 0.06,
+    bevel: 0.045,
+    roofFront: Offset(0.31, 1.24),
+    roofBack: Offset(-0.31, 1.5),
+    apertureX: 0,
+    apertureY: 0.9,
+    apertureRadius: 0.3,
+    logoX: 0.285,
+    logoY: 0.655,
+    detail: SpeakerDetail.woofer,
+    knobX: 0.17,
+    dialX: -0.17,
+    sideWidth: 0.26,
+    sideHeight: 0.9,
+    sideY: 0.66,
+    pivotY: 0.78,
+    fitWidth: 1.6,
+    fitHeight: 1.95,
+  );
+
+  static const List<SpeakerShape> values = [classic, radio, cube, tower];
+}
+
+/// The geometry of the model being built or painted. As with [_paintBody],
+/// every painter and builder sets [active] first, so several models can
+/// be on screen at once.
+class SpeakerGeometry {
+  static SpeakerShape active = SpeakerShape.classic;
+
+  static double get width => active.width;
+  static double get wallHeight => active.wallHeight;
+  static double get depth => active.depth;
+  static double get cornerRadius => active.cornerRadius;
+  static double get bevel => active.bevel;
+
+  static double get finHeight => active.finHeight;
+  static double get finThickness => active.finThickness;
+  static double get finHalfWidth => active.finHalfWidth;
+  static double get finCorner => active.finCorner;
+  static double get finZ => active.finZ;
+
+  // Front-face speaker aperture
+  static double get apertureX => active.apertureX;
+  static double get apertureY => active.apertureY;
+  static double get apertureRadius => active.apertureRadius;
   static const double apertureDepth = 0.05;
 
-  static const double knobX = 0.27;
-  static const double dialX = -0.28;
+  static double get knobX => active.knobX;
+  static double get dialX => active.dialX;
 
   static const Color bodyColor = Color(0xFF3B3D44);
   static const Color knobColor = Color(0xFFE3262D);
   static const Color dialColor = Color(0xFF26272C);
 
-  static final V3 roofUp = const V3(0, rise, -depth / 2).normalized;
-  static final V3 roofNormal = const V3(0, depth / 2, rise).normalized;
-  static const V3 roofMid = V3(0, wallHeight + rise * 0.5, depth / 4);
+  static V3 get roofUp {
+    final d = active.roofBack - active.roofFront;
+    return V3(0, d.dy, d.dx).normalized;
+  }
 
-  static final V3 backRoofUp = const V3(0, rise, depth / 2).normalized;
-  static final V3 backRoofNormal = const V3(0, depth / 2, -rise).normalized;
+  static V3 get roofNormal {
+    final u = roofUp;
+    return V3(0, -u.z, u.y);
+  }
 
-  static const List<Offset> profile = [
-    Offset(-depth / 2, 0),
-    Offset(depth / 2, 0),
-    Offset(depth / 2, wallHeight),
-    Offset(0, wallHeight + rise),
-    Offset(-depth / 2, wallHeight),
-  ];
+  static V3 get roofMid {
+    final m = (active.roofFront + active.roofBack) / 2;
+    return V3(0, m.dy, m.dx);
+  }
 
-  /// Height of the rounded ridge where the fin is mounted.
-  static final double ridgeTop = () {
-    final pts = _roundedProfile(profile, cornerRadius, 1);
-    return pts.map((p) => p.center.dy + cornerRadius * p.normal.dy).reduce(math.max);
-  }();
+  static final V3 backRoofUp = const V3(0, 0.23, 0.37).normalized;
+  static final V3 backRoofNormal = const V3(0, 0.37, -0.23).normalized;
+
+  static List<Offset> get profile => active.profile;
+
+  static final Map<SpeakerShape, double> _ridgeTops = {};
+
+  /// Highest point of the rounded profile, where a fin is mounted.
+  static double get ridgeTop => _ridgeTops[active] ??= () {
+        final pts = _roundedProfile(profile, cornerRadius, 1);
+        return pts.map((p) => p.center.dy + cornerRadius * p.normal.dy).reduce(math.max);
+      }();
 
   static V3 knobBase(double x) => V3(x, roofMid.y, roofMid.z);
 }
 
 /// Rounded-edge body: profile rings swept along x with a quarter-round bevel
 /// into the flat side caps.
-final _Mesh _bodyMesh = () {
+final Map<SpeakerShape, _Mesh> _bodyMeshes = {};
+_Mesh get _bodyMesh => _bodyMeshes[_G.active] ??= _buildBody();
+
+_Mesh _buildBody() {
   final mesh = _Mesh(_G.bodyColor, spec: 0.14, gloss: 18);
-  final prof = _roundedProfile(_G.profile, _G.cornerRadius, 5);
+  final prof = _roundedProfile(_G.profile, _G.cornerRadius, 7);
   const steps = 3;
   final center = V3(0, _G.wallHeight * 0.55, 0);
 
@@ -423,13 +633,14 @@ final _Mesh _bodyMesh = () {
     }
   }
   return mesh;
-}();
+}
 
 /// Fin outline in (x, y), counter-clockwise.
-final List<Offset> _finOutline = () {
+final Map<SpeakerShape, List<Offset>> _finOutlines = {};
+List<Offset> get _finOutline => _finOutlines[_G.active] ??= () {
   final yb = SpeakerGeometry.ridgeTop - 0.004;
   final yt = SpeakerGeometry.ridgeTop + _G.finHeight;
-  const hw = _G.finHalfWidth, c = _G.finCorner;
+  final hw = _G.finHalfWidth, c = _G.finCorner;
   final pts = <Offset>[Offset(-hw, yb), Offset(hw, yb)];
   void arc(Offset ctr, double a0) {
     for (var i = 0; i <= 6; i++) {
@@ -443,12 +654,19 @@ final List<Offset> _finOutline = () {
   return pts;
 }();
 
-Offset get _holeCenter => Offset(
-    SpeakerGeometry.holeX, SpeakerGeometry.ridgeTop + SpeakerGeometry.holeRise);
+/// Plate hole or handle slot, counter-clockwise.
+List<Offset> get _finHole {
+  final c = Offset(_G.active.holeX, _G.ridgeTop + _G.active.holeRise);
+  return [for (final p in _stadium(_G.active.holeWidth, _G.active.holeHeight)) p + c];
+}
 
-final _Mesh _finEdgeMesh = () {
+final Map<SpeakerShape, _Mesh> _finMeshes = {};
+_Mesh get _finEdgeMesh => _finMeshes[_G.active] ??= _buildFinEdge();
+
+_Mesh _buildFinEdge() {
   final mesh = _Mesh(_G.bodyColor, spec: 0.14, gloss: 18);
-  const t = _G.finThickness / 2;
+  final t = _G.finThickness / 2;
+  final z = _G.finZ;
   void strip(List<Offset> loop, bool inward) {
     for (var i = 0; i < loop.length; i++) {
       final a = loop[i], b = loop[(i + 1) % loop.length];
@@ -456,24 +674,31 @@ final _Mesh _finEdgeMesh = () {
       var n = V3(d.dy, -d.dx, 0).normalized;
       if (inward) n = n * -1;
       final q = [
-        mesh.vertex(V3(a.dx, a.dy, t), n),
-        mesh.vertex(V3(b.dx, b.dy, t), n),
-        mesh.vertex(V3(b.dx, b.dy, -t), n),
-        mesh.vertex(V3(a.dx, a.dy, -t), n),
+        mesh.vertex(V3(a.dx, a.dy, z + t), n),
+        mesh.vertex(V3(b.dx, b.dy, z + t), n),
+        mesh.vertex(V3(b.dx, b.dy, z - t), n),
+        mesh.vertex(V3(a.dx, a.dy, z - t), n),
       ];
       mesh.quad(q[0], q[1], q[2], q[3], n);
     }
   }
 
   strip(_finOutline, false);
-  final hole = [
-    for (var i = 0; i < 24; i++)
-      _holeCenter +
-          Offset(math.cos(i * math.pi / 12), math.sin(i * math.pi / 12)) *
-              _G.holeRadius,
-  ];
-  strip(hole, true); // CCW loop; material is outside the hole
+  strip(_finHole, true); // CCW loop; material is outside the hole
   return mesh;
+}
+
+/// Telescopic antenna, base first.
+final List<_Mesh> _antennaMeshes = () {
+  const steel = Color(0xFFC4C6CC);
+  final axis = const V3(-0.2, 1, 0).normalized;
+  const base = V3(-0.56, 0.835, -0.08);
+  return [
+    _cylinder(origin: base, axis: V3.yAxis, radial: V3.xAxis, radius: 0.034, height: 0.03, chamfer: 0.01, color: const Color(0xFF26272C), segments: 14),
+    _cylinder(origin: base, axis: axis, radial: V3.xAxis, radius: 0.016, height: 0.34, chamfer: 0.002, color: steel, spec: 0.5, gloss: 60, segments: 10),
+    _cylinder(origin: base + axis * 0.34, axis: axis, radial: V3.xAxis, radius: 0.01, height: 0.33, chamfer: 0.002, color: steel, spec: 0.5, gloss: 60, segments: 10),
+    _cylinder(origin: base + axis * 0.67, axis: axis, radial: V3.xAxis, radius: 0.021, height: 0.04, chamfer: 0.012, color: steel, spec: 0.5, gloss: 60, segments: 10),
+  ];
 }();
 
 // =============================================================================
@@ -495,6 +720,8 @@ class SpeakerPose {
   final Color knob;
   final Color dial;
 
+  final SpeakerShape shape;
+
   const SpeakerPose({
     required this.camera,
     required this.knobPress,
@@ -505,6 +732,7 @@ class SpeakerPose {
     this.body = SpeakerGeometry.bodyColor,
     this.knob = SpeakerGeometry.knobColor,
     this.dial = SpeakerGeometry.dialColor,
+    this.shape = SpeakerShape.classic,
   });
 
   bool get roofVisible =>
@@ -642,6 +870,7 @@ class SpeakerBackPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _G.active = pose.shape;
     _paintBody = pose.body;
     final cam = pose.camera;
 
@@ -672,16 +901,19 @@ class SpeakerBackPainter extends CustomPainter {
     // Passive radiators on both sides
     for (final sgn in [-1.0, 1.0]) {
       final n = V3(sgn, 0, 0);
-      final o = V3(sgn * (_G.width / 2 + 0.001), 0.46, 0);
+      final o = V3(sgn * (_G.width / 2 + 0.001), pose.shape.sideY, 0);
       if (cam.facing(o, n) <= 0) continue;
-      _recess(canvas, cam, o, V3.zAxis, V3.yAxis, n, _stadium(0.27, 0.6),
-          _stadium(0.23, 0.56));
+      _recess(canvas, cam, o, V3.zAxis, V3.yAxis, n,
+          _stadium(pose.shape.sideWidth, pose.shape.sideHeight),
+          _stadium(pose.shape.sideWidth - 0.04, pose.shape.sideHeight - 0.04));
     }
+
+    _paintFaceDetail(canvas, pose);
 
     // Back panel: buttons, status LED, USB-C
     const backN = V3(0, 0, -1);
-    const backO = V3(0, 0, -_G.depth / 2 - 0.001);
-    if (cam.facing(const V3(0, 0.4, -_G.depth / 2), backN) > 0) {
+    final backO = V3(0, 0, -_G.depth / 2 - 0.001);
+    if (cam.facing(V3(0, 0.4, -_G.depth / 2), backN) > 0) {
       for (final x in [0.27, 0.15]) {
         _recess(canvas, cam, backO, V3.xAxis, V3.yAxis, backN,
             _circle(Offset(x, 0.18), 0.038), _circle(Offset(x, 0.18), 0.03));
@@ -700,9 +932,8 @@ class SpeakerBackPainter extends CustomPainter {
     }
 
     // Back roof: small pill button
-    final brMid = V3(0, _G.wallHeight + _G.rise * 0.5, -_G.depth / 4) +
-        _G.backRoofNormal * 0.001;
-    if (cam.facing(brMid, _G.backRoofNormal) > 0) {
+    final brMid = V3(0, _G.roofMid.y, -_G.depth / 4) + _G.backRoofNormal * 0.001;
+    if (pose.shape.backRoofButton && cam.facing(brMid, _G.backRoofNormal) > 0) {
       _recess(canvas, cam, brMid, V3.xAxis, _G.backRoofUp, _G.backRoofNormal,
           _stadium(0.1, 0.04), _stadium(0.08, 0.024));
     }
@@ -726,13 +957,19 @@ class SpeakerFrontPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _G.active = pose.shape;
     _paintBody = pose.body;
     final cam = pose.camera;
-    final finZ = cam.toView(V3(0, SpeakerGeometry.ridgeTop + 0.15, 0)).z;
+    final finZ = cam.toView(V3(0, _G.ridgeTop + 0.15, _G.finZ)).z;
     final ctrlZ = cam.toView(SpeakerGeometry.roofMid).z;
 
     if (pose.roofVisible && ctrlZ < finZ) _paintControls(canvas, pose);
-    _paintFin(canvas, cam);
+    if (_G.finHeight > 0) _paintFin(canvas, cam);
+    if (pose.shape.antenna) {
+      for (final m in _antennaMeshes) {
+        m.draw(canvas, cam);
+      }
+    }
     if (pose.roofVisible && ctrlZ >= finZ) _paintControls(canvas, pose);
   }
 
@@ -743,14 +980,13 @@ class SpeakerFrontPainter extends CustomPainter {
 void _paintFin(Canvas canvas, SpeakerCamera cam) {
   _finEdgeMesh.draw(canvas, cam, tint: _paintBody);
 
-  final front = cam.facing(V3(0, _G.ridgeTop + 0.15, 0), V3.zAxis) > 0;
-  final z = (front ? 1 : -1) * _G.finThickness / 2;
+  final front = cam.facing(V3(0, _G.ridgeTop + 0.15, _G.finZ), V3.zAxis) > 0;
+  final z = _G.finZ + (front ? 1 : -1) * _G.finThickness / 2;
   final n = V3(0, 0, front ? 1.0 : -1.0);
   final o = V3(0, 0, z);
   final path = _planePath(cam, o, V3.xAxis, V3.yAxis, _finOutline)
     ..addPath(
-        _planePath(cam, o, V3.xAxis, V3.yAxis,
-            _circle(_holeCenter, _G.holeRadius, seg: 24)),
+        _planePath(cam, o, V3.xAxis, V3.yAxis, _finHole),
         Offset.zero)
     ..fillType = PathFillType.evenOdd;
 
@@ -768,6 +1004,40 @@ void _paintFin(Canvas canvas, SpeakerCamera cam) {
         ],
       ),
   );
+}
+
+/// The detail that sets a model apart, on the front wall.
+void _paintFaceDetail(Canvas canvas, SpeakerPose pose) {
+  final cam = pose.camera;
+  final o = V3(0, 0, _G.depth / 2 + 0.001);
+  if (pose.shape.detail == SpeakerDetail.none) return;
+  if (cam.facing(V3(0, 0.4, _G.depth / 2), V3.zAxis) <= 0) return;
+
+  void recess(List<Offset> outer, List<Offset> inner) =>
+      _recess(canvas, cam, o, V3.xAxis, V3.yAxis, V3.zAxis, outer, inner);
+  List<Offset> at(List<Offset> pts, double x, double y) =>
+      [for (final p in pts) p + Offset(x, y)];
+
+  switch (pose.shape.detail) {
+    case SpeakerDetail.slats:
+      for (var i = 0; i < 7; i++) {
+        final y = 0.14 + i * 0.075;
+        recess(at(_stadium(0.5, 0.034), 0.35, y), at(_stadium(0.47, 0.016), 0.35, y));
+      }
+    case SpeakerDetail.screws:
+      const d = 0.4;
+      for (final (sx, sy) in const [(-1, -1), (1, -1), (-1, 1), (1, 1)]) {
+        final c = Offset(sx * d, 0.5 + sy * d);
+        recess(_circle(c, 0.024, seg: 14), _circle(c, 0.014, seg: 10));
+      }
+    case SpeakerDetail.woofer:
+      const c = Offset(0, 0.26);
+      recess(_circle(c, 0.19, seg: 40), _circle(c, 0.17, seg: 40));
+      recess(_circle(c, 0.13, seg: 32), _circle(c, 0.115, seg: 32));
+      recess(_circle(c, 0.055, seg: 20), _circle(c, 0.045, seg: 20));
+    case SpeakerDetail.none:
+      break;
+  }
 }
 
 void _paintControls(Canvas canvas, SpeakerPose pose) {
@@ -837,6 +1107,7 @@ class SpeakerFrontFace extends StatelessWidget {
   final Widget Function(double diameter) artwork;
   final Widget grille;
   final Color logoColor;
+  final SpeakerShape shape;
 
   const SpeakerFrontFace({
     super.key,
@@ -844,14 +1115,15 @@ class SpeakerFrontFace extends StatelessWidget {
     required this.artwork,
     required this.grille,
     this.logoColor = const Color(0xB8FFFFFF),
+    this.shape = SpeakerShape.classic,
   });
 
-  static double visibility(SpeakerCamera cam) => cam.facing(
-      const V3(0, SpeakerGeometry.apertureY, SpeakerGeometry.depth / 2),
-      V3.zAxis);
+  static double visibility(SpeakerCamera cam, SpeakerShape shape) =>
+      cam.facing(V3(0, shape.apertureY, shape.depth / 2), V3.zAxis);
 
   @override
   Widget build(BuildContext context) {
+    _G.active = shape;
     final ppu = camera.scale; // widget px per world unit
     final step = 1 / ppu;
     final origin = V3(-_G.width / 2, _G.wallHeight, _G.depth / 2 + 0.001);
@@ -859,7 +1131,7 @@ class SpeakerFrontFace extends StatelessWidget {
         camera.planeMatrix(origin, const V3(1, 0, 0) * step, const V3(0, -1, 0) * step);
 
     // Parallax of the recessed artwork, seen through the aperture.
-    final centerW = const V3(_G.apertureX, _G.apertureY, _G.depth / 2);
+    final centerW = V3(_G.apertureX, _G.apertureY, _G.depth / 2);
     final v = (camera.toView(centerW) * -1).normalized;
     final vu = v.dot(camera.rotate(V3.xAxis));
     final vv = v.dot(camera.rotate(const V3(0, -1, 0)));
@@ -934,8 +1206,8 @@ class SpeakerFrontFace extends StatelessWidget {
             ),
             // LYRO wordmark
             Positioned(
-              left: 0.08 * ppu,
-              top: 0.05 * ppu,
+              left: shape.logoX * ppu,
+              top: shape.logoY * ppu,
               child: Text(
                 'LYRO',
                 style: TextStyle(
@@ -945,6 +1217,7 @@ class SpeakerFrontFace extends StatelessWidget {
                   letterSpacing: 0.012 * ppu,
                   color: logoColor,
                   height: 1,
+                  decoration: TextDecoration.none,
                 ),
               ),
             ),
@@ -1015,6 +1288,7 @@ class SpeakerSoundWavePainter extends CustomPainter {
   final Animation<double> level; // 0 silent .. 1 playing
   final bool nearSides;
   final Color color;
+  final SpeakerShape shape;
 
   static const int _rings = 3;
 
@@ -1024,6 +1298,7 @@ class SpeakerSoundWavePainter extends CustomPainter {
     required this.level,
     required this.nearSides,
     this.color = const Color(0xFFEDEDED),
+    this.shape = SpeakerShape.classic,
   }) : super(repaint: Listenable.merge([phase, level]));
 
   @override
@@ -1031,10 +1306,11 @@ class SpeakerSoundWavePainter extends CustomPainter {
     final lv = level.value;
     if (lv <= 0.001) return;
     final p = phase.value;
+    final sw = shape.sideWidth, sh = shape.sideHeight;
 
     for (final sgn in [-1.0, 1.0]) {
       final n = V3(sgn, 0, 0);
-      final c = V3(sgn * (_G.width / 2 + 0.002), 0.46, 0);
+      final c = V3(sgn * (shape.width / 2 + 0.002), shape.sideY, 0);
       if ((camera.facing(c, n) > 0) != nearSides) continue;
 
       if (nearSides) {
@@ -1042,7 +1318,7 @@ class SpeakerSoundWavePainter extends CustomPainter {
         final thump = math.pow(1 - (p * _rings) % 1.0, 4).toDouble() * lv;
         canvas.drawPath(
           _planePath(camera, c + n * (0.012 * thump), V3.zAxis, V3.yAxis,
-              _stadium(0.23 * (1 + 0.05 * thump), 0.56 * (1 + 0.03 * thump))),
+              _stadium((sw - 0.04) * (1 + 0.05 * thump), (sh - 0.04) * (1 + 0.03 * thump))),
           Paint()..color = color.withValues(alpha: 0.07 * thump),
         );
       }
@@ -1052,7 +1328,7 @@ class SpeakerSoundWavePainter extends CustomPainter {
         final fade = math.pow(1 - t, 1.6) * math.min(1.0, t * 6) * lv;
         if (fade <= 0.002) continue;
         final o = c + n * (0.04 + t * 0.55);
-        final ring = _stadium(0.27 * (1 + t * 1.5), 0.6 * (1 + t * 0.7));
+        final ring = _stadium(sw * (1 + t * 1.5), sh * (1 + t * 0.7));
         canvas.drawPath(
           _planePath(camera, o, V3.zAxis, V3.yAxis, ring),
           Paint()
@@ -1066,5 +1342,8 @@ class SpeakerSoundWavePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(SpeakerSoundWavePainter old) =>
-      old.camera != camera || old.nearSides != nearSides || old.color != color;
+      old.camera != camera ||
+      old.nearSides != nearSides ||
+      old.color != color ||
+      old.shape != shape;
 }

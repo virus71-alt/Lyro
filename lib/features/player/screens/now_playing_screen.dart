@@ -250,6 +250,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                                     .clamp(0.0, 1.0),
                           sleepLabel: _sleepLabel(timer),
                           onDialTap: () => _cycleSleep(context, player, timer),
+                          shape: settings.speakerShape,
                           bodyColor: colorway.body,
                           knobColor: colorway.knob,
                           dialColor: colorway.dial,
