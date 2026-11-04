@@ -26,9 +26,11 @@ class SpeakerStyleCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
       child: LayoutBuilder(
         builder: (context, box) {
-          final tile = (box.maxWidth - 3 * 6) / SpeakerShape.values.length;
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          const columns = 3, gap = 8.0;
+          final tile = (box.maxWidth - (columns - 1) * gap - 0.01) / columns;
+          return Wrap(
+            spacing: gap,
+            runSpacing: 12,
             children: [
               for (final (i, shape) in SpeakerShape.values.indexed)
                 _tile(
@@ -73,7 +75,7 @@ class SpeakerStyleCard extends StatelessWidget {
           children: [
             Container(
               width: size,
-              height: size * 1.25,
+              height: size * 1.12,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(NothingColors.radiusSm),
                 border: Border.all(
@@ -91,7 +93,7 @@ class SpeakerStyleCard extends StatelessWidget {
                   dial: colorway.dial,
                   logoColor: logo,
                   width: size - 8,
-                  height: size * 1.25 - 12,
+                  height: size * 1.12 - 12,
                 ),
               ),
             ),

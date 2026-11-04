@@ -33,8 +33,8 @@ void main() {
 
   test('controls and artwork fit on each body', () {
     for (final shape in SpeakerShape.values) {
-      expect(shape.knobX.abs() + 0.105, lessThanOrEqualTo(shape.width / 2), reason: shape.label);
-      expect(shape.dialX.abs() + 0.112, lessThanOrEqualTo(shape.width / 2), reason: shape.label);
+      expect(shape.knobX.abs() + 0.105 * shape.knobScale, lessThanOrEqualTo(shape.width / 2), reason: shape.label);
+      expect(shape.dialX.abs() + 0.112 * shape.dialScale, lessThanOrEqualTo(shape.width / 2), reason: shape.label);
       expect(shape.apertureX.abs() + shape.apertureRadius, lessThanOrEqualTo(shape.width / 2), reason: shape.label);
       expect(shape.apertureY + shape.apertureRadius, lessThanOrEqualTo(shape.wallHeight), reason: shape.label);
       expect(shape.apertureY - shape.apertureRadius, greaterThanOrEqualTo(0), reason: shape.label);
@@ -45,7 +45,7 @@ void main() {
   testWidgets('all models paint from several painters at once', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: Row(
+        home: Wrap(
           children: [
             for (final shape in SpeakerShape.values)
               SpeakerPreview(

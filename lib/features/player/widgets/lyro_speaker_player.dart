@@ -365,9 +365,9 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
     );
 
     final knobCenter = camera.screen(pose.knobTop);
-    final knobSize = camera.scaleAt(pose.knobTop) * 0.3;
+    final knobSize = camera.scaleAt(pose.knobTop) * 0.3 * shape.knobScale;
     final dialCenter = camera.screen(pose.dialTop);
-    final dialSize = camera.scaleAt(pose.dialTop) * 0.22;
+    final dialSize = camera.scaleAt(pose.dialTop) * 0.22 * math.max(shape.dialScale, 0.75);
     final controlsLive = pose.roofVisible;
     _knobRect = Rect.fromCenter(
       center: knobCenter,
@@ -421,17 +421,19 @@ class _LyroSpeakerPlayerState extends State<LyroSpeakerPlayer>
             child: IgnorePointer(
               child: SpeakerFrontFace(
                 camera: camera,
-                artwork: (diameter) => RotationTransition(
-                  turns: _artworkRotationController,
-                  child: TrackArtwork(
+                artwork: (diameter) {
+                  final art = TrackArtwork(
                     key: ValueKey('speaker_art_${widget.song.id}'),
                     songId: widget.song.id,
                     title: widget.song.title,
                     size: diameter,
-                    radius: diameter / 2,
-                  ),
-                ),
-                grille: _grille,
+                    radius: shape.screen ? 0 : diameter / 2,
+                  );
+                  return shape.screen
+                      ? art
+                      : RotationTransition(turns: _artworkRotationController, child: art);
+                },
+                grille: shape.screen ? const SizedBox.shrink() : _grille,
                 logoColor: widget.logoColor,
                 shape: shape,
               ),
