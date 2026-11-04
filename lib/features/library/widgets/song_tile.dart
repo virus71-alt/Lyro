@@ -20,6 +20,9 @@ class SongTile extends StatelessWidget {
   final bool showArtwork;
   final bool showFormatBadge;
 
+  /// Shown under the duration, e.g. the play count in Most played.
+  final Widget? durationCaption;
+
   const SongTile({
     super.key,
     required this.song,
@@ -28,6 +31,7 @@ class SongTile extends StatelessWidget {
     this.onTap,
     this.showArtwork = true,
     this.showFormatBadge = true,
+    this.durationCaption,
   });
 
   @override
@@ -155,13 +159,20 @@ class SongTile extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               // Duration
-              Text(
-                song.formattedDuration,
-                style: TextStyle(
-                  fontFamily: NothingTypography.fontMono,
-                  fontSize: 11,
-                  color: isDark ? NothingColors.darkSecondary : NothingColors.lightSecondary,
-                ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    song.formattedDuration,
+                    style: TextStyle(
+                      fontFamily: NothingTypography.fontMono,
+                      fontSize: 11,
+                      color: isDark ? NothingColors.darkSecondary : NothingColors.lightSecondary,
+                    ),
+                  ),
+                  ?durationCaption,
+                ],
               ),
               // More options
               IconButton(

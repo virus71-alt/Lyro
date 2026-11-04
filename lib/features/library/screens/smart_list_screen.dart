@@ -95,17 +95,13 @@ class SmartListScreen extends StatelessWidget {
                     itemCount: songs.length,
                     itemBuilder: (context, i) {
                       final s = songs[i];
-                      final tile = SongTile(song: s, playlist: songs, source: source);
-                      if (kind != SmartList.mostPlayed) return tile;
-                      return Stack(
-                        children: [
-                          tile,
-                          Positioned(
-                            right: 52,
-                            top: 0,
-                            bottom: 0,
-                            child: Center(
-                              child: Text(
+                      return SongTile(
+                        song: s,
+                        playlist: songs,
+                        source: source,
+                        durationCaption: kind != SmartList.mostPlayed
+                            ? null
+                            : Text(
                                 '${stats[s.id]?.count ?? 0}×',
                                 style: NothingTypography.dottedBold(
                                   isDark: isDark,
@@ -113,9 +109,6 @@ class SmartListScreen extends StatelessWidget {
                                   color: NothingColors.signalRedBright,
                                 ),
                               ),
-                            ),
-                          ),
-                        ],
                       );
                     },
                   ),
