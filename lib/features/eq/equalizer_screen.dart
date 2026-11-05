@@ -1,7 +1,3 @@
-import 'dart:math' as math;
-import 'dart:typed_data';
-import 'dart:ui' show PointMode;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -10,8 +6,12 @@ import '../../core/theme/nothing_colors.dart';
 import '../../core/theme/nothing_palette.dart';
 import '../../core/theme/nothing_typography.dart';
 import '../../shared/widgets/dot_matrix.dart';
+import '../../shared/widgets/dot_toast.dart';
+import '../playlists/widgets/add_to_playlist_sheet.dart';
+import 'eq_graph.dart';
 import 'eq_model.dart';
 import 'eq_provider.dart';
+import 'eq_sandbox_screen.dart';
 import 'iem_picker_screen.dart';
 
 /// Equalizer: choose your IEM to apply its measured correction, then
@@ -57,6 +57,10 @@ class EqualizerScreen extends StatelessWidget {
                 style: TextStyle(fontFamily: NothingTypography.fontUi, fontSize: 12, color: NothingColors.signalRedBright),
               ),
             ),
+
+          // Saved sounds
+          _Presets(palette: c),
+          const SizedBox(height: 20),
 
           // Your IEM
           Text('YOUR IEM', style: NothingTypography.monoLabel(isDark: c.dark)),
@@ -144,21 +148,21 @@ class EqualizerScreen extends StatelessWidget {
             child: Opacity(
               opacity: eq.enabled ? 1 : 0.4,
               child: CustomPaint(
-                painter: _ResponsePainter(
+                painter: EqResponsePainter(
                   correction: p.filters,
-                  manual: ManualBands.filters(eq.manual),
+                  manual: [...ManualBands.filters(eq.manual), ...eq.sandbox],
                   palette: c,
                 ),
               ),
             ),
           ),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 14,
+            runSpacing: 4,
             children: [
               _legend(c, NothingColors.signalRed, 'IEM correction'),
-              const SizedBox(width: 14),
               _legend(c, c.secondary, 'Fine-tune'),
-              const SizedBox(width: 14),
               _legend(c, c.display, 'Total'),
             ],
           ),
@@ -184,6 +188,63 @@ class EqualizerScreen extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 22),
+
+          // Sandbox
+          Text('SANDBOX', style: NothingTypography.monoLabel(isDark: c.dark)),
+          const SizedBox(height: 8),
+          Material(
+            color: c.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: c.line),
+            ),
+            child: InkWell(
+              key: const Key('eq_open_sandbox'),
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EqSandboxScreen())),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Build your own curve',
+                            style: TextStyle(
+                              fontFamily: NothingTypography.fontUi,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: c.display,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            eq.sandbox.isEmpty
+                                ? 'Drag bands anywhere on the graph'
+                                : '${eq.sandbox.length} ${eq.sandbox.length == 1 ? 'band' : 'bands'} active',
+                            style: TextStyle(fontFamily: NothingTypography.fontUi, fontSize: 12, color: c.secondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      'OPEN',
+                      style: TextStyle(
+                        fontFamily: NothingTypography.fontMono,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                        color: NothingColors.signalRedBright,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 18),
           Text(
             'Corrections from AutoEQ (github.com/jaakkopasanen/AutoEq, MIT), computed from the credited '
@@ -197,12 +258,139 @@ class EqualizerScreen extends StatelessWidget {
   }
 
   Widget _legend(NothingPalette c, Color color, String label) => Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(width: 10, height: 3, color: color),
           const SizedBox(width: 6),
           Text(label, style: TextStyle(fontFamily: NothingTypography.fontUi, fontSize: 11, color: c.secondary)),
         ],
       );
+}
+
+/// Saved sounds: tap to load, hold for update, rename and delete.
+class _Presets extends StatelessWidget {
+  final NothingPalette palette;
+  const _Presets({required this.palette});
+
+  Future<void> _save(BuildContext context) async {
+    final eq = context.read<EqProvider>();
+    final name = await askPlaylistName(
+      context,
+      title: 'Save preset',
+      initial: 'My sound ${eq.presets.length + 1}',
+      hint: 'Preset name',
+    );
+    if (name == null || name.trim().isEmpty || !context.mounted) return;
+    final preset = eq.savePreset(name.trim());
+    showDotToast(context, 'Saved · ${preset.name}');
+  }
+
+  void _options(BuildContext context, UserEqPreset preset) {
+    final c = palette;
+    final eq = context.read<EqProvider>();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: c.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(NothingColors.radiusMd)),
+      ),
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              key: const Key('eq_preset_update'),
+              leading: Icon(Icons.save_outlined, color: c.display),
+              title: Text('UPDATE TO CURRENT SOUND', style: NothingTypography.monoLabel(isDark: c.dark)),
+              onTap: () {
+                Navigator.pop(sheet);
+                eq.updatePreset(preset);
+                showDotToast(context, 'Updated · ${preset.name}');
+              },
+            ),
+            ListTile(
+              key: const Key('eq_preset_rename'),
+              leading: Icon(Icons.edit_outlined, color: c.display),
+              title: Text('RENAME', style: NothingTypography.monoLabel(isDark: c.dark)),
+              onTap: () async {
+                Navigator.pop(sheet);
+                final name = await askPlaylistName(context, title: 'Rename preset', initial: preset.name, hint: 'Preset name');
+                if (name != null && name.trim().isNotEmpty) eq.renamePreset(preset, name.trim());
+              },
+            ),
+            ListTile(
+              key: const Key('eq_preset_delete'),
+              leading: const Icon(Icons.delete_outline, color: NothingColors.signalRedBright),
+              title: Text('DELETE', style: NothingTypography.monoLabel(isDark: c.dark, color: NothingColors.signalRedBright)),
+              onTap: () {
+                Navigator.pop(sheet);
+                eq.deletePreset(preset);
+                showDotToast(context, 'Deleted · ${preset.name}');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = palette;
+    final eq = context.watch<EqProvider>();
+    final active = eq.activePreset;
+
+    Widget chip(Key key, String label, bool selected, VoidCallback onTap, {VoidCallback? onLongPress}) => Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: GestureDetector(
+            key: key,
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            onLongPress: onLongPress,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected ? NothingColors.signalRed : null,
+                borderRadius: BorderRadius.circular(NothingColors.radiusPill),
+                border: Border.all(color: selected ? NothingColors.signalRed : c.line2),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: NothingTypography.fontMono,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.6,
+                  color: selected ? Colors.white : c.display,
+                ),
+              ),
+            ),
+          ),
+        );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('MY PRESETS', style: NothingTypography.monoLabel(isDark: c.dark)),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 38,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              chip(const Key('eq_preset_save'), '+ SAVE', false, () => _save(context)),
+              for (final p in eq.presets)
+                chip(Key('eq_preset_${p.id}'), p.name.toUpperCase(), p.id == active?.id, () {
+                  HapticFeedback.selectionClick();
+                  eq.applyPreset(p);
+                }, onLongPress: () => _options(context, p)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _BandSlider extends StatelessWidget {
@@ -258,91 +446,5 @@ class _BandSlider extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-/// Log-frequency response plot on a dot grid (±12 dB, 20 Hz–20 kHz).
-class _ResponsePainter extends CustomPainter {
-  final List<PeqFilter> correction;
-  final List<PeqFilter> manual;
-  final NothingPalette palette;
-
-  _ResponsePainter({required this.correction, required this.manual, required this.palette});
-
-  static const double _range = 12;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const left = 26.0, bottom = 16.0;
-    final w = size.width - left, h = size.height - bottom;
-    double x(double f) => left + w * math.log(f / 20) / math.log(1000);
-    double y(double db) => h / 2 - (db.clamp(-_range, _range) / _range) * (h / 2);
-
-    // Dot grid
-    final dots = <double>[];
-    for (var gx = 0; gx <= 40; gx++) {
-      for (var gy = 0; gy <= 12; gy++) {
-        dots..add(left + w * gx / 40)..add(h * gy / 12);
-      }
-    }
-    canvas.drawRawPoints(
-      PointMode.points,
-      Float32List.fromList(dots),
-      Paint()
-        ..color = palette.line2
-        ..strokeWidth = 1.6
-        ..strokeCap = StrokeCap.round,
-    );
-    // 0 dB line
-    canvas.drawLine(Offset(left, y(0)), Offset(size.width, y(0)), Paint()..color = palette.line2..strokeWidth = 1);
-
-    // Labels
-    void label(String t, Offset o) {
-      final tp = TextPainter(
-        text: TextSpan(text: t, style: TextStyle(fontFamily: NothingTypography.fontMono, fontSize: 8.5, color: palette.muted)),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, o);
-    }
-
-    for (final (db, t) in [(12.0, '+12'), (0.0, '0'), (-12.0, '-12')]) {
-      label(t, Offset(0, y(db) - 5));
-    }
-    for (final (f, t) in [(20.0, '20'), (100.0, '100'), (1000.0, '1K'), (10000.0, '10K'), (20000.0, '20K')]) {
-      label(t, Offset((x(f) - 8).clamp(left, size.width - 18), h + 3));
-    }
-
-    Path curve(List<PeqFilter> filters) {
-      final path = Path();
-      for (var i = 0; i <= 160; i++) {
-        final f = 20 * math.pow(1000, i / 160).toDouble();
-        final pt = Offset(x(f), y(EqCurve.responseDb(filters, f)));
-        i == 0 ? path.moveTo(pt.dx, pt.dy) : path.lineTo(pt.dx, pt.dy);
-      }
-      return path;
-    }
-
-    Paint stroke(Color c, double width) => Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = width
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = c;
-
-    if (manual.isNotEmpty) canvas.drawPath(curve(manual), stroke(palette.secondary, 1.5));
-    if (correction.isNotEmpty) canvas.drawPath(curve(correction), stroke(NothingColors.signalRed, 2));
-    canvas.drawPath(curve([...correction, ...manual]), stroke(palette.display, 2.6));
-  }
-
-  @override
-  bool shouldRepaint(_ResponsePainter old) =>
-      old.correction != correction || old.palette != palette || !_same(old.manual, manual);
-
-  static bool _same(List<PeqFilter> a, List<PeqFilter> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i].fc != b[i].fc || a[i].gain != b[i].gain) return false;
-    }
-    return true;
   }
 }

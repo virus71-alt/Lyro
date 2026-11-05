@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -31,6 +32,8 @@ class EqProvider extends ChangeNotifier {
   bool _enabled = false;
   String _selectedId = 'sound|flat';
   List<double> _manual = List.filled(ManualBands.freqs.length, 0);
+  List<PeqFilter> _sandbox = [];
+  List<UserEqPreset> _presets = [];
   bool _nativeAvailable = true;
   int? _sessionId;
   bool _attached = false; // native effect exists (only while enabled)
@@ -53,6 +56,13 @@ class EqProvider extends ChangeNotifier {
   bool get enabled => _enabled;
   bool get nativeAvailable => _nativeAvailable;
   List<double> get manual => List.unmodifiable(_manual);
+  List<PeqFilter> get sandbox => List.unmodifiable(_sandbox);
+  bool get canAddSandboxBand => _sandbox.length < SandboxBands.max;
+  List<UserEqPreset> get presets => List.unmodifiable(_presets);
+
+  /// The saved preset that is exactly what's applied now, if any.
+  UserEqPreset? get activePreset =>
+      _presets.where((p) => p.matches(_selectedId, _manual, _sandbox)).firstOrNull;
   List<IemProfile> get bundled => _bundled;
   List<IemProfile> get downloaded => _downloaded;
 
@@ -60,8 +70,8 @@ class EqProvider extends ChangeNotifier {
       [..._bundled, ..._downloaded, ...SoundProfiles.all].where((p) => p.id == _selectedId).firstOrNull ??
       SoundProfiles.all.first;
 
-  /// Everything applied: the IEM correction plus the manual fine-tune.
-  List<PeqFilter> get allFilters => [...selected.filters, ...ManualBands.filters(_manual)];
+  /// Everything applied: the IEM correction, fine-tune and Sandbox bands.
+  List<PeqFilter> get allFilters => [...selected.filters, ...ManualBands.filters(_manual), ..._sandbox];
   List<double> get bandGains => EqCurve.bandGains(allFilters);
   double get preamp => EqCurve.preampFor(bandGains);
 
@@ -84,6 +94,80 @@ class EqProvider extends ChangeNotifier {
   Future<void> resetManual() async {
     _manual = List.filled(ManualBands.freqs.length, 0);
     await _changed();
+  }
+
+  /// Adds a Sandbox band and returns its index. Turns the EQ on, so the first
+  /// band is heard straight away.
+  int addSandboxBand({double? fc, double gain = 0}) {
+    _sandbox = [..._sandbox, SandboxBands.tidy(PeqFilter('PK', fc ?? _freeFrequency(), gain, 1))];
+    _enabled = true;
+    _changed();
+    return _sandbox.length - 1;
+  }
+
+  /// A spot away from the bands already there.
+  double _freeFrequency() {
+    if (_sandbox.isEmpty) return 1000;
+    return ManualBands.freqs.reduce((best, f) => _nearestBand(f) > _nearestBand(best) ? f : best);
+  }
+
+  double _nearestBand(double f) =>
+      _sandbox.map((b) => (math.log(f / b.fc)).abs()).reduce(math.min);
+
+  void updateSandboxBand(int index, PeqFilter band) {
+    _sandbox = [..._sandbox]..[index] = SandboxBands.tidy(band);
+    _changed(debounce: true);
+  }
+
+  void removeSandboxBand(int index) {
+    _sandbox = [..._sandbox]..removeAt(index);
+    _changed();
+  }
+
+  void clearSandbox() {
+    _sandbox = [];
+    _changed();
+  }
+
+  // ---------------------------------------------------------------- presets
+
+  UserEqPreset savePreset(String name) {
+    final preset = UserEqPreset(
+      id: 'preset|${DateTime.now().microsecondsSinceEpoch}',
+      name: name,
+      iemId: _selectedId,
+      manual: [..._manual],
+      sandbox: _sandbox,
+    );
+    _presets = [..._presets, preset];
+    _changed();
+    return preset;
+  }
+
+  Future<void> applyPreset(UserEqPreset p) async {
+    _selectedId = p.iemId;
+    _manual = p.manual.length == ManualBands.freqs.length
+        ? [...p.manual]
+        : List.filled(ManualBands.freqs.length, 0);
+    _sandbox = p.sandbox;
+    _enabled = true;
+    await _changed();
+  }
+
+  /// Replaces the preset's sound with what's applied now.
+  void updatePreset(UserEqPreset p) => _replacePreset(
+      p.copyWith(iemId: _selectedId, manual: [..._manual], sandbox: _sandbox));
+
+  void renamePreset(UserEqPreset p, String name) => _replacePreset(p.copyWith(name: name));
+
+  void _replacePreset(UserEqPreset next) {
+    _presets = [for (final p in _presets) p.id == next.id ? next : p];
+    _changed();
+  }
+
+  void deletePreset(UserEqPreset p) {
+    _presets = _presets.where((x) => x.id != p.id).toList();
+    _changed();
   }
 
   Future<void> removeDownloaded(IemProfile p) async {
@@ -117,6 +201,12 @@ class EqProvider extends ChangeNotifier {
       _downloaded = [
         for (final p in j['downloaded'] as List? ?? const []) IemProfile.fromJson(p as Map<String, dynamic>),
       ];
+      _sandbox = [
+        for (final f in j['sandbox'] as List? ?? const []) PeqFilter.fromJson(f as Map<String, dynamic>),
+      ];
+      _presets = [
+        for (final p in j['presets'] as List? ?? const []) UserEqPreset.fromJson(p as Map<String, dynamic>),
+      ];
     } catch (_) {
       // corrupt state: start fresh
     }
@@ -128,6 +218,8 @@ class EqProvider extends ChangeNotifier {
       'selected': _selectedId,
       'manual': _manual,
       'downloaded': [for (final p in _downloaded) p.toJson()],
+      'sandbox': [for (final f in _sandbox) f.toJson()],
+      'presets': [for (final p in _presets) p.toJson()],
     }));
   }
 

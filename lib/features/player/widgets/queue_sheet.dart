@@ -47,7 +47,10 @@ class _QueueSheetState extends State<QueueSheet> {
   static const double _rowHeight = 64;
 
   final ScrollController _scroll = ScrollController();
+  final TextEditingController _search = TextEditingController();
   _QueueFilter _filter = _QueueFilter.all;
+  bool _searching = false;
+  String _query = '';
 
   @override
   void initState() {
@@ -82,8 +85,23 @@ class _QueueSheetState extends State<QueueSheet> {
   void dispose() {
     widget.openSignal?.removeListener(_scrollToCurrent);
     _scroll.dispose();
+    _search.dispose();
     super.dispose();
   }
+
+  void _toggleSearch() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _searching = !_searching;
+      _search.clear();
+      _query = '';
+    });
+  }
+
+  bool _matches(Song s, String q) =>
+      s.title.toLowerCase().contains(q) ||
+      s.artist.toLowerCase().contains(q) ||
+      s.album.toLowerCase().contains(q);
 
   String _totalTime(List<Song> songs) {
     final ms = songs.fold<int>(0, (sum, s) => sum + s.duration);
@@ -99,7 +117,7 @@ class _QueueSheetState extends State<QueueSheet> {
     final queue = player.queue;
     final current = player.queueIndex;
 
-    final indices = switch (_filter) {
+    final inFilter = switch (_filter) {
       _QueueFilter.all => [for (var i = 0; i < queue.length; i++) i],
       _QueueFilter.upNext => [
         for (var i = current + 1; i < queue.length; i++) i,
@@ -108,6 +126,10 @@ class _QueueSheetState extends State<QueueSheet> {
         for (var i = 0; i < current && i < queue.length; i++) i,
       ],
     };
+    final q = _query.trim().toLowerCase();
+    final indices = q.isEmpty ? inFilter : [for (final i in inFilter) if (_matches(queue[i], q)) i];
+    // Row positions only match the queue when nothing is filtered out.
+    final reorderable = _filter == _QueueFilter.all && q.isEmpty;
 
     return Material(
       color: widget.background,
@@ -178,6 +200,15 @@ class _QueueSheetState extends State<QueueSheet> {
                       ),
                       if (queue.isNotEmpty) ...[
                         IconButton(
+                          key: const Key('queue_search'),
+                          tooltip: _searching ? 'Close search' : 'Search queue',
+                          icon: Icon(
+                            _searching ? Icons.close : Icons.search,
+                            color: fg.withValues(alpha: 0.7),
+                          ),
+                          onPressed: _toggleSearch,
+                        ),
+                        IconButton(
                           key: const Key('queue_clear'),
                           tooltip: 'Clear upcoming',
                           icon: Icon(
@@ -196,6 +227,31 @@ class _QueueSheetState extends State<QueueSheet> {
                     ],
                   ),
                 ),
+                if (_searching)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: TextField(
+                      key: const Key('queue_search_field'),
+                      controller: _search,
+                      autofocus: true,
+                      textInputAction: TextInputAction.search,
+                      cursorColor: NothingColors.signalRed,
+                      onChanged: (v) => setState(() => _query = v),
+                      style: TextStyle(fontFamily: NothingTypography.fontUi, fontSize: 15, color: fg),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: 'Search this queue',
+                        hintStyle: TextStyle(fontFamily: NothingTypography.fontUi, fontSize: 15, color: fg.withValues(alpha: 0.45)),
+                        prefixIcon: Icon(Icons.search, size: 20, color: fg.withValues(alpha: 0.5)),
+                        filled: true,
+                        fillColor: fg.withValues(alpha: 0.08),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
                 // Filter chips
                 SizedBox(
                   height: 34,
@@ -233,7 +289,7 @@ class _QueueSheetState extends State<QueueSheet> {
                     ),
                     children: [
                       const SizedBox(height: 48),
-                      DotEmptyState(artId: DotEmptyState.vinyl, title: queue.isEmpty ? 'Queue is empty' : 'Nothing here', hint: null),
+                      DotEmptyState(artId: DotEmptyState.vinyl, title: queue.isEmpty ? 'Queue is empty' : (q.isEmpty ? 'Nothing here' : 'No matches'), hint: null),
                     ],
                   )
                 : ReorderableListView.builder(
@@ -245,7 +301,7 @@ class _QueueSheetState extends State<QueueSheet> {
                     padding: const EdgeInsets.only(bottom: 24),
                     itemCount: indices.length,
                     onReorderItem: (oldIndex, newIndex) {
-                      if (_filter != _QueueFilter.all) return;
+                      if (!reorderable) return;
                       HapticFeedback.selectionClick();
                       player.reorderQueue(oldIndex, newIndex);
                     },
@@ -262,7 +318,7 @@ class _QueueSheetState extends State<QueueSheet> {
                         key: ValueKey('queue_${song.id}_$index'),
                         song: song,
                         sectionTitle:
-                            _filter == _QueueFilter.all &&
+                            reorderable &&
                                 index == priorityEnd &&
                                 priorityEnd > 0
                             ? 'MORE FROM YOUR LIBRARY'
@@ -270,7 +326,7 @@ class _QueueSheetState extends State<QueueSheet> {
                         listIndex: i,
                         isCurrent: index == current,
                         isPlaying: player.isPlaying,
-                        canReorder: _filter == _QueueFilter.all,
+                        canReorder: reorderable,
                         onTap: () {
                           HapticFeedback.selectionClick();
                           player.skipToQueueItem(index);

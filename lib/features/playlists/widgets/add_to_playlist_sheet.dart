@@ -16,24 +16,48 @@ Future<String?> askPlaylistName(
   BuildContext context, {
   String title = 'New playlist',
   String initial = '',
+  String hint = 'Playlist name',
 }) {
-  final c = NothingPalette.of(context);
-  final controller = TextEditingController(text: initial);
   return showDialog<String>(
     context: context,
-    builder: (ctx) => AlertDialog(
+    builder: (_) => _NameDialog(title: title, initial: initial, hint: hint),
+  );
+}
+
+/// Owns its text controller, which has to outlive the closing animation.
+class _NameDialog extends StatefulWidget {
+  final String title, initial, hint;
+  const _NameDialog({required this.title, required this.initial, required this.hint});
+
+  @override
+  State<_NameDialog> createState() => _NameDialogState();
+}
+
+class _NameDialogState extends State<_NameDialog> {
+  late final TextEditingController _controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NothingPalette.of(context);
+    return AlertDialog(
       backgroundColor: c.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(color: c.line),
       ),
       title: Text(
-        title.toUpperCase(),
+        widget.title.toUpperCase(),
         style: NothingTypography.monoLabel(isDark: c.dark),
       ),
       content: TextField(
         key: const Key('playlist_name_field'),
-        controller: controller,
+        controller: _controller,
         autofocus: true,
         maxLength: 40,
         textCapitalization: TextCapitalization.words,
@@ -44,16 +68,16 @@ Future<String?> askPlaylistName(
           color: c.display,
         ),
         decoration: InputDecoration(
-          hintText: 'Playlist name',
+          hintText: widget.hint,
           focusedBorder: UnderlineInputBorder(
             borderSide: BorderSide(color: NothingColors.signalRed),
           ),
         ),
-        onSubmitted: (v) => Navigator.pop(ctx, v),
+        onSubmitted: (v) => Navigator.pop(context, v),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(ctx),
+          onPressed: () => Navigator.pop(context),
           child: Text(
             'CANCEL',
             style: NothingTypography.monoLabel(isDark: c.dark),
@@ -61,7 +85,7 @@ Future<String?> askPlaylistName(
         ),
         TextButton(
           key: const Key('playlist_name_ok'),
-          onPressed: () => Navigator.pop(ctx, controller.text),
+          onPressed: () => Navigator.pop(context, _controller.text),
           child: Text(
             'SAVE',
             style: NothingTypography.monoLabel(
@@ -71,8 +95,8 @@ Future<String?> askPlaylistName(
           ),
         ),
       ],
-    ),
-  ).whenComplete(controller.dispose);
+    );
+  }
 }
 
 /// Pick a playlist (or create one) to add [songs] to.

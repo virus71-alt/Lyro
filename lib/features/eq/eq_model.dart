@@ -9,6 +9,11 @@ class PeqFilter {
 
   const PeqFilter(this.type, this.fc, this.gain, this.q);
 
+  PeqFilter copyWith({String? type, double? fc, double? gain, double? q}) =>
+      PeqFilter(type ?? this.type, fc ?? this.fc, gain ?? this.gain, q ?? this.q);
+
+  bool sameAs(PeqFilter o) => type == o.type && fc == o.fc && gain == o.gain && q == o.q;
+
   Map<String, dynamic> toJson() => {'type': type, 'fc': fc, 'gain': gain, 'q': q};
 
   static PeqFilter fromJson(Map<String, dynamic> j) => PeqFilter(
@@ -176,6 +181,76 @@ class ManualBands {
         for (var i = 0; i < freqs.length; i++)
           if (gains[i] != 0) PeqFilter('PK', freqs[i], gains[i], 1.41),
       ];
+}
+
+/// Limits of the free parametric bands in the Sandbox.
+class SandboxBands {
+  SandboxBands._();
+
+  static const int max = 10;
+  static const double minHz = 20, maxHz = 20000, minQ = 0.2, maxQ = 8;
+
+  /// Rounded and kept in range, so saved values stay tidy.
+  static PeqFilter tidy(PeqFilter f) => PeqFilter(
+        f.type,
+        f.fc.clamp(minHz, maxHz).roundToDouble(),
+        (f.gain.clamp(-ManualBands.maxDb, ManualBands.maxDb) * 10).roundToDouble() / 10,
+        (f.q.clamp(minQ, maxQ) * 100).roundToDouble() / 100,
+      );
+}
+
+/// A sound the user saved: their IEM choice, fine-tune and Sandbox bands.
+class UserEqPreset {
+  final String id;
+  final String name;
+  final String iemId;
+  final List<double> manual;
+  final List<PeqFilter> sandbox;
+
+  const UserEqPreset({
+    required this.id,
+    required this.name,
+    required this.iemId,
+    required this.manual,
+    required this.sandbox,
+  });
+
+  UserEqPreset copyWith({String? name, String? iemId, List<double>? manual, List<PeqFilter>? sandbox}) =>
+      UserEqPreset(
+        id: id,
+        name: name ?? this.name,
+        iemId: iemId ?? this.iemId,
+        manual: manual ?? this.manual,
+        sandbox: sandbox ?? this.sandbox,
+      );
+
+  /// Whether this is exactly the given sound.
+  bool matches(String iem, List<double> gains, List<PeqFilter> bands) {
+    if (iem != iemId || gains.length != manual.length || bands.length != sandbox.length) return false;
+    for (var i = 0; i < gains.length; i++) {
+      if (gains[i] != manual[i]) return false;
+    }
+    for (var i = 0; i < bands.length; i++) {
+      if (!bands[i].sameAs(sandbox[i])) return false;
+    }
+    return true;
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'iem': iemId,
+        'manual': manual,
+        'sandbox': [for (final f in sandbox) f.toJson()],
+      };
+
+  static UserEqPreset fromJson(Map<String, dynamic> j) => UserEqPreset(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        iemId: j['iem'] as String,
+        manual: [for (final g in j['manual'] as List) (g as num).toDouble()],
+        sandbox: [for (final f in j['sandbox'] as List? ?? const []) PeqFilter.fromJson(f as Map<String, dynamic>)],
+      );
 }
 
 /// Built-in sound profiles for IEMs without a measurement.
