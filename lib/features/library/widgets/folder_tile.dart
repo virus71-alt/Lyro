@@ -5,22 +5,33 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/nothing_colors.dart';
 import '../../../core/theme/nothing_theme.dart';
 import '../../../core/theme/nothing_typography.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../data/models/folder_model.dart';
 import '../../player/widgets/track_artwork.dart';
+import '../../../shared/widgets/dot_matrix.dart';
 
 /// Nothing-style folder row: mono index, cover art from the folder's first
-/// track, name over a readable parent path, and a dot-matrix track count.
+/// track, name over a readable parent path, and a dot-matrix track count with
+/// the folder's total play time.
 /// Rows are separated by dotted rules rather than solid lines.
 class FolderTile extends StatelessWidget {
   final MusicFolder folder;
   final int index;
   final VoidCallback onTap;
 
+  /// Replace the index, cover and path line (the Favorites folder).
+  final String? indexLabel;
+  final Widget? cover;
+  final String? subtitle;
+
   const FolderTile({
     super.key,
     required this.folder,
     required this.onTap,
     this.index = 0,
+    this.indexLabel,
+    this.cover,
+    this.subtitle,
   });
 
   /// "/storage/emulated/0/Music/Dilwale" → "INTERNAL / MUSIC"
@@ -45,7 +56,7 @@ class FolderTile extends StatelessWidget {
     final isDark = context.isDark;
     final display = isDark ? NothingColors.darkDisplay : NothingColors.lightDisplay;
     final muted = isDark ? NothingColors.darkMuted : NothingColors.lightMuted;
-    final cover = folder.songs.isNotEmpty ? folder.songs.first : null;
+    final firstSong = folder.songs.isNotEmpty ? folder.songs.first : null;
     final count = folder.songCount;
 
     return Material(
@@ -61,7 +72,7 @@ class FolderTile extends StatelessWidget {
                   SizedBox(
                     width: 26,
                     child: Text(
-                      (index + 1).toString().padLeft(2, '0'),
+                      indexLabel ?? (index + 1).toString().padLeft(2, '0'),
                       style: TextStyle(
                         fontFamily: NothingTypography.fontMono,
                         fontSize: 10,
@@ -73,14 +84,15 @@ class FolderTile extends StatelessWidget {
                   SizedBox(
                     width: 50,
                     height: 50,
-                    child: cover == null
-                        ? _EmptyCover(isDark: isDark)
-                        : TrackArtwork(
-                            songId: cover.id,
-                            title: folder.name,
-                            size: 50,
-                            radius: 6,
-                          ),
+                    child: cover ??
+                        (firstSong == null
+                            ? _EmptyCover(isDark: isDark)
+                            : TrackArtwork(
+                                songId: firstSong.id,
+                                title: folder.name,
+                                size: 50,
+                                radius: 6,
+                              )),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -101,7 +113,7 @@ class FolderTile extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          parentLabel(folder.path),
+                          subtitle ?? parentLabel(folder.path),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -128,7 +140,7 @@ class FolderTile extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        count == 1 ? 'TRACK' : 'TRACKS',
+                        '${count == 1 ? 'TRACK' : 'TRACKS'}  ·  ${Formatters.formatPlayTime(folder.totalDuration)}',
                         style: TextStyle(
                           fontFamily: NothingTypography.fontMono,
                           fontSize: 8.5,
@@ -145,6 +157,26 @@ class FolderTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Dot-matrix heart on a plain tile: the Favorites folder's own cover, so it
+/// never borrows artwork from a song.
+class FavoritesCover extends StatelessWidget {
+  const FavoritesCover({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = context.isDark;
+    return Container(
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: isDark ? NothingColors.darkRaised : NothingColors.lightRaised,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: isDark ? NothingColors.darkLine : NothingColors.lightLine),
+      ),
+      child: const DotArt(artId: DotEmptyState.heart, size: 36),
     );
   }
 }

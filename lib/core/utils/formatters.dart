@@ -26,6 +26,13 @@ class Formatters {
     return formatDuration(Duration(milliseconds: milliseconds));
   }
 
+  /// Total play time as "12H 04M" or "45M"
+  static String formatPlayTime(int? milliseconds) {
+    final total = Duration(milliseconds: milliseconds ?? 0).inMinutes;
+    if (total < 60) return '${total}M';
+    return '${total ~/ 60}H ${(total % 60).toString().padLeft(2, '0')}M';
+  }
+
   /// Normalizes and cleans file format / codec representation
   static String formatCodec(String? extension, String? path) {
     if (extension != null && extension.isNotEmpty) {

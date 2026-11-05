@@ -11,6 +11,7 @@ import '../../../core/theme/nothing_typography.dart';
 import '../../../core/utils/formatters.dart';
 import '../providers/player_provider.dart';
 import '../widgets/equalizer_sheet.dart';
+import '../widgets/sleep_timer_chips.dart';
 import '../widgets/lyro_speaker_player.dart';
 import '../widgets/progress_bar.dart';
 import '../../../data/models/song_model.dart';
@@ -108,8 +109,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
     BuildContext context,
     PlayerProvider player,
     SleepTimer? timer,
-  ) {
-    final next = _sleepSteps[(_sleepStep(timer) + 1) % _sleepSteps.length];
+  ) => _setSleep(context, player, (_sleepStep(timer) + 1) % _sleepSteps.length);
+
+  void _setSleep(BuildContext context, PlayerProvider player, int step) {
+    final next = _sleepSteps[step];
     switch (next) {
       case null:
         player.cancelSleepTimer();
@@ -763,8 +766,10 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
   /// Track context options bottom sheet
   void _showTrackOptions(BuildContext context, dynamic song) {
     final p = _NpPalette.of(context);
+    final player = context.read<PlayerProvider>();
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => Container(
         decoration: BoxDecoration(
@@ -803,6 +808,37 @@ class _NowPlayingScreenState extends State<NowPlayingScreen>
                 style: NothingTypography.monoLabel(isDark: p.dark),
               ),
               dense: true,
+            ),
+            ValueListenableBuilder<SleepTimer?>(
+              valueListenable: player.sleepTimer,
+              builder: (context, timer, _) => Column(
+                children: [
+                  ListTile(
+                    leading: Icon(
+                      Icons.bedtime_outlined,
+                      color: timer == null ? p.display : NothingColors.signalRedBright,
+                    ),
+                    title: Text(
+                      'Sleep Timer',
+                      style: NothingTypography.bodyMedium(isDark: p.dark),
+                    ),
+                    subtitle: Text(
+                      _sleepLabel(timer),
+                      style: NothingTypography.monoLabel(isDark: p.dark),
+                    ),
+                    dense: true,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+                    child: SleepTimerChips(
+                      selected: _sleepStep(timer),
+                      line: p.line,
+                      display: p.display,
+                      onSelect: (step) => _setSleep(context, player, step),
+                    ),
+                  ),
+                ],
+              ),
             ),
             ListTile(
               leading: Icon(Icons.tune, color: p.display),

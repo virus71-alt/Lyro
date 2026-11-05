@@ -62,6 +62,7 @@ class PlayerProvider extends ChangeNotifier {
   /// Number of leading queue entries that belong to [queueSource].
   int get priorityEnd => audioHandler.priorityEnd;
   bool isFavorite(int songId) => _favorites.contains(songId);
+  int get favoriteCount => _favorites.length;
 
   void _initSubscriptions() {
     _mediaItemSub = audioHandler.mediaItem.listen((item) {

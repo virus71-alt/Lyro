@@ -12,5 +12,8 @@ class MusicFolder {
   });
 
   int get songCount => songs.length;
+
+  /// Total play time of the folder, in milliseconds.
+  int get totalDuration => songs.fold(0, (ms, s) => ms + s.duration);
 }
 
