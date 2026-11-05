@@ -9,8 +9,10 @@ import 'package:on_audio_query/on_audio_query.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../features/player/widgets/artwork_cache.dart';
+import '../../features/player/widgets/cmf_speaker_3d.dart';
 import '../models/song_model.dart';
 import '../repositories/preferences_repository.dart';
+import 'lyrics_service.dart';
 
 /// Web stream: serves the music library to a browser on the same Wi-Fi.
 ///
@@ -23,6 +25,15 @@ class WebStreamServer extends ChangeNotifier {
 
   /// The current library; read on every request so rescans show up.
   List<Song> Function() songs = () => const [];
+
+  /// The user's playlists, as a name and song ids.
+  List<({String name, List<int> songs})> Function() playlists = () => const [];
+
+  /// The speaker style and colours chosen in the app.
+  Map<String, dynamic> Function() speakerLook = () => const {};
+
+  /// Hearts from the browser go through the app, so its screens stay in step.
+  Future<void> Function(int songId) toggleFavorite = (_) async {};
 
   WebStreamServer({required this.prefsRepo});
 
@@ -162,6 +173,9 @@ class WebStreamServer extends ChangeNotifier {
 
       if (path == '/api/library') return _library(res);
       final id = int.tryParse(path.split('/').last);
+      if (id != null && path.startsWith('/api/favorite/')) return await _favorite(req, res, id);
+      if (id != null && path.startsWith('/api/lyrics/')) return await _lyrics(res, id);
+      if (id != null && path.startsWith('/api/speaker/')) return _speaker(res, id);
       if (id != null && path.startsWith('/api/art/')) return await _art(res, id);
       if (id != null && path.startsWith('/api/stream/')) return await _stream(req, res, id);
       _status(res, HttpStatus.notFound);
@@ -219,7 +233,48 @@ class WebStreamServer extends ChangeNotifier {
     ];
     res.headers.contentType = ContentType.json;
     res.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
-    res.write(jsonEncode({'songs': list}));
+    res.write(jsonEncode({
+      'songs': list,
+      'favorites': prefsRepo.getFavorites().toList(),
+      'speaker': speakerLook(),
+      'speakers': [for (final s in SpeakerShape.values) s.label],
+      'playlists': [
+        for (final p in playlists()) {'name': p.name, 'songs': p.songs},
+      ],
+    }));
+  }
+
+  /// The 3D model of a speaker style, the same one the app draws.
+  void _speaker(HttpResponse res, int index) {
+    if (index < 0 || index >= SpeakerShape.values.length) return _status(res, HttpStatus.notFound);
+    res.headers.contentType = ContentType.json;
+    res.headers.set(HttpHeaders.cacheControlHeader, 'private, max-age=3600');
+    res.write(jsonEncode(speakerModelJson(SpeakerShape.values[index])));
+  }
+
+  /// Changes data, so it takes a POST with a header no other site's page can
+  /// send without the browser asking this server first.
+  Future<void> _favorite(HttpRequest req, HttpResponse res, int id) async {
+    if (req.method != 'POST' || req.headers.value('x-lyro') != '1') {
+      return _status(res, HttpStatus.forbidden);
+    }
+    if (_song(id) == null) return _status(res, HttpStatus.notFound);
+    await toggleFavorite(id);
+    _status(res, HttpStatus.noContent);
+  }
+
+  Future<void> _lyrics(HttpResponse res, int id) async {
+    final song = _song(id);
+    final lyrics = song == null ? null : await LyricsService.forSong(song);
+    if (lyrics == null) return _status(res, HttpStatus.notFound);
+    res.headers.contentType = ContentType.json;
+    res.headers.set(HttpHeaders.cacheControlHeader, 'private, max-age=3600');
+    res.write(jsonEncode({
+      'synced': lyrics.synced,
+      'lines': [
+        for (final l in lyrics.lines) {'t': l.time.inMilliseconds, 'x': l.text},
+      ],
+    }));
   }
 
   Future<void> _art(HttpResponse res, int id) async {

@@ -93,6 +93,56 @@ void main() {
     await missing.drain<void>();
   });
 
+  test('library carries favorites and playlists; hearts need a POST with the header', () async {
+    final k = server.key;
+    final toggled = <int>[];
+    server
+      ..toggleFavorite = ((id) async => toggled.add(id))
+      ..playlists = () => [(name: 'Road', songs: [7])];
+
+    final lib = await get('/api/library?k=$k');
+    final json = jsonDecode(await utf8.decodeStream(lib)) as Map<String, dynamic>;
+    expect(json['favorites'], isEmpty);
+    expect((json['playlists'] as List).single, {'name': 'Road', 'songs': [7]});
+
+    final port = Uri.parse(server.address!).port;
+    Future<int> post(String path, {bool header = true}) async {
+      final req = await client.post('127.0.0.1', port, path);
+      if (header) req.headers.set('x-lyro', '1');
+      final res = await req.close();
+      await res.drain<void>();
+      return res.statusCode;
+    }
+
+    final viaGet = await get('/api/favorite/7?k=$k');
+    expect(viaGet.statusCode, 403);
+    await viaGet.drain<void>();
+    expect(await post('/api/favorite/7?k=$k', header: false), 403);
+    expect(await post('/api/favorite/7'), 401);
+    expect(await post('/api/favorite/99?k=$k'), 404);
+    expect(toggled, isEmpty);
+
+    expect(await post('/api/favorite/7?k=$k'), 204);
+    expect(toggled, [7]);
+  });
+
+  test('serves the 3D model of each speaker style, only with the key', () async {
+    final k = server.key;
+    final locked = await get('/api/speaker/0');
+    expect(locked.statusCode, 401);
+    await locked.drain<void>();
+
+    final model = await get('/api/speaker/2?k=$k');
+    expect(model.statusCode, 200);
+    final json = jsonDecode(await utf8.decodeStream(model)) as Map<String, dynamic>;
+    expect(json['label'], 'Cube');
+    expect(json['parts'], isNotEmpty);
+
+    final missing = await get('/api/speaker/999?k=$k');
+    expect(missing.statusCode, 404);
+    await missing.drain<void>();
+  });
+
   test('a new key locks out the old one', () async {
     final old = server.key;
     await server.newKey();

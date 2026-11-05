@@ -1767,3 +1767,217 @@ class SpeakerSoundWavePainter extends CustomPainter {
       old.color != color ||
       old.shape != shape;
 }
+
+// =============================================================================
+// EXPORT FOR THE WEB PLAYER
+// =============================================================================
+
+/// One flat, convex polygon on a body surface, as a mesh.
+_Mesh _fan(List<Offset> pts, V3 o, V3 u, V3 v, V3 n, Color color) {
+  final mesh = _Mesh(color, spec: 0.1, gloss: 18);
+  var c = Offset.zero;
+  for (final p in pts) {
+    c += p;
+  }
+  c = c / pts.length.toDouble();
+  V3 at(Offset p) => o + u * p.dx + v * p.dy;
+  final hub = mesh.vertex(at(c), n);
+  final ids = [for (final p in pts) mesh.vertex(at(p), n)];
+  for (var i = 0; i < ids.length; i++) {
+    mesh.tri(hub, ids[i], ids[(i + 1) % ids.length], n);
+  }
+  return mesh;
+}
+
+/// Distance from [c] along [d] to the edge of the closed loop [loop].
+double _rayToLoop(Offset c, Offset d, List<Offset> loop) {
+  var best = double.infinity;
+  for (var i = 0; i < loop.length; i++) {
+    final a = loop[i], b = loop[(i + 1) % loop.length], e = b - a;
+    final det = d.dx * e.dy - d.dy * e.dx;
+    if (det.abs() < 1e-9) continue;
+    final ac = a - c;
+    final t = (ac.dx * e.dy - ac.dy * e.dx) / det;
+    final s = (ac.dx * d.dy - ac.dy * d.dx) / det;
+    if (t > 0 && s >= -1e-9 && s <= 1 + 1e-9) best = math.min(best, t);
+  }
+  return best;
+}
+
+/// The flat faces of the fin: a strip from the hole out to the outline.
+List<_Mesh> _finFaces() {
+  final center = Offset(_G.active.holeX, _G.ridgeTop + _G.active.holeRise);
+  return [
+    for (final side in [1.0, -1.0])
+      () {
+        final mesh = _Mesh(_G.bodyColor, spec: 0.14, gloss: 18);
+        final z = _G.finZ + side * _G.finThickness / 2;
+        final n = V3(0, 0, side);
+        const steps = 96;
+        final rings = <(int, int)>[];
+        for (var i = 0; i < steps; i++) {
+          final a = i * 2 * math.pi / steps;
+          final d = Offset(math.cos(a), math.sin(a));
+          final inner = center + d * _rayToLoop(center, d, _finHole);
+          final outer = center + d * _rayToLoop(center, d, _finOutline);
+          rings.add((mesh.vertex(V3(inner.dx, inner.dy, z), n), mesh.vertex(V3(outer.dx, outer.dy, z), n)));
+        }
+        for (var i = 0; i < steps; i++) {
+          final (a, b) = rings[i];
+          final (c, d) = rings[(i + 1) % steps];
+          mesh.quad(a, b, d, c, n);
+        }
+        return mesh;
+      }(),
+  ];
+}
+
+/// The model of [shape] as plain data, so the web player draws exactly what
+/// the app draws. `role` says which colour a part takes: body, knob, dial or
+/// its own [c]; `shade` scales the body colour for details; `spin` marks the
+/// knob parts that turn.
+Map<String, dynamic> speakerModelJson(SpeakerShape shape) {
+  _G.active = shape;
+  final parts = <Map<String, dynamic>>[];
+  List<double> flat(Iterable<V3> vs) => [
+        for (final v in vs) ...[
+          (v.x * 1e4).round() / 1e4,
+          (v.y * 1e4).round() / 1e4,
+          (v.z * 1e4).round() / 1e4,
+        ],
+      ];
+  void add(_Mesh m, String role, {double shade = 1, bool spin = false, Color? color}) {
+    parts.add({
+      'role': role,
+      'shade': shade,
+      if (spin) 'spin': true,
+      if (role == 'fixed') 'c': _hex(color ?? m.color),
+      's': m.spec,
+      'g': m.gloss,
+      'p': flat(m.positions),
+      'n': flat(m.normals),
+      'i': m.indices,
+    });
+  }
+
+  add(_bodyMesh, 'body');
+  if (_G.finHeight > 0) {
+    add(_finEdgeMesh, 'body');
+    for (final m in _finFaces()) {
+      add(m, 'body');
+    }
+  }
+  if (shape.antenna) {
+    for (final m in _antennaMeshes) {
+      add(m, 'fixed');
+    }
+  }
+  final attached = _attachments(shape);
+  for (final (mesh, bodyColour) in [...?attached?.back, ...?attached?.front]) {
+    add(mesh, bodyColour ? 'body' : 'fixed');
+  }
+
+  // Details painted on the body in the app: flat polygons here
+  void decal(List<Offset> pts, V3 o, V3 u, V3 v, V3 n, double shade, {double lift = 0.002}) =>
+      add(_fan(pts, o + n * lift, u, v, n, _G.bodyColor), 'body', shade: shade);
+  void recessed(List<Offset> outer, List<Offset> inner, V3 o, V3 u, V3 v, V3 n) {
+    decal(outer, o, u, v, n, 0.35);
+    decal(inner, o, u, v, n, 0.8, lift: 0.004);
+  }
+
+  for (final sgn in shape.sideHeight > 0 ? [-1.0, 1.0] : const <double>[]) {
+    recessed(_stadium(shape.sideWidth, shape.sideHeight), _stadium(shape.sideWidth - 0.04, shape.sideHeight - 0.04),
+        V3(sgn * _G.width / 2, shape.sideY, 0), V3.zAxis, V3.yAxis, V3(sgn, 0, 0));
+  }
+  final face = V3(0, 0, _G.faceZ);
+  List<Offset> at(List<Offset> pts, double x, double y) => [for (final p in pts) p + Offset(x, y)];
+  void front(List<Offset> outer, List<Offset> inner) => recessed(outer, inner, face, V3.xAxis, V3.yAxis, V3.zAxis);
+  switch (shape.detail) {
+    case SpeakerDetail.slats:
+      for (var i = 0; i < 7; i++) {
+        final y = 0.14 + i * 0.075;
+        front(at(_stadium(0.5, 0.034), 0.35, y), at(_stadium(0.47, 0.016), 0.35, y));
+      }
+    case SpeakerDetail.screws:
+      for (final (sx, sy) in const [(-1, -1), (1, -1), (-1, 1), (1, 1)]) {
+        final c = Offset(sx * 0.4, 0.5 + sy * 0.4);
+        front(_circle(c, 0.024, seg: 14), _circle(c, 0.014, seg: 10));
+      }
+    case SpeakerDetail.woofer:
+      const c = Offset(0, 0.26);
+      front(_circle(c, 0.19, seg: 40), _circle(c, 0.17, seg: 40));
+      decal(_circle(c, 0.13, seg: 32), face, V3.xAxis, V3.yAxis, V3.zAxis, 0.5, lift: 0.006);
+      decal(_circle(c, 0.055, seg: 20), face, V3.xAxis, V3.yAxis, V3.zAxis, 0.3, lift: 0.008);
+    case SpeakerDetail.wheel:
+      const c = Offset(0, 0.3);
+      decal(_circle(c, 0.235, seg: 48), face, V3.xAxis, V3.yAxis, V3.zAxis, 0.62);
+      decal(_circle(c, 0.225, seg: 48), face, V3.xAxis, V3.yAxis, V3.zAxis, 1.28, lift: 0.004);
+      decal(_circle(c, 0.09, seg: 28), face, V3.xAxis, V3.yAxis, V3.zAxis, 0.62, lift: 0.006);
+    case SpeakerDetail.cassette:
+      front(at(_stadium(1.02, 0.56), 0, 0.42), at(_stadium(0.98, 0.52), 0, 0.42));
+      const reel = Offset(0.25, 0.42);
+      decal(_circle(reel, 0.2, seg: 36), face, V3.xAxis, V3.yAxis, V3.zAxis, 0.3, lift: 0.006);
+      decal(_circle(reel, 0.075, seg: 20), face, V3.xAxis, V3.yAxis, V3.zAxis, 0.9, lift: 0.008);
+      for (var i = 0; i < 4; i++) {
+        front(at(_stadium(0.2, 0.05), -0.36 + i * 0.24, 0.07), at(_stadium(0.18, 0.034), -0.36 + i * 0.24, 0.07));
+      }
+    case SpeakerDetail.twinWoofers:
+      for (final x in const [-0.56, 0.56]) {
+        final c = Offset(x, 0.4);
+        front(_circle(c, 0.25, seg: 40), _circle(c, 0.225, seg: 40));
+        decal(_circle(c, 0.16, seg: 32), face, V3.xAxis, V3.yAxis, V3.zAxis, 0.5, lift: 0.006);
+        decal(_circle(c, 0.065, seg: 20), face, V3.xAxis, V3.yAxis, V3.zAxis, 0.3, lift: 0.008);
+      }
+    case SpeakerDetail.none:
+      break;
+  }
+
+  // Controls, on their panel
+  final pose = SpeakerPose(
+    camera: SpeakerCamera(yaw: 0, pitch: 0, scale: 1, center: Offset.zero),
+    knobPress: 0,
+    knobTurn: 0,
+    dialTurn: 0,
+    dialLit: false,
+    shape: shape,
+  );
+  final dialBase = _G.knobBase(_G.dialX);
+  decal(_circle(Offset.zero, 0.098 * shape.dialScale), dialBase, V3.xAxis, _G.roofUp, _G.roofNormal, 0.35);
+  add(pose._dialMesh(), 'dial');
+  const ang = 2.1;
+  final tip = (V3.xAxis * math.cos(ang) + _G.roofUp * math.sin(ang)) * (0.05 * shape.dialScale);
+  add(
+    _box(pose.dialTop + tip * 0.55, tip * 0.45, _G.roofNormal.cross(tip).normalized * (0.005 * shape.dialScale),
+        _G.roofNormal * 0.002, Colors.white),
+    'fixed',
+  );
+  final knob = pose._knobMeshes();
+  for (final (i, m) in knob.indexed) {
+    add(m, 'knob', spin: i > 0);
+  }
+
+  final roofNormal = _G.roofNormal, base = _G.knobBase(_G.knobX), top = pose.knobTop;
+  return {
+    'label': shape.label,
+    'parts': parts,
+    'width': shape.width,
+    'depth': math.max(shape.depth, shape.faceZ * 2),
+    'wall': shape.wallHeight,
+    'faceZ': shape.faceZ,
+    'screen': shape.screen,
+    'aperture': [shape.apertureX, shape.apertureY, shape.apertureRadius],
+    'logo': [shape.logoX, shape.logoY],
+    'pivotY': shape.pivotY,
+    'fit': [shape.fitWidth, shape.fitHeight],
+    'knobBase': flat([base]),
+    'knobAxis': flat([roofNormal]),
+    'knobTop': flat([top]),
+    'knobRadius': 0.15 * shape.knobScale,
+  };
+}
+
+String _hex(Color c) =>
+    '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+
+/// A colour as the web player's `#rrggbb`.
+String speakerColorHex(Color c) => _hex(c);

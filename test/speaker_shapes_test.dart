@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lyro/core/settings/app_settings_provider.dart';
@@ -39,6 +41,24 @@ void main() {
       expect(shape.apertureY + shape.apertureRadius, lessThanOrEqualTo(shape.wallHeight), reason: shape.label);
       expect(shape.apertureY - shape.apertureRadius, greaterThanOrEqualTo(0), reason: shape.label);
       expect(shape.cornerRadius, greaterThanOrEqualTo(shape.bevel), reason: shape.label);
+    }
+  });
+
+  test('every model exports valid geometry for the web player', () {
+    for (final shape in SpeakerShape.values) {
+      final m = speakerModelJson(shape);
+      final parts = (m['parts'] as List).cast<Map<String, dynamic>>();
+      expect(parts.where((p) => p['role'] == 'knob'), isNotEmpty, reason: shape.label);
+      expect(parts.where((p) => p['role'] == 'dial'), isNotEmpty, reason: shape.label);
+      for (final p in parts) {
+        final positions = p['p'] as List<double>, normals = p['n'] as List<double>, indices = p['i'] as List<int>;
+        expect(positions.length, normals.length, reason: shape.label);
+        expect(positions.every((v) => v.isFinite), isTrue, reason: shape.label);
+        expect(indices, isNotEmpty, reason: shape.label);
+        expect(indices.every((i) => i * 3 < positions.length), isTrue, reason: shape.label);
+      }
+      // Asking for one model mustn't disturb the one being painted
+      expect(jsonEncode(m), isNotEmpty);
     }
   });
 

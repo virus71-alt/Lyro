@@ -15,6 +15,7 @@ import 'features/profile/providers/profile_provider.dart';
 import 'core/settings/app_settings_provider.dart';
 import 'features/playlists/providers/playlist_provider.dart';
 import 'features/eq/eq_provider.dart';
+import 'features/player/widgets/cmf_speaker_3d.dart';
 import 'data/services/web_stream_server.dart';
 
 class LyroApp extends StatelessWidget {
@@ -63,7 +64,22 @@ class LyroApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (context) => WebStreamServer(prefsRepo: prefsRepo)
-            ..songs = () => context.read<LibraryProvider>().songs,
+            ..songs = (() => context.read<LibraryProvider>().songs)
+            ..toggleFavorite = ((id) => context.read<PlayerProvider>().toggleFavorite(id))
+            ..speakerLook = (() {
+              final settings = context.read<AppSettingsProvider>();
+              final look = settings.colorway(Brightness.dark);
+              return {
+                'style': SpeakerShape.values.indexOf(settings.speakerShape),
+                'body': speakerColorHex(look.body),
+                'knob': speakerColorHex(look.knob),
+                'dial': speakerColorHex(look.dial),
+              };
+            })
+            ..playlists = (() => [
+                  for (final p in context.read<PlaylistProvider>().playlists)
+                    (name: p.name, songs: p.songIds),
+                ]),
         ),
       ],
       child: Consumer<ThemeProvider>(
